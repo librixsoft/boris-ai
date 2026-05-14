@@ -1,0 +1,7069 @@
+{
+    "id": "chatcmpl-a14ad209",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " I"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e0a56dfa",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "'m"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0a8e38d3",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " doing"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a93539c3",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " great"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-dd40b374",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2410413f",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " thanks"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-51d83e0b",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " for"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-614559c0",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " asking"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-aeeaf2f4",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "!"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-86da31b4",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " How"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3a7a8edf",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " can"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-cc4d80ea",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " I"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-13d1977c",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " assist"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a0db22ea",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " you"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f81f5e26",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " today"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8923c7ee",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "?\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a6fed2c1",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "user"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8331516d",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e11bb64c",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " I"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5727d68f",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "'m"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a2206cdd",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " looking"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c07ea0b3",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " for"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3a76d733",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " some"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-97338a2a",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " help"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-fa790480",
+    "object": "chat.completion.chunk",
+    "created": 1777786241,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " with"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4c6b8f2a",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " my"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e73c2d76",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " website"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2d24fffd",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "."
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-36b2bcbe",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " I"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-88f4ac02",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " need"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-eaad0d1b",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " to"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-05f3bff6",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " find"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-36c6522f",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " a"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-83ecc3d0",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " reliable"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-58819de3",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " web"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f3e74476",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " hosting"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8676d2f3",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " provider"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6001f290",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " that"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-66d0260b",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " offers"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b9bfa2c1",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " good"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1eac576e",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " performance"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-cd56c19a",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a7f110f9",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " security"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3df3c5be",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-beb5dae6",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " and"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0920cd6b",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " scal"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c27d1dea",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ability"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7298ee00",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " for"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f9714f51",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " a"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b9958646",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " medium"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1aa22008",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-sized"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-529ca9b4",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " e"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-44730b79",
+    "object": "chat.completion.chunk",
+    "created": 1777786242,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-commerce"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2276bb12",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " site"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1bf14328",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-556e19e2",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ass"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-aac2e375",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "istant"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d84d559c",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-fe0516ed",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-033bfdc0",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " I"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-665c0df5",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "'d"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-87117109",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " be"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-80e548ef",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " happy"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d305667c",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " to"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2e2ad847",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " help"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ad01937c",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "!"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e23fe2fb",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " For"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b0b5120d",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " a"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0578cebb",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " medium"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2d85ff97",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-sized"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2d2a88cf",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " e"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-21b98b14",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-commerce"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4e977037",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " site"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f7dd79a5",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d5b939a4",
+    "object": "chat.completion.chunk",
+    "created": 1777786243,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " you"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-714f57a7",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "'ll"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-55733baf",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " want"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-bf9ef0fa",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " a"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4432e302",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " hosting"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-60363e1c",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " provider"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-993d13a7",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " that"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-43d908e4",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " offers"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-38abde46",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ce1937e9",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "*"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-82814509",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b6361410",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2fd90555",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Performance"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5314ef06",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a0310c40",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Fast"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1e9f064b",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " loading"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9467bd86",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " times"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0454716b",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b6887993",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " optimized"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5024b951",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " servers"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7fa3ae14",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-47a2ef4d",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " and"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d370a680",
+    "object": "chat.completion.chunk",
+    "created": 1777786244,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " support"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f52a31e7",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " for"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-964407f0",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " high"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-19afe58c",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " traffic"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-05761db7",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8abeeba9",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "*"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-31f95c2c",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-847825e5",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-81427ed4",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Security"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f37a7c5f",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-474dfdfe",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " SSL"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6c0c6101",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " certificates"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9bd7df70",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ac25f356",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " D"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-79dca59f",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Do"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-060b7e74",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "S"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-90ff85b7",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " protection"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5b503bb5",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8df868f3",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " regular"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d9b18a46",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " back"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8f72dbe5",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ups"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3b73b7f9",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7501240f",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " and"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3d2b069c",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " vulnerability"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ea4e4104",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " scanning"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6c0c8538",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2c985bb3",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "*"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-95638718",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-41604aea",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7dd087e9",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Scal"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3b2fde4b",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ability"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8e6c9260",
+    "object": "chat.completion.chunk",
+    "created": 1777786245,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3b669dfd",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Easy"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ce560ba5",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " upgrades"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a8a4a49b",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " as"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-69f2488c",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " your"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-997e9b43",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " business"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-be095aef",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " grows"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e7213873",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-382337fa",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " support"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0b9e5543",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " for"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-74c8a250",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " multiple"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-74f74138",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " domains"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b59dcf55",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7e2e8bc7",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " and"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-31d8ba08",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " cloud"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-882bee38",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-based"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8c52d0f7",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " solutions"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6a167b69",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " if"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-68d79b46",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " needed"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ae19253c",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2acd161d",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "*"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-be37e4d1",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-338926b5",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0a0d1fec",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "E"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b9c92126",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ase"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-278cc311",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " of"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2fe5a2ac",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Use"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0fa0e197",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-481176ed",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " A"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ea29e8c0",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " user"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3792d11d",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-friendly"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-67c81cbe",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " control"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-00558431",
+    "object": "chat.completion.chunk",
+    "created": 1777786246,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " panel"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ccbad6f9",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " ("
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-52682bc4",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "like"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-69dd2be5",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " c"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3ca49ba4",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Panel"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9f3a98d3",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " or"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-92595dcc",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " P"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-03f9dd0c",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "les"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-42400a74",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "k"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ab064f34",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ")"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1acbaf3c",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " and"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-73cec8cb",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " good"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-61fa3ca4",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " customer"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d1869f6b",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " support"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-be528dd4",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ab75ce10",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Would"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-20240a51",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " you"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1111a8f7",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " like"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c9c00fa4",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " me"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5420cc98",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " to"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-81e193db",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " suggest"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ebd8922d",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " some"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-04650fa1",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " top"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-cf7ae937",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-tier"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2b67d290",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " providers"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-11db31ee",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " that"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a9fa14ee",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " fit"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-85b93b07",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " these"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1082327f",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " criteria"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7ed0ba84",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "?\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4e5c5aba",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "user"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3aeaac05",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-85f4bad5",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " That"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5dda91cd",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " would"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-252cdc66",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " be"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-99cedc14",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " great"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-cda53e68",
+    "object": "chat.completion.chunk",
+    "created": 1777786247,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "!"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c684c718",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Please"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-59a1dba3",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " provide"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-161ca3b6",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " a"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9c8e5f14",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " few"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4ab0e7f4",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " options"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d327baec",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4990bbec",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ass"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-87679b77",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "istant"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-587933ad",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7d5b4bb7",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a735836c",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Certainly"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6f3b24d8",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "!"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-cb319d78",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Here"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a201c57e",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " are"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b189eb2a",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " a"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7c0947e6",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " few"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b75fd228",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " highly"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-34919f43",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " recommended"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8a2cf0fa",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " web"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7bda3fa2",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " hosting"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-462e0131",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " providers"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a189ed57",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " for"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e8bdfa85",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " medium"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5e2d643e",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-sized"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b4a7b2b8",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " e"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-fd2920fc",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-commerce"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e9d4d745",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " sites"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3ea98999",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-002e77d1",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " along"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-31437175",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " with"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3911db54",
+    "object": "chat.completion.chunk",
+    "created": 1777786248,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " their"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e680cea3",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " key"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ce1d7f12",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " features"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0eeabf78",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":\n\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-bf714c62",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "###"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1697c5b9",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c58563fc",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "1"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-092f8090",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "."
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-66cc2968",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-95fc403a",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Site"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-33a8944e",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Ground"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f9695d61",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9bc259b5",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-dd5a2e0b",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " -"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4875ce86",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ac96af11",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Performance"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-42ff715f",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5244180b",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Optim"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5a295ea3",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ized"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e3493e18",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " servers"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-abccb0a2",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-711a287a",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " SSD"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-bb6f4b05",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " storage"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d6551932",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-bc0ee1b3",
+    "object": "chat.completion.chunk",
+    "created": 1777786249,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " and"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b7ccdee4",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " free"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-105649e8",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " CD"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0a8c4a9f",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "N"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0ef6f884",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " ("
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9da68022",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Cloud"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-61ce51cb",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "flare"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-fa39a494",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " integration"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d8bdb5ab",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ").\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4f11e017",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b3b2d18f",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " -"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a4fee5eb",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-cf5cf0e4",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Security"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-fd1f1611",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c1cfaf74",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Free"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a238e1ef",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Let"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c218612e",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "’s"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-810bbc13",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Enc"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-043fae46",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "rypt"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9a1c6471",
+    "object": "chat.completion.chunk",
+    "created": 1777786250,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " SSL"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f258d2e7",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-98099db9",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " daily"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-57b1db36",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " back"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-26d8948f",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ups"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-98f66571",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b3b3e95c",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " and"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-96aca9c7",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " advanced"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-64fedf17",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " firewall"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-da62b0c6",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " protection"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-68cfb67b",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-52a94d3d",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a1e20191",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " -"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-23a674f4",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9758f1cb",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Scal"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6031968f",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ability"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1d14eb7c",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5f2986a5",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Sup"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9466da0a",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ports"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-77b449f3",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " multiple"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-12fd2c3f",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " domains"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a54a46af",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-441eea8d",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " easy"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-16eb5ef8",
+    "object": "chat.completion.chunk",
+    "created": 1777786251,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " upgrades"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a8f57136",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6e488ffe",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " and"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1f382b7c",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " good"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7f4e17f0",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " for"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-aee6bc02",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Woo"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d9ba5104",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Commerce"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-fb118121",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " ("
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c491d324",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "if"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7780adcb",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " you"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8348d567",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "'re"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-532c9ab7",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " using"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3229854b",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " it"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e44f5360",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ").\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-69a43492",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6a621f8f",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " -"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7e763747",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2fabc4c0",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Support"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c43ffe6c",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a47f1995",
+    "object": "chat.completion.chunk",
+    "created": 1777786252,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c3cfe3e1",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "2"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c693f477",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "4"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-767d62a0",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "/"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4fbc1caf",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "7"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0a1df308",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " expert"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-150c5082",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " support"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-13ab23e2",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " with"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b6c26919",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " a"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6224f474",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ef21117f",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "9"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-af529ad0",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "0"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e00551d4",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-second"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d39705dc",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " average"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b0f1e62d",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " response"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-56271c9e",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " time"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e07ac69f",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-696f6b56",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a085f017",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " -"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ddb466d5",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1eb47a28",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Price"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5bdfe6a0",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9e7ab4ee",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " St"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-837d79cb",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "arts"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3dbb8412",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " at"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4a22aa31",
+    "object": "chat.completion.chunk",
+    "created": 1777786253,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " around"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-17608bb6",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " $"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-321745c0",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "1"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-99442df9",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "0"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f2853c9c",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "/m"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c4d60918",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "onth"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-592e765d",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " ("
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-86253de1",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "for"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-573a4704",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " shared"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9666e100",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " hosting"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e69aec65",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "),"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-aa5ab7d8",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " but"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e5278365",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " their"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a510067f",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " ""},"finish_reason":null}]}{"id":"chatcmpl-edb3fd1b","object":"chat.completion.chunk","created":1777786254,"model":"Ministral-3-14B-Reasoning-2512-Q4_K_M","choices":[{"index":0,"delta":{"content":"G"},"finish_reason":null}]}{"id":"chatcmpl-d7a66b50","object":"chat.completion.chunk","created":1777786254,"model":"Ministral-3-14B-Reasoning-2512-Q4_K_M","choices":[{"index":0,"delta":{"content":"row"},"finish_reason":null}]}{"id":"chatcmpl-fdeb46dc","object":"chat.completion.chunk","created":1777786254,"model":"Ministral-3-14B-Reasoning-2512-Q4_K_M","choices":[{"index":0,"delta":{"content":"Big"},"finish_reason":null}]}{"id":"chatcmpl-8c5197d2","object":"chat.completion.chunk","created":1777786254,"model":"Ministral-3-14B-Reasoning-2512-Q4_K_M","choices":[{"index":0,"delta":{"content":"""
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-218aff2c",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " or"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-fc8e2735",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " ""},"finish_reason":null}]}{"id":"chatcmpl-b06f709e","object":"chat.completion.chunk","created":1777786254,"model":"Ministral-3-14B-Reasoning-2512-Q4_K_M","choices":[{"index":0,"delta":{"content":"Go"},"finish_reason":null}]}{"id":"chatcmpl-bc70d2cf","object":"chat.completion.chunk","created":1777786254,"model":"Ministral-3-14B-Reasoning-2512-Q4_K_M","choices":[{"index":0,"delta":{"content":"Ge"},"finish_reason":null}]}{"id":"chatcmpl-31863465","object":"chat.completion.chunk","created":1777786254,"model":"Ministral-3-14B-Reasoning-2512-Q4_K_M","choices":[{"index":0,"delta":{"content":"ek"},"finish_reason":null}]}{"id":"chatcmpl-6080c0a0","object":"chat.completion.chunk","created":1777786254,"model":"Ministral-3-14B-Reasoning-2512-Q4_K_M","choices":[{"index":0,"delta":{"content":"""
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2fbd3ba4",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " plans"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4243a652",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " are"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4cfac96a",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " better"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d7018969",
+    "object": "chat.completion.chunk",
+    "created": 1777786254,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " suited"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-45bf6eff",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " for"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-530c5348",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " e"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a15f4bb8",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-commerce"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7f936e07",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6ed99bb5",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "###"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-573ad62a",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-90bfa44c",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "2"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-aebb58ab",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "."
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b9a379e2",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-43f66f99",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "WP"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c1bff9a2",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Engine"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d87c6f2a",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " ("
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7d6dc97b",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Best"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1717f454",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " for"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e653da1a",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Word"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9638617e",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Press"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6ea24e5a",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-based"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3ce9d036",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " e"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e67d3686",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-commerce"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f0ca3539",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ")\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1764406c",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-abf89f12",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " -"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0f726967",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9eeeae5e",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Performance"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2ad2c2ea",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8994a88c",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Man"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-fd007d58",
+    "object": "chat.completion.chunk",
+    "created": 1777786255,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "aged"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-765effc7",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Word"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f5f6b800",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Press"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-94e0e593",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " hosting"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e018dfdf",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " with"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-32d0b8e8",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " enterprise"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5a9c2dc7",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-level"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-63456053",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " caching"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4d4b1123",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e4329680",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " CD"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5e32060f",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "N"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b037385a",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1ef0b69c",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " and"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-3abea7eb",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " global"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9b424541",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " load"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f0fb1fb2",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " balancing"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-df06c77a",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-69dd92a2",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-83057ce4",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " -"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ba87092b",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8de6183b",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Security"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-001eb55a",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0ff078a6",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Automatic"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-1415091c",
+    "object": "chat.completion.chunk",
+    "created": 1777786256,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " back"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-fb49ce59",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ups"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9611d260",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5d321088",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " D"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-77e0c094",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Do"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-26a3bce3",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "S"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9c128a2b",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " protection"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f9b3b70d",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-065704b8",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " and"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-87d5bc54",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " proactive"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c575b0ad",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " threat"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-452216c9",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " monitoring"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e2baf613",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f0ac44dc",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-14eee4ea",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " -"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-880cd25b",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-31ca650f",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Scal"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9abf2ac2",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ability"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-946e7b05",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-40764cca",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Des"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c677d746",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "igned"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-397021e5",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " for"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-72c09880",
+    "object": "chat.completion.chunk",
+    "created": 1777786257,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " high"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e219d19d",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-t"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c37e470c",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ra"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ff280567",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ffic"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-df169394",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Word"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c042ba14",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Press"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2f9c45d4",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " sites"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-314444ca",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ","
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ebda11db",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " with"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-72443fb7",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " easy"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b9ad0e75",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " scal"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-282a26aa",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ability"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2aed41d0",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " options"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-08281df1",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f30e412c",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7407d783",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " -"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b48941e3",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-139e2ec3",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Support"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-37f904fa",
+    "object": "chat.completion.chunk",
+    "created": 1777786258,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5c56c5aa",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-494b1c7a",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "2"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-064af34f",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "4"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9692ed06",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "/"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-7e133130",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "7"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-24a7bf2b",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " support"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-81ebc1ff",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " with"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-04ffd1fe",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " a"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-4ac50906",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " focus"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-51e69068",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " on"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d55d0a10",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Word"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6d28eb43",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Press"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-83823c14",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " expertise"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a67d52d7",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f8b5dbbf",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f468e0ca",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " -"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-92066904",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f317ff23",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Price"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-e81a5a4d",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ":"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-787ea82c",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " St"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-5cc90901",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "arts"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2ccb0a9f",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " at"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-b42e1bbf",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " around"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c1e6efbf",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " $"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-fd8dd41a",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "2"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-d777663e",
+    "object": "chat.completion.chunk",
+    "created": 1777786259,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "5"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-52ed1025",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "/m"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ed6e7095",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "onth"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-2e7974d1",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " ("
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f2747737",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "managed"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9d754843",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " hosting"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-cc7bcb60",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "),"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6bb7c28d",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " which"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-59b0ee8a",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " is"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8f88b4d7",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " premium"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-980c2386",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " but"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-db64746a",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " worth"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9723ed71",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " it"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f15e08a2",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " for"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ea0fefba",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " Word"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-a7aa8104",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Press"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-f837ed11",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-based"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-6e42760b",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " e"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-897ef73c",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-commerce"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ba89043b",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": ".\n\n"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-47e55bce",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "###"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-cb2bfa39",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " "
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-57a6655f",
+    "object": "chat.completion.chunk",
+    "created": 1777786260,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "3"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-63458f38",
+    "object": "chat.completion.chunk",
+    "created": 1777786261,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "."
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-aeef1042",
+    "object": "chat.completion.chunk",
+    "created": 1777786261,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " **"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c442bf40",
+    "object": "chat.completion.chunk",
+    "created": 1777786261,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Host"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-9659d9e1",
+    "object": "chat.completion.chunk",
+    "created": 1777786261,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "G"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-0d72019f",
+    "object": "chat.completion.chunk",
+    "created": 1777786261,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "ator"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-8b5df352",
+    "object": "chat.completion.chunk",
+    "created": 1777786261,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " ("
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-c0e3a471",
+    "object": "chat.completion.chunk",
+    "created": 1777786261,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "Budget"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-bc08a215",
+    "object": "chat.completion.chunk",
+    "created": 1777786261,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "-friendly"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-74edba89",
+    "object": "chat.completion.chunk",
+    "created": 1777786261,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " with"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-ebd8b3a2",
+    "object": "chat.completion.chunk",
+    "created": 1777786261,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": " good"
+            },
+            "finish_reason": null
+        }
+    ]
+}{
+    "id": "chatcmpl-deff75fb",
+    "object": "chat.completion.chunk",
+    "created": 1777786240,
+    "model": "Ministral-3-14B-Reasoning-2512-Q4_K_M",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {},
+            "finish_reason": "stop"
+        }
+    ]
+}

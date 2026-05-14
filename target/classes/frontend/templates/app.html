@@ -1,0 +1,332 @@
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+          <path d="M12,2C7.03,2,3,6.03,3,11c0,4.97,4.03,9,9,9s9-4.03,9-9C21,6.03,16.97,2,12,2z M12,18c-3.86,0-7-3.14-7-7s3.14-7,7-7s7,3.14,7,7S15.86,18,12,18z M9.5,11c-0.83,0-1.5-0.67-1.5-1.5S8.67,8,9.5,8S11,8.67,11,9.5S10.33,11,9.5,11z M14.5,11c-0.83,0-1.5-0.67-1.5-1.5S13.67,8,14.5,8S16,8.67,16,9.5S15.33,11,14.5,11z"></path>
+        </svg>
+      </div>
+      <div>
+        <h1>Boris AI</h1>
+        <p>Local model panel</p>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button :class="['nav-item', selectedMenu === 'chat' ? 'active' : '']" @click="selectedMenu = 'chat'">
+        Chat
+      </button>
+      <button :class="['nav-item', selectedMenu === 'models' ? 'active' : '']" @click="selectedMenu = 'models'">
+        Models
+      </button>
+      <button :class="['nav-item', selectedMenu === 'settings' ? 'active' : '']" @click="selectedMenu = 'settings'">
+        Settings
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="status-chip" v-if="gpuInfo.name !== 'N/A'">
+        {{ gpuInfo.name }} ({{ gpuInfo.vram }})
+      </div>
+      <div class="status-chip gpu-memory-chip" v-if="displayGpuFree !== 'N/A'">
+        <span class="memory-label">GPU Free:</span>
+        <strong>{{ displayGpuFree }}</strong>
+      </div>
+      <div class="status-chip ram-gpu-chip" v-if="displayGpuFree !== 'N/A'">
+        <span class="memory-label">RAM GPU Usage:</span>
+        <strong>{{ formatRamGpuUsage }}</strong>
+      </div>
+      <div class="status-chip">
+        <span :class="['status-dot', isOnline ? 'online' : 'offline']"></span>
+        {{ isOnline ? 'Online' : 'Offline' }}
+      </div>
+    </div>
+  </aside>
+
+  <section class="content-shell">
+    <header class="topbar">
+      <div>
+        <h2 v-if="selectedMenu === 'chat'">Chat</h2>
+        <h2 v-else-if="selectedMenu === 'models'">Models</h2>
+        <h2 v-else>Settings</h2>
+        <p>
+          <template v-if="selectedMenu === 'chat'">{{ sessionId }}</template>
+          <template v-else-if="selectedMenu === 'models'">Detected models, loaded models in VRAM, and actions to load, mount, or eject them.</template>
+          <template v-else>Global application configuration and system paths.</template>
+        </p>
+      </div>
+    </header>
+
+    <div v-show="uiMessage && selectedMenu !== 'chat'" class="banner-message">
+      {{ uiMessage }}
+    </div>
+
+    <!-- MODELS VIEW -->
+    <div v-if="selectedMenu === 'models'" class="panel-view unified-models-view">
+
+      <!-- LOADED MODELS -->
+      <section class="models-section" v-if="loadedModels.length > 0">
+        <div class="section-heading">
+          <h3>Loaded Models</h3>
+          <p>Models currently resident in VRAM.</p>
+        </div>
+
+        <div class="candidates-grid">
+          <div class="candidate-card" v-for="model in loadedModels" :key="model.id" :class="{ 'in-vram': true }">
+            <div class="candidate-header">
+              <span class="candidate-label">IN VRAM</span>
+              <span class="candidate-status">Active</span>
+            </div>
+            <div class="candidate-model">
+              <h4>{{ model.id }}</h4>
+              <p class="candidate-config">
+                ctx: {{ model.contextSize }},
+                gpu: {{ model.gpuLayers }},
+                temp: {{ model.temperature }}
+              </p>
+            </div>
+            <div class="candidate-actions">
+              <button
+                class="danger-btn"
+                @click="unloadModel(model.id)"
+                :disabled="unloadingModelId === model.id"
+              >
+                <ClipLoader v-if="unloadingModelId === model.id" :size="16" color="#fff" :loading="true" />
+                {{ unloadingModelId === model.id ? 'Ejecting...' : '&#8617; Eject' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AVAILABLE MODELS -->
+      <section class="models-section">
+        <div class="section-heading">
+          <h3>Available models</h3>
+          <p>Detected models that can be loaded and used.</p>
+        </div>
+
+        <div class="cards-grid">
+          <article v-for="model in availableModels" :key="`available-${model.id}`" class="model-card">
+            <div class="model-card-header">
+              <div>
+                <h3>{{ model.id }}</h3>
+                <p>{{ model.ownedBy }}</p>
+                <p class="model-size" v-if="model.size !== 'N/A'">Size: {{ model.size }}</p>
+              </div>
+              <span :class="['model-badge', countLoadedInstances(model.id) > 0 ? 'loaded' : 'available']">
+                {{ countLoadedInstances(model.id) > 0 ? `${countLoadedInstances(model.id)} loaded` : 'Available' }}
+              </span>
+            </div>
+
+            <div class="model-config" v-if="!model.configExpanded">
+              <button class="config-toggle-btn" @click="toggleModelConfig(model)">
+                ⚙️ Configure Parameters
+              </button>
+            </div>
+
+            <div class="model-config-panel" v-if="model.configExpanded">
+              <div class="config-panel-header">
+                <h4>Model Configuration</h4>
+                <button class="auto-detect-btn" @click="applyRecommendedSettings(model)" title="Apply best settings for this model">
+                  ✨ Auto-Detect Best Config
+                </button>
+              </div>
+              <div class="config-grid">
+                <div class="config-field">
+                  <label>Context Size</label>
+                  <input type="number" v-model.number="model.contextSize" placeholder="32000" min="512" max="131072" @input="model.hasModifiedConfig = true">
+                </div>
+                <div class="config-field">
+                  <label>Threads</label>
+                  <input type="number" v-model.number="model.threads" placeholder="8" min="1" max="64" @input="model.hasModifiedConfig = true">
+                </div>
+                <div class="config-field">
+                  <label>GPU Layers</label>
+                  <input type="number" v-model.number="model.gpuLayers" placeholder="42" min="0" max="999" @input="model.hasModifiedConfig = true">
+                </div>
+                <div class="config-field">
+                  <label>Batch Size</label>
+                  <input type="number" v-model.number="model.batchSize" placeholder="512" min="1" max="4096" @input="model.hasModifiedConfig = true">
+                </div>
+                <div class="config-field">
+                  <label>Temperature</label>
+                  <input type="number" v-model.number="model.temperature" placeholder="0.7" min="0" max="2" step="0.1" @input="model.hasModifiedConfig = true">
+                </div>
+                <div class="config-field">
+                  <label>Max Tokens</label>
+                  <input type="number" v-model.number="model.maxTokens" placeholder="1000" min="1" max="131072" @input="model.hasModifiedConfig = true">
+                </div>
+              </div>
+              <div class="config-actions">
+                <button class="secondary-btn" @click="model.configExpanded = false">Cancel</button>
+                <button
+                  class="primary-btn"
+                  @click="loadModelWithConfig(model.id)"
+                  :disabled="loadingModelId === model.id"
+                >
+                  <ClipLoader v-if="loadingModelId === model.id" :size="16" color="#fff" :loading="true" />
+                  {{ loadingModelId === model.id ? 'Loading...' : 'Load as Active Model' }}
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <!-- SETTINGS VIEW -->
+    <div v-if="selectedMenu === 'settings'" class="panel-view settings-view">
+      <section class="models-section">
+        <div class="section-heading">
+          <h3>Application Settings</h3>
+          <p>Configure paths and system parameters.</p>
+        </div>
+
+        <div class="settings-form">
+          <div class="config-field full-width">
+            <label>Llama Server Path</label>
+            <div class="input-with-action">
+              <input type="text" :value="settings.userHome ? (settings.userHome.endsWith('/') ? settings.userHome.slice(0, -1) : settings.userHome.replace(/\\/g, '/')) + (settings.llamaServerPath.startsWith('/') ? settings.llamaServerPath : '/' + settings.llamaServerPath) : settings.llamaServerPath" placeholder="{user.home}/.boris/vendor/llama.cpp/llama-server" readonly>
+              <button 
+                :class="llamaServerInstalled ? 'primary-btn success-btn' : 'primary-btn'" 
+                style="margin-left: 8px; margin-right: 8px; padding: 0 16px; min-width: 100px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 6px;"
+                :style="llamaServerInstalled ? 'background-color: #10b981 !important; border-color: #10b981 !important; color: #ffffff !important;' : 'background-color: #2563eb !important; border-color: #2563eb !important; color: #ffffff !important;'"
+                @click="downloadLlamaServer" 
+                :disabled="llamaServerDownloading || llamaServerInstalled">
+                <ClipLoader v-if="llamaServerDownloading" :size="16" color="#fff" :loading="true" />
+                <span>{{ llamaServerDownloading ? 'Downloading...' : (llamaServerInstalled ? 'Installed' : 'Download') }}</span>
+              </button>
+              <button class="action-btn" @click="browsePath('llamaServerPath', true)" title="Browse Folder">...</button>
+            </div>
+            <small>Relative: {{ settings.llamaServerPath || '/vendor/llama.cpp/llama-server' }} → full path shown above</small>
+          </div>
+
+          <div class="config-field full-width">
+            <label>Models Directory</label>
+            <div class="input-with-action">
+              <input type="text" :value="settings.userHome ? (settings.userHome.endsWith('/') ? settings.userHome.slice(0, -1) : settings.userHome.replace(/\\/g, '/')) + (settings.modelsDir.startsWith('/') ? settings.modelsDir : '/' + settings.modelsDir) : settings.modelsDir" placeholder="{user.home}/.boris/vendor/models" readonly>
+              <button class="action-btn" @click="browsePath('modelsDir', true)" title="Browse Folder">...</button>
+            </div>
+            <small>Relative: {{ settings.modelsDir || '/vendor/models' }} → full path shown above</small>
+          </div>
+
+          <div class="config-field full-width">
+            <label>Workspace Prefix</label>
+            <div class="input-with-action">
+              <input type="text" :value="settings.userHome ? (settings.userHome.endsWith('/') ? settings.userHome.slice(0, -1) : settings.userHome.replace(/\\/g, '/')) + (settings.workspacePrefix.startsWith('/') ? settings.workspacePrefix : '/' + settings.workspacePrefix) : settings.workspacePrefix" placeholder="{user.home}/.boris/workspace" readonly>
+              <button class="action-btn" @click="browsePath('workspacePrefix', true)" title="Browse Folder">...</button>
+            </div>
+            <small>Relative: {{ settings.workspacePrefix || '/workspace' }} → full path shown above</small>
+          </div>
+
+          <div class="config-field full-width">
+            <label>Llama Server Core (Version)</label>
+            <div class="input-with-action">
+              <input type="text" v-model="settings.llamaServerCore" placeholder="b9010" readonly>
+            </div>
+            <small>Internal version of the llama-server engine (detected automatically)</small>
+          </div>
+
+          <div class="config-actions">
+            <button class="primary-btn" @click="saveSettings">
+              Save Settings
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- CHAT VIEW -->
+    <div v-else-if="selectedMenu === 'chat'" class="chat-layout">
+
+      <!-- 👇 SIN MODELOS -->
+      <div v-if="loadedModels.length === 0" class="empty-chat">
+        <h2>No model loaded</h2>
+        <p>You need to load a model before starting a chat.</p>
+
+        <button class="primary-btn" @click="selectedMenu = 'models'">
+          Go to Models
+        </button>
+      </div>
+
+      <div v-else-if="!warmupComplete" class="empty-chat">
+        <ClipLoader :size="38" color="#2563eb" :loading="true" />
+        <h2>{{ warmupState === 'warming' ? 'Model warming up' : 'Model loading' }}</h2>
+        <p>{{ warmupStatusMessage }}</p>
+
+        <button class="primary-btn" @click="selectedMenu = 'models'">
+          Back to Models
+        </button>
+      </div>
+
+      <!-- 👇 CHAT NORMAL -->
+      <template v-else>
+        <main ref="chatContainer" class="chat-main">
+
+
+
+          <template v-for="(msg, index) in messages" :key="index">
+            <div
+              v-if="msg.role !== 'system'"
+              :class="['message', msg.role === 'user' ? 'user' : 'bot', isError(msg) ? 'error-message' : '']"
+            >
+              <div v-if="msg.role === 'assistant'" v-html="renderMarkdown(msg.content)"></div>
+              <div v-else>{{ msg.content }}</div>
+              <div v-if="msg.role === 'assistant' && msg.inputTokens > 0" class="token-status-inline">In: {{ formatTokens(msg.inputTokens) }} · Out: {{ formatTokens(msg.outputTokens) }} · Total: {{ formatTokens(msg.inputTokens + msg.outputTokens) }} · Context: {{ formatTokens(msg.contextSize) }} · Remaining: {{ formatTokens(msg.contextSize - (msg.inputTokens + msg.outputTokens)) }}</div>
+            </div>
+          </template>
+
+          <div v-if="currentBotMessage" class="message bot" v-html="renderMarkdown(currentBotMessage)"></div>
+          <div v-if="currentBotMessage && (inputTokens > 0 || outputTokens > 0)" class="token-status-inline">In: {{ formatTokens(inputTokens) }} · Out: {{ formatTokens(outputTokens) }} · Total: {{ formatTokens(inputTokens + outputTokens) }} · Context: {{ formatTokens(modelContextSize) }} · Remaining: {{ formatTokens(remainingTokens) }}</div>
+
+          <div v-if="isTyping && !currentBotMessage" class="typing-indicator">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+
+        </main>
+
+        <footer class="chat-footer">
+          <div class="input-wrapper">
+            <div class="input-container">
+              <!-- New Conversation button (+ icon) -->
+              <button class="new-chat-icon-btn" @click="newChat" title="New conversation">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+
+              <textarea
+                v-model="userInput"
+                :placeholder="chatEnabled ? 'Type your message for Boris...' : 'Click the \'+\' button to start a new chat...'"
+                rows="1"
+                @keydown.enter.prevent="sendMessage"
+                :disabled="!chatEnabled"
+              ></textarea>
+
+              <!-- Stop button (inline, visible when typing) -->
+              <button v-if="isTyping" class="inline-stop-btn" @click="stopResponse" title="Stop response">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <rect x="5" y="5" width="14" height="14" rx="2"/>
+                </svg>
+              </button>
+
+              <!-- Send button (Enter icon, minimalist) -->
+              <button class="send-btn" @click="sendMessage" title="Send message" :disabled="!chatEnabled">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 10 4 15 9 20"/>
+                  <path d="M20 4v7a4 4 0 0 1-4 4H4"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </footer>
+
+      </template>
+    </div>
+
+  </section>
+</div>

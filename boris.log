@@ -1,0 +1,101 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------------< com.boris:boris-server >-----------------------
+[INFO] Building boris-server 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:3.5.0:run (default-cli) > test-compile @ boris-server >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ boris-server ---
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] Copying 0 resource from src/main/resources to target/classes
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ boris-server ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ boris-server ---
+[INFO] skip non existing resourceDirectory /Users/lastprophet/Documents/workspaces/boris/src/test/resources
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ boris-server ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] <<< spring-boot:3.5.0:run (default-cli) < test-compile @ boris-server <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:3.5.0:run (default-cli) @ boris-server ---
+[INFO] Attaching agents: []
+2026-04-23T15:59:22.367-06:00  INFO 14442 --- [           main] c.boris.server.BorisServerApplication    : Starting BorisServerApplication using Java 25.0.2 with PID 14442 (/Users/lastprophet/Documents/workspaces/boris/target/classes started by lastprophet in /Users/lastprophet/Documents/workspaces/boris)
+2026-04-23T15:59:22.369-06:00  INFO 14442 --- [           main] c.boris.server.BorisServerApplication    : No active profile set, falling back to 1 default profile: "default"
+2026-04-23T15:59:22.947-06:00  INFO 14442 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-04-23T15:59:22.959-06:00  INFO 14442 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-04-23T15:59:22.960-06:00  INFO 14442 --- [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.41]
+2026-04-23T15:59:22.992-06:00  INFO 14442 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-04-23T15:59:22.993-06:00  INFO 14442 --- [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 580 ms
+[94m[1m
+ ██████╗  ██████╗ ██████╗ ██╗███████╗ v1.0
+ ██╔══██╗██╔═══██╗██╔══██╗██║██╔════╝
+ ██████╔╝██║   ██║██████╔╝██║███████╗
+ ██╔══██╗██║   ██║██╔══██╗██║╚════██║
+ ██████╔╝╚██████╔╝██║  ██║██║███████║
+ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝╚══════╝[0m
+ [93m...I am invincible![0m
+
+2026-04-23T15:59:23.054-06:00  INFO 14442 --- [       Thread-1] c.b.server.service.LlamaServerService    : 🚀 Iniciando Boris (llama-server) en puerto 1234...
+2026-04-23T15:59:23.064-06:00  INFO 14442 --- [       Thread-1] c.b.server.service.LlamaServerService    : [*] Esperando respuesta de Boris... (1/30)
+  [94m[boris][0m ggml_metal_device_init: tensor API disabled for pre-M5 and pre-A19 devices
+  [94m[boris][0m ggml_metal_library_init: using embedded metal library
+  [94m[boris][0m ggml_metal_library_init: loaded in 0.050 sec
+  [94m[boris][0m ggml_metal_rsets_init: creating a residency set collection (keep_alive = 180 s)
+  [94m[boris][0m ggml_metal_device_init: GPU name:   MTL0
+  [94m[boris][0m ggml_metal_device_init: GPU family: MTLGPUFamilyCommon3 (3003)
+  [94m[boris][0m ggml_metal_device_init: GPU family: MTLGPUFamilyMetal3  (5001)
+  [94m[boris][0m ggml_metal_device_init: simdgroup reduction   = true
+  [94m[boris][0m ggml_metal_device_init: simdgroup matrix mul. = false
+  [94m[boris][0m ggml_metal_device_init: has unified memory    = false
+  [94m[boris][0m ggml_metal_device_init: has bfloat            = true
+  [94m[boris][0m ggml_metal_device_init: has tensor            = false
+  [94m[boris][0m ggml_metal_device_init: use residency sets    = true
+  [94m[boris][0m ggml_metal_device_init: use shared buffers    = false
+  [94m[boris][0m ggml_metal_device_init: recommendedMaxWorkingSetSize  =  4278.19 MB
+  [94m[boris][0m error while handling argument "--flash-attn": expected value for argument
+  [94m[boris][0m 
+  [94m[boris][0m usage:
+  [94m[boris][0m -fa,   --flash-attn [on|off|auto]       set Flash Attention use ('on', 'off', or 'auto', default: 'auto')
+  [94m[boris][0m                                         (env: LLAMA_ARG_FLASH_ATTN)
+  [94m[boris][0m 
+  [94m[boris][0m 
+  [94m[boris][0m to show complete usage, run with -h
+2026-04-23T15:59:23.226-06:00  WARN 14442 --- [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+2026-04-23T15:59:23.235-06:00  INFO 14442 --- [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-04-23T15:59:23.246-06:00 ERROR 14442 --- [           main] o.s.b.d.LoggingFailureAnalysisReporter   : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 8080 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 8080 or configure this application to listen on another port.
+
+2026-04-23T15:59:25.070-06:00 ERROR 14442 --- [       Thread-1] c.b.server.service.LlamaServerService    : [!] El proceso llama-server ha muerto prematuramente.
+2026-04-23T15:59:25.070-06:00 ERROR 14442 --- [       Thread-1] c.b.server.service.LlamaServerService    : [!] No se pudo verificar la salud de Boris tras múltiples intentos.
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  4.252 s
+[INFO] Finished at: 2026-04-23T15:59:25-06:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:3.5.0:run (default-cli) on project boris-server: Process terminated with exit code: 1 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException

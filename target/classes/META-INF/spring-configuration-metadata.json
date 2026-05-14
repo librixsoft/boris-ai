@@ -1,0 +1,183 @@
+{
+  "groups": [
+    {
+      "name": "boris",
+      "type": "com.boris.librixsoft.config.BorisProperties",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties"
+    },
+    {
+      "name": "boris.api",
+      "type": "com.boris.librixsoft.config.BorisProperties$Api",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties",
+      "sourceMethod": "public com.boris.librixsoft.config.BorisProperties.Api getApi() "
+    },
+    {
+      "name": "boris.api.paths",
+      "type": "com.boris.librixsoft.config.BorisProperties$ApiPaths",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties$Api",
+      "sourceMethod": "public com.boris.librixsoft.config.BorisProperties.ApiPaths getPaths() "
+    },
+    {
+      "name": "boris.api.paths.boris-server",
+      "type": "com.boris.librixsoft.config.BorisProperties$Wrapper",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties$ApiPaths",
+      "sourceMethod": "public com.boris.librixsoft.config.BorisProperties.Wrapper getBorisServer() "
+    },
+    {
+      "name": "boris.api.paths.llama-server",
+      "type": "com.boris.librixsoft.config.BorisProperties$Server",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties$ApiPaths",
+      "sourceMethod": "public com.boris.librixsoft.config.BorisProperties.Server getLlamaServer() "
+    },
+    {
+      "name": "boris.app",
+      "type": "com.boris.librixsoft.config.BorisProperties$App",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties",
+      "sourceMethod": "public com.boris.librixsoft.config.BorisProperties.App getApp() "
+    },
+    {
+      "name": "boris.inference",
+      "type": "com.boris.librixsoft.config.BorisProperties$Inference",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties",
+      "sourceMethod": "public com.boris.librixsoft.config.BorisProperties.Inference getInference() "
+    }
+  ],
+  "properties": [
+    {
+      "name": "boris.api.paths.boris-server.chat-completions",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.api.paths.boris-server.chat-completions.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties$Wrapper"
+    },
+    {
+      "name": "boris.api.paths.boris-server.status",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.api.paths.boris-server.status.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties$Wrapper"
+    },
+    {
+      "name": "boris.api.paths.boris-server.ui",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.api.paths.boris-server.ui.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties$Wrapper"
+    },
+    {
+      "name": "boris.api.paths.boris-server.v1",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.api.paths.boris-server.v1.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties$Wrapper"
+    },
+    {
+      "name": "boris.api.paths.llama-server.models",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.api.paths.llama-server.models.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties$Server"
+    },
+    {
+      "name": "boris.api.paths.llama-server.v1",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.api.paths.llama-server.v1.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties$Server"
+    },
+    {
+      "name": "boris.app.host",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.app.host.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties$App"
+    },
+    {
+      "name": "boris.app.scheme",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.app.scheme.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties$App"
+    },
+    {
+      "name": "boris.context-size",
+      "type": "java.lang.Integer",
+      "description": "Propiedad: boris.context-size. Tamaño del contexto (tokens) para la inferencia.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties"
+    },
+    {
+      "name": "boris.inference.host",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.inference.host.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties$Inference"
+    },
+    {
+      "name": "boris.inference.scheme",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.inference.scheme.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties$Inference"
+    },
+    {
+      "name": "boris.llama-server-core",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.llama-server-core. Versión interna o núcleo del llama-server.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties"
+    },
+    {
+      "name": "boris.llama-server-path",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.llama-server-path. Ruta al ejecutable del motor llama-server.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties"
+    },
+    {
+      "name": "boris.logo-color",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.logo-color. Color predominante para el logo ANSI en la consola.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties"
+    },
+    {
+      "name": "boris.models-dir",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.models-dir. Directorio que contiene los archivos .gguf",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties"
+    },
+    {
+      "name": "boris.models-max",
+      "type": "java.lang.Integer",
+      "description": "Propiedad: boris.models-max. Máximo de modelos cargados en memoria simultáneamente",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties"
+    },
+    {
+      "name": "boris.port",
+      "type": "java.lang.Integer",
+      "description": "Propiedad: boris.port. Puerto en el que correrá el proceso nativo llama-server.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties"
+    },
+    {
+      "name": "boris.preload-models",
+      "type": "java.util.List<com.boris.librixsoft.config.BorisProperties$ModelConfig>",
+      "description": "Propiedad: boris.preload-models. Lista de modelos (ej. con .gguf) a precargar en memoria al arrancar.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties"
+    },
+    {
+      "name": "boris.server-port",
+      "type": "java.lang.Integer",
+      "description": "Propiedad: server.port. Puerto real en el que corre este servidor Spring Boot.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties"
+    },
+    {
+      "name": "boris.threads",
+      "type": "java.lang.Integer",
+      "description": "Propiedad: boris.threads. Número de hilos de CPU que usará el motor.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties"
+    },
+    {
+      "name": "boris.version",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.version. Versión actual de la aplicación Boris.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties"
+    },
+    {
+      "name": "boris.workspace-prefix",
+      "type": "java.lang.String",
+      "description": "Propiedad: boris.workspace-prefix. Prefijo para las rutas de archivos generados.",
+      "sourceType": "com.boris.librixsoft.config.BorisProperties"
+    }
+  ],
+  "hints": [],
+  "ignored": {
+    "properties": []
+  }
+}

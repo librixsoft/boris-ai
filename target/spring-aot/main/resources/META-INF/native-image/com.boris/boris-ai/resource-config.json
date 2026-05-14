@@ -1,0 +1,156 @@
+{
+  "resources": {
+    "includes": [
+      {
+        "pattern": "\\Q\/\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF\\E"
+      },
+      {
+        "pattern": "\\QMETA-INF\/spring.factories\\E"
+      },
+      {
+        "pattern": "\\Qantlr4\\E"
+      },
+      {
+        "pattern": "\\Qantlr4\/org\\E"
+      },
+      {
+        "pattern": "\\Qantlr4\/org\/springframework\\E"
+      },
+      {
+        "pattern": "\\Qantlr4\/org\/springframework\/ai\\E"
+      },
+      {
+        "pattern": "\\Qantlr4\/org\/springframework\/ai\/vectorstore\\E"
+      },
+      {
+        "pattern": "\\Qantlr4\/org\/springframework\/ai\/vectorstore\/filter\\E"
+      },
+      {
+        "pattern": "\\Qantlr4\/org\/springframework\/ai\/vectorstore\/filter\/antlr4\\E"
+      },
+      {
+        "pattern": "\\Qantlr4\/org\/springframework\/ai\/vectorstore\/filter\/antlr4\/Filters.g4\\E"
+      },
+      {
+        "pattern": "\\Qapplication\\E.*\\Q.properties\\E"
+      },
+      {
+        "pattern": "\\Qapplication\\E.*\\Q.xml\\E"
+      },
+      {
+        "pattern": "\\Qapplication\\E.*\\Q.yaml\\E"
+      },
+      {
+        "pattern": "\\Qapplication\\E.*\\Q.yml\\E"
+      },
+      {
+        "pattern": "\\Qbanner.txt\\E"
+      },
+      {
+        "pattern": "\\Qcom\\E"
+      },
+      {
+        "pattern": "\\Qcom\/knuddels\\E"
+      },
+      {
+        "pattern": "\\Qcom\/knuddels\/jtokkit\\E"
+      },
+      {
+        "pattern": "\\Qcom\/knuddels\/jtokkit\/cl100k_base.tiktoken\\E"
+      },
+      {
+        "pattern": "\\Qembedding\\E"
+      },
+      {
+        "pattern": "\\Qembedding\/embedding-model-dimensions.properties\\E"
+      },
+      {
+        "pattern": "\\Qfrontend\\E"
+      },
+      {
+        "pattern": "\\Qfrontend\/templates\\E"
+      },
+      {
+        "pattern": "\\Qfrontend\/templates\/app.html\\E"
+      },
+      {
+        "pattern": "\\Qfrontend\/templates\/index.html\\E"
+      },
+      {
+        "pattern": "\\Qorg\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/boot\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/boot\/logging\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/boot\/logging\/java\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/boot\/logging\/java\/logging-file.properties\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/boot\/logging\/java\/logging.properties\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/boot\/web\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/boot\/web\/server\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/boot\/web\/server\/mime-mappings.properties\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/http\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/http\/codec\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/http\/codec\/CodecConfigurer.properties\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/http\/mime.types\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/web\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/web\/util\\E"
+      },
+      {
+        "pattern": "\\Qorg\/springframework\/web\/util\/HtmlCharacterEntityReferences.properties\\E"
+      },
+      {
+        "pattern": "\\Qspring.properties\\E"
+      },
+      {
+        "pattern": "\\Qstatic\\E"
+      },
+      {
+        "pattern": "\\Qstatic\/\\E.*"
+      },
+      {
+        "pattern": "\\Qstatic\/dist\\E"
+      },
+      {
+        "pattern": "\\Qstatic\/dist\/\\E.*"
+      },
+      {
+        "pattern": "\\Qstatic\/dist\/assets\\E"
+      },
+      {
+        "pattern": "\\Qstatic\/dist\/assets\/\\E.*"
+      }
+    ]
+  }
+}
