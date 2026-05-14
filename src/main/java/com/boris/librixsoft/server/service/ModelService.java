@@ -101,9 +101,40 @@ public class ModelService {
             return new ChatMessageResponse(null, "success", null, text);
         }).doOnComplete(() -> {
             String fullText = accumulatedResponse.toString();
+            log.info("Stream completado. Iniciando post-procesamiento. Texto acumulado: \n{}", fullText);
+
             if (sessionId != null && !sessionId.isBlank()) {
                 chatSessionService.addMessage(sessionId, new UserMessage(instruction));
                 chatSessionService.addMessage(sessionId, new AssistantMessage(fullText));
+            }
+            
+            try {
+                ChatResponseDTO responseDTO = parseChatResponse(fullText, ChatResponseDTO.class);
+                if (responseDTO == null) {
+                    log.warn("parseChatResponse devolvió null. El JSON es inválido o no se pudo parsear.");
+                    return;
+                }
+                
+                log.info("JSON parseado exitosamente. Tipo de acción: {}", responseDTO.getType());
+                
+                if (responseDTO.getType() != null) {
+                    String type = responseDTO.getType().toUpperCase();
+                    ApiResponse<Map<String, Object>> result = switch (type) {
+                        case "CREATE"   -> handleCreateRequest(responseDTO, sid(sessionId));
+                        case "EDIT"     -> handleEditRequest(responseDTO, sid(sessionId), cancellationRequested);
+                        case "REDESIGN" -> handleRedesignRequest(responseDTO, sid(sessionId));
+                        case "DELETE"   -> handleDeleteRequest(responseDTO, sid(sessionId));
+                        default -> null;
+                    };
+                    
+                    if (result != null) {
+                        log.info("Resultado de la herramienta: status={}, message={}", result.getStatus(), result.getMessage());
+                    } else {
+                        log.warn("El tipo de acción '{}' no es soportado.", type);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Error inesperado ejecutando acción post-stream: {}", e.getMessage(), e);
             }
         });
     }
@@ -203,12 +234,18 @@ public class ModelService {
                 .enable(com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature())
                 .enable(com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_SINGLE_QUOTES.mappedFeature());
 
-            com.fasterxml.jackson.core.JsonParser parser = mapper.getFactory().createParser(jsonInput);
-            while (parser.nextToken() != null && parser.getCurrentToken() != com.fasterxml.jackson.core.JsonToken.START_OBJECT) {}
+            String cleanJson = jsonInput.trim();
+            // Fallback por si acaso el modelo escupe algo raro al principio/final a pesar del prompt
+            int start = cleanJson.indexOf('{');
+            int end = cleanJson.lastIndexOf('}');
+            if (start != -1 && end != -1 && start <= end) {
+                cleanJson = cleanJson.substring(start, end + 1);
+            }
 
-            return parser.getCurrentToken() == com.fasterxml.jackson.core.JsonToken.START_OBJECT
-                ? mapper.readValue(parser, clazz) : null;
+            return mapper.readValue(cleanJson, clazz);
         } catch (Exception e) {
+            log.error("Fallo al parsear la respuesta del modelo como JSON: {}", e.getMessage());
+            log.debug("Contenido que falló: {}", jsonInput);
             return null;
         }
     }

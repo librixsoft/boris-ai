@@ -18,7 +18,9 @@ public class PromptModel {
 
                 2. MODO ACCIÓN (Bloque JSON):
                    - SOLO cuando el usuario pida explícitamente: "crea", "edita", "modifica", "borra", "cambia", "guarda", "rediseña", "refactoriza", "actualiza" o "limpia".
-                   - Responde ÚNICAMENTE con el objeto JSON. Sin texto adicional antes ni después.
+                   - Responde ÚNICAMENTE con el objeto JSON puro.
+                   - ESTRICTAMENTE PROHIBIDO usar bloques de markdown (como ```json, ```html, etc).
+                   - Tu respuesta debe comenzar EXACTAMENTE con el carácter '{' y terminar con '}'. SIN excepciones.
                    - Para CREATE y REDESIGN: DEBES incluir el campo "content" con el código fuente COMPLETO y funcional del archivo.
                    - Para EDIT: DEBES incluir el campo "instructions" con instrucciones detalladas de qué cambiar y cómo.
                    - Para DELETE: solo se necesitan "type" y "path".
