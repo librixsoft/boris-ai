@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Manual de Infraestructura - OpenClaw LLM Setup</title>
+        <style>
+            /* Corporate Red and White Styling */
+            :root {
+                --primary-red: #d93025; /* A strong, corporate red */
+                --white: #ffffff;
+                --text-dark: #333333;
+                --background-light: #f4f4f4;
+            }
+
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                color: var(--text-dark);
+                background-color: var(--white);
+                line-height: 1.6;
+                margin: 0 auto;
+                padding: 20px;
+            }
+
+            /* Header Styling (H1) */
+            h1 {
+                color: var(--primary-red);
+                border-bottom: 3px solid var(--primary-red);
+                padding-bottom: 10px;
+                margin-top: 20px;
+                margin-bottom: 30px;
+            }
+
+            /* Section Headers (H2) */
+            h2 {
+                color: var(--text-dark);
+                border-left: 5px solid var(--primary-red);
+                padding-left: 10px;
+                margin-top: 40px !important;
+                margin-bottom: 20px;
+            }
+
+            /* Paragraphs and General Text */
+            p {
+                margin-bottom: 1em;
+            }
+
+            strong {
+                color: var(--primary-red); /* Make key terms stand out */
+                font-weight: 600;
+            }
+
+            /* Code Blocks and Pre/Code Elements */
+            pre {
+                background-color: #eeeeee; /* Light grey background for code separation */
+                border: 1px solid #cccccc;
+                padding: 15px;
+                border-radius: 5px;
+                overflow-x: auto;
+                font-family:
+                    Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+                color: #000 !important; /* Ensure code text is readable */
+            }
+
+            code {
+                background-color: rgba(
+                    221,
+                    48,
+                    37,
+                    0.1
+                ); /* Very light red background for inline code */
+                color: var(--primary-red);
+                padding: 2px 4px;
+                border-radius: 3px;
+                font-family:
+                    Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+            }
+
+            /* Lists (UL/LI) */
+            ul {
+                list-style-type: none; /* Remove default bullets */
+                padding-left: 0;
+                margin-bottom: 20px;
+            }
+
+            li {
+                margin-bottom: 10px;
+                padding-left: 20px;
+                position: relative;
+            }
+            /* Add a custom marker for list items */
+            li::before {
+                content: "•";
+                color: var(--primary-red);
+                font-weight: bold;
+                display: inline-block;
+                width: 1em;
+                margin-left: -1em;
+            }
+
+            /* Container for Info (Logo/Date) */
+            .logo-container,
+            div[style*="text-align: center"] {
+                border: none !important; /* Override existing border styles if they conflict */
+            }
+
+            div[style*="display: flex"] {
+                padding: 15px 0;
+                border-top: 2px dashed #ccc;
+                background-color: var(--background-light);
+                margin-top: 30px;
+            }
+        </style>
+    </head>
+    <body class="manual-content">
+        <div class="logo-container">
+            <img src="./librix_logo_doc.png" alt="Logo LibrixSoft" />
+        </div>
+
+        <div
+            style="
+                text-align: center;
+                font-size: 0.9em;
+                color: #6c757d;
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 1px solid #eee;
+                display: flex;
+                justify-content: space-around;
+                align-items: center;
+            "
+        >
+            <div>👤 Autor: Anibal Gomez</div>
+            <div>📅 Fecha: Sat 2026-04-18</div>
+            <div>📧 Email: anibal@librixsoft.com</div>
+            <div>🌐 Web: librixsoft.com</div>
+            <div style="font-weight: bold">🛠️ Versión: v1.0</div>
+        </div>
+
+        <h1 style="text-align: center">
+            Manual de Infraestructura IA LLM Local
+        </h1>
+
+        <p>
+            Este documento detalla la configuración técnica y operativa
+            optimizada para el entorno local de LLM, utilizando el modelo Gemma
+            4 para alta velocidad. El flujo completo cubre: compilación del
+            motor de inferencia, descarga del modelo, arranque del servidor y
+            configuración de OpenClaw.
+        </p>
+
+        <p>
+            <strong>Objetivo:</strong> Conectar el agente
+            <strong>OpenClaw</strong> con un
+            <strong>LLM compilado y ejecutado localmente</strong> para obtener
+            tokens ilimitados, sin depender de APIs externas de pago ni de los
+            límites de contexto que estas imponen. OpenClaw es una herramienta
+            poderosa pero con alto consumo de tokens —especialmente al manejar
+            agentes, subagentes y contexto extendido— por lo que integrarlo con
+            un modelo local elimina ese costo y cualquier restricción de
+            contexto por completo.
+        </p>
+
+        <p>
+            <strong>Hardware utilizado:</strong> Esta prueba se realizó en una
+            <strong>Alienware x16 R2 con 32 GB de RAM</strong>. Es importante
+            aclarar que la velocidad de inferencia no depende del modelo en sí:
+            <strong
+                >todo depende de la VRAM y los recursos disponibles de la
+                máquina</strong
+            >. Un modelo puede parecer lento no por limitaciones del LLM sino
+            por falta de memoria de video para cargar capas en GPU, forzando el
+            cómputo a CPU, que es significativamente más lento.
+        </p>
+
+        <!-- ===================== PASO 1: CLONAR ===================== -->
+        <h2 style="text-align: center">
+            🛠️ Paso 1 — Clonar el repositorio de Llama.cpp
+        </h2>
+        <p>
+            El primer paso consiste en obtener el código fuente oficial de
+            <code>llama.cpp</code> desde su repositorio. Desde el directorio
+            raíz del proyecto ejecuta:
+        </p>
+
+        <pre><code style="color: green;">mkdir -p vendor
+cd vendor
+git clone https://github.com/ggml-org/llama.cpp.git
+cd llama.cpp</code></pre>
+
+        <p>
+            Esto crea el directorio <code>vendor/</code> si aún no existe,
+            clona todos los archivos fuente dentro de
+            <code>vendor/llama.cpp/</code> y te posiciona dentro del
+            repositorio, listo para compilar.
+        </p>
+
+        <!-- ===================== PASO 2: COMPILAR ===================== -->
+        <h2 style="text-align: center">
+            ⚙️ Paso 2 — Compilar Llama.cpp
+        </h2>
+        <p>
+            Una vez dentro del repositorio, compila los binarios necesarios,
+            incluyendo <code>llama-server</code>. En macOS o Linux, la forma
+            recomendada es usar <code>cmake</code>:
+        </p>
+
+        <pre><code style="color: green;">cmake -B build
+cmake --build build --config Release -j</code></pre>
+
+        <p>
+            Si la compilación termina correctamente, los ejecutables quedarán
+            disponibles dentro del directorio <code>build/bin/</code>. Puedes
+            verificar que el servidor de inferencia <code>llama-server</code>
+            haya sido generado con:
+        </p>
+
+        <pre><code style="color: green;">ls -l build/bin/llama-server</code></pre>
+
+        <p>
+            En algunas versiones o entornos también es posible compilar usando
+            <code>make</code>, pero <code>cmake</code> es el método más estable
+            y actualizado para asegurar que todos los binarios queden
+            disponibles correctamente.
+        </p>
+
+        <!-- ===================== PASO 3: DESCARGAR MODELO ===================== -->
+        <h2 style="text-align: center">
+            💡 Paso 3 — Descargar el Modelo (Gemma 4)
+        </h2>
+        <p>
+            El modelo se obtiene desde Hugging Face utilizando la CLI oficial.
+            Asegúrate de tener instalado el paquete
+            <code>huggingface_hub</code> y haber iniciado sesión con tu token si
+            el modelo requiere aceptación de licencia:
+        </p>
+
+        <pre><code style="color: green;">pip install huggingface_hub
+huggingface-cli login    # Solo si el modelo es privado o requiere aceptar términos</code></pre>
+
+        <p>
+            Luego descarga el modelo a la carpeta local de modelos del proyecto:
+        </p>
+
+        <pre><code style="color: green;">huggingface-cli download google/gemma-4-E4B-it \
+    --local-dir ./vendor/llama.cpp/models/gemma-4-E4B-it</code></pre>
+
+        <p>
+            El flag <code>--local-dir</code> indica la ruta de destino donde se
+            guardarán todos los archivos del modelo (pesos, tokenizer,
+            configuración). Al descargarlo directamente dentro de la carpeta
+            <code>models/</code> de llama.cpp, el servidor lo encontrará sin
+            necesidad de rutas absolutas.
+        </p>
+
+        <div class="note-box">
+            <strong>Nota:</strong> La descarga puede tardar varios minutos
+            dependiendo del ancho de banda. El modelo Gemma 4 E4B pesa
+            aproximadamente 8–10 GB en formato cuantizado. Verifica que el disco
+            tenga espacio suficiente antes de iniciar.
+        </div>
+
+        <!-- ===================== PASO 4: SERVIDOR ===================== -->
+        <h2 style="text-align: center">
+            💻 Paso 4 — Ejecutar el Servidor de Inferencia (Remote Server)
+        </h2>
+        <p>
+            Una vez compilado llama.cpp y descargado el modelo, se levanta el
+            servidor HTTP de inferencia con el siguiente comando desde el
+            directorio raíz del proyecto:
+        </p>
+
+        <pre><code style="color: green;">./vendor/llama.cpp/build/bin/llama-server \
+    -m vendor/llama.cpp/models/gemma-4-E4B-it \
+    -c 65536 \
+    --port 1234 \
+    -t 8 \
+    --host 0.0.0.0</code></pre>
+
+        <p>Descripción detallada de cada parámetro:</p>
+        <ul>
+            <li>
+                <code>-m models/gemma-4-E4B-it</code> — Ruta al directorio del
+                modelo descargado. Llama.cpp detecta automáticamente el archivo
+                GGUF principal dentro de la carpeta.
+            </li>
+            <li>
+                <code>-c 65536</code> —
+                <strong>Tamaño de la ventana de contexto en tokens</strong>. El
+                modelo Gemma 4 soporta hasta
+                <strong>131,072 tokens (131K) como máximo</strong>; sin embargo,
+                en esta prueba se utilizó <code>65536</code> (64K) como valor de
+                trabajo estable dado el límite de 32 GB de RAM de la Alienware
+                x16 R2. Cargar el contexto máximo de 131K requiere
+                significativamente más memoria; ajusta este valor según los
+                recursos disponibles de tu servidor.
+            </li>
+            <li>
+                <code>--port 1234</code> — Puerto en el que el servidor escucha
+                las peticiones HTTP. El config.json de OpenClaw apunta a este
+                puerto en el Remote Server.
+            </li>
+            <li>
+                <code>-t 8</code> — Número de hilos de CPU asignados para la
+                inferencia. Ajusta este valor según los núcleos físicos
+                disponibles en el servidor. Un valor muy alto puede causar
+                contención; generalmente núcleos_físicos - 2 es un buen punto de
+                partida.
+            </li>
+            <li>
+                <code>--host 0.0.0.0</code> — Hace que el servidor escuche en
+                todas las interfaces de red, permitiendo que otros equipos de la
+                LAN (como la máquina cliente que corre OpenClaw) accedan al
+                Remote Server en el puerto 1234.
+            </li>
+        </ul>
+
+        <p>
+            Cuando el servidor esté listo, verás en la terminal un mensaje
+            similar a:
+            <code>llama server listening at http://0.0.0.0:1234</code>. Desde
+            ese momento el endpoint <code>/v1/chat/completions</code> estará
+            disponible en la red local.
+        </p>
+
+        <div class="note-box">
+            <strong>Nota:</strong> Se recomienda correr el servidor en una
+            sesión <code>tmux</code> o <code>screen</code> para que persista si
+            se cierra la terminal SSH. Ejemplo:
+            <code>tmux new -s llm-server</code> y luego ejecuta el comando
+            dentro de esa sesión.
+        </div>
+
+        <!-- ===================== PASO 5: CONFIG.JSON ===================== -->
+        <h2 style="text-align: center">
+            ⚙️ Paso 5 — Configuración de Agentes y Modelos (config.json)
+        </h2>
+        <p>
+            Esta configuración garantiza que OpenClaw use exclusivamente los
+            recursos locales del Remote Server, desactivando cualquier salida a
+            la nube y estableciendo el contexto en 64K. A continuación se
+            describe cada sección relevante:
+        </p>
+
+        <p>
+            <strong
+                >Ubicación del archivo config.json según sistema
+                operativo:</strong
+            >
+        </p>
+        <ul>
+            <li>
+                <strong>macOS:</strong>
+                <code>/Users/tu-usuario/.openclaw/config.json</code>
+            </li>
+            <li>
+                <strong>Linux:</strong>
+                <code>/home/tu-usuario/.openclaw/config.json</code>
+            </li>
+            <li>
+                <strong>Windows:</strong>
+                <code>C:\Users\tu-usuario\.openclaw\config.json</code>
+            </li>
+        </ul>
+        <p>
+            Si el directorio <code>.openclaw</code> no existe, créalo
+            manualmente y coloca el archivo <code>config.json</code> dentro.
+            OpenClaw lo detectará automáticamente al arrancar.
+        </p>
+
+        <ul>
+            <li>
+                <strong>models.providers.custom-llama</strong> — Define un
+                proveedor personalizado con API compatible con OpenAI (<code
+                    >"api": "openai-responses"</code
+                >), apuntando al Remote Server en el puerto 1234. La
+                <code>apiKey</code> es un valor local ficticio requerido por el
+                cliente pero ignorado por llama.cpp.
+            </li>
+            <li>
+                <strong>models[].contextWindow</strong> — Debe coincidir con el
+                valor <code>-c</code> usado al lanzar el servidor. Para Gemma 4
+                se declara <code>131072</code> (capacidad máxima del modelo),
+                aunque el servidor se inicia con 65536 por limitación de RAM.
+                Para Llama 3 se usa <code>16384</code>.
+            </li>
+            <li>
+                <strong>agents.defaults.model.primary</strong> — Establece
+                <code>custom-llama/google/gemma-4-e4b</code> como modelo
+                principal de todos los agentes, sin fallbacks a la nube.
+            </li>
+            <li>
+                <strong>agents.defaults.compaction.mode: "safeguard"</strong> —
+                Cuando el contexto se acerca al límite, OpenClaw compacta el
+                historial de forma conservadora para no perder información
+                crítica en medio de una tarea.
+            </li>
+            <li>
+                <strong>agents.defaults.maxConcurrent: 1</strong> — Solo un
+                agente principal corre a la vez, evitando saturar el servidor
+                local con múltiples inferencias simultáneas.
+            </li>
+            <li>
+                <strong>agents.defaults.subagents.maxConcurrent: 2</strong> —
+                Los subagentes (tareas paralelas internas) pueden correr hasta 2
+                en simultáneo, balanceando rendimiento y carga del servidor.
+            </li>
+            <li>
+                <strong>channels.gateway</strong> — Expone OpenClaw en el puerto
+                <code>18790</code> en modo LAN, protegido por token Bearer. El
+                <code>allowedOrigins</code> lista las URLs autorizadas para el
+                panel de control web.
+            </li>
+            <li>
+                <strong>plugins.openai / plugins.google: enabled: false</strong>
+                — Deshabilita explícitamente los proveedores de nube, forzando
+                todo el tráfico al servidor local.
+            </li>
+            <li>
+                <strong>hooks.internal.self-improvement: enabled: true</strong>
+                — Activa el hook interno de auto-mejora de OpenClaw, que permite
+                al agente refinar sus propias instrucciones a lo largo del
+                tiempo.
+            </li>
+        </ul>
+
+        <pre><code class="language-json">{
+ "meta": {
+  "lastTouchedVersion": "2026.4.15",
+  "lastTouchedAt": "2026-04-18T08:44:06.575Z"
+ },
+ "wizard": {
+  "lastRunAt": "2026-04-16T01:40:30.108Z",
+  "lastRunVersion": "2026.4.12",
+  "lastRunCommand": "onboard",
+  "lastRunMode": "local"
+ },
+ "auth": {
+  "profiles": {}
+ },
+ "models": {
+  "mode": "merge",
+  "providers": {
+   "custom-llama": {
+    "api": "openai-responses",
+    "baseUrl": "http://10.0.0.25:1234/v1",
+    "apiKey": "sk-local-dev",
+    "models": [
+     {
+      "id": "google/gemma-4-e4b",
+      "name": "Gemma 4 Local",
+      "contextWindow": 131072
+     },
+     {
+      "id": "llama-3-8b-instruct.Q4_K_M.gguf",
+      "name": "Llama 3 Local",
+      "contextWindow": 16384
+     }
+    ]
+   }
+  }
+ },
+ "agents": {
+  "defaults": {
+   "model": {
+    "primary": "custom-llama/google/gemma-4-e4b",
+    "fallbacks": []
+   },
+   "models": {
+    "custom-llama/google/gemma-4-e4b": {
+     "alias": "gemma-local"
+    },
+    "custom-llama/llama-3-8b-instruct.Q4_K_M.gguf": {
+     "alias": "llama-local"
+    }
+   },
+   "workspace": "/Users/lastprophet/.openclaw/workspace",
+   "compaction": {
+    "mode": "safeguard"
+   },
+   "maxConcurrent": 1,
+   "subagents": {
+    "maxConcurrent": 2
+   }
+  }
+ },
+ "messages": {
+  "ackReactionScope": "group-mentions"
+ },
+ "commands": {
+  "native": "auto",
+  "nativeSkills": "auto",
+  "restart": true,
+  "ownerDisplay": "raw"
+ },
+ "hooks": {
+  "internal": {
+   "enabled": true,
+   "entries": {
+    "self-improvement": {
+     "enabled": true
+    }
+   }
+  }
+ },
+ "channels": {
+  "telegram": {
+   "enabled": false,
+   "dmPolicy": "pairing",
+   "botToken": "YOUR_BOT_TOKEN_HERE",
+   "groupPolicy": "disabled",
+   "streaming": {
+    "mode": "partial"
+   }
+  },
+  "gateway": {
+   "port": 18790,
+   "mode": "local",
+   "auth": {
+    "mode": "token",
+    "token": "5f17cdd36177a700a60cf17454dc8c29a83a7fb644e5df29"
+   },
+   "remote": {
+    "token": "5f17cdd36177a700a60cf17454dc8c29a83a7fb644e5df29"
+   },
+   "bind": "lan",
+   "tailscale": {
+    "mode": "off",
+    "resetOnExit": false
+   },
+   "controlUi": {
+    "allowInsecureAuth": true,
+    "allowedOrigins": [
+     "http://localhost:18790",
+     "http://127.0.0.1:18790",
+     "http://10.0.0.25:18790"
+    ]
+   }
+  }
+ },
+ "plugins": {
+  "entries": {
+   "openai": { "enabled": false },
+   "google": { "enabled": false }
+  }
+ },
+ "session": {
+  "dmScope": "per-channel-peer"
+ },
+ "tools": {
+  "profile": "coding"
+ },
+ "secrets": {
+  "providers": {}
+ }
+}
+</code></pre>
+
+        <!-- ===================== PASO 6: OPENCLAW ===================== -->
+        <h2 style="text-align: center">
+            🚀 Paso 6 — Ejecutar OpenClaw con esta Configuración
+        </h2>
+        <p>
+            Con el servidor de inferencia corriendo en el Remote Server y el
+            <code>config.json</code> listo, el último paso es arrancar OpenClaw
+            apuntando a esa configuración. OpenClaw lee su configuración desde
+            el directorio <code>~/.openclaw/</code> por defecto.
+        </p>
+
+        <p>
+            <strong
+                >1. Verificar que el Remote Server responde antes de arrancar
+                OpenClaw:</strong
+            >
+        </p>
+        <pre><code style="color: green;">curl http://127.0.0.1:1234/v1/models</code></pre>
+        <p>
+            Deberías ver un JSON con la lista de modelos cargados. Si hay error
+            de conexión, revisa que el servidor esté corriendo y que el firewall
+            permita el puerto 1234 desde la red local.
+        </p>
+
+        <p><strong>2. Iniciar OpenClaw:</strong></p>
+        <pre><code style="color: green;">openclaw gateway</code></pre>
+
+        <p>
+            OpenClaw leerá el <code>config.json</code>, registrará el proveedor
+            <code>custom-llama</code> y establecerá
+            <code>gemma-local</code> como modelo activo. En el log de arranque
+            deberías ver algo como:
+        </p>
+        <pre><code style="color: #555;">[INFO] Provider registered: custom-llama → http://10.0.0.25:1234/v1
+[INFO] Default agent model: custom-llama/google/gemma-4-e4b (gemma-local)
+[INFO] Gateway listening on :18790 (LAN)</code></pre>
+
+        <p><strong>3. Acceder al panel de control web:</strong></p>
+        <p>
+            Abre en el navegador la siguiente URL desde cualquier equipo en la
+            red local:
+        </p>
+        <pre><code style="color: green;">http://127.0.0.1:18790</code></pre>
+        <p>
+            Ingresa el token de autenticación definido en el
+            <code>config.json</code> cuando se solicite. Desde el panel podrás
+            gestionar agentes, lanzar tareas y monitorear el uso del contexto en
+            tiempo real.
+        </p>
+
+        <div class="note-box">
+            <strong>Tip:</strong> Para verificar que los agentes están usando el
+            modelo local y no intentando conectar a la nube, revisa la sección
+            <em>Models</em> del panel. El indicador de provider debe mostrar
+            <code>custom-llama</code> y el status del servidor debe aparecer en
+            verde.
+        </div>
+
+        <hr />
+        <em style="text-align: center"
+            >*Autor: Aníbal Gómez - anibal@librixsoft.com*</em
+        >
+    </body>
+</html>
