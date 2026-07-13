@@ -5,7 +5,6 @@ import com.boris.librixsoft.config.BorisProperties;
 import com.boris.librixsoft.dto.ApiResponse;
 import com.boris.librixsoft.dto.ChatMessageResponse;
 import com.boris.librixsoft.dto.TokenInfo;
-import com.boris.librixsoft.level2.application.agent.tools.ReadFileTool;
 import com.boris.librixsoft.level4.wrapper.llama.BorisLLamaServer;
 import com.boris.librixsoft.level4.wrapper.llama.LlamaChatService;
 import lombok.RequiredArgsConstructor;
@@ -23,11 +22,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RequiredArgsConstructor
 public class ModelService {
 
-    private static final String DEFAULT_SYSTEM_PROMPT = LlamaChatService.SYSTEM_PROMPT;
-
     private final LlamaChatService llamaChatService;
     private final BorisLLamaServer borisLLamaServer;
     private final ConversationHistoryService conversationHistoryService;
+    private final SkillService skillService;
 
     public ApiResponse<Map<String, Object>> executeFlow(String instruction,
                                                         AtomicBoolean cancellationRequested,
@@ -35,17 +33,19 @@ public class ModelService {
         try {
             BorisProperties.ModelConfig cfg = resolveModelConfig();
             List<Message> history = conversationHistoryService.getHistoryAsAiMessages(sessionId);
+            String systemPrompt = skillService.getSystemPrompt();
             String modelResponse = llamaChatService.executePromptWithTools(
-                cfg.getId(), DEFAULT_SYSTEM_PROMPT, instruction, cfg.getTemperature(), null, cancellationRequested, cfg.getMaxTokens(), history);
+                cfg.getId(), systemPrompt, instruction, cfg.getTemperature(), null, cancellationRequested, cfg.getMaxTokens(), history);
 
             conversationHistoryService.appendUserMessage(sessionId, instruction);
             conversationHistoryService.appendAssistantMessage(sessionId, modelResponse);
 
             TokenInfo tokens = llamaChatService.getTokenInfo();
             return ApiResponse.ok(modelResponse, Map.of(
-                "type", "direct",
+                "type", "skills",
                 "result", modelResponse,
                 "sessionId", sessionId,
+                "skillsDir", skillService.getSkillsDirectory().toString(),
                 "tokens", tokens != null ? tokens : Map.of()
             ));
         } catch (Exception e) {
@@ -91,10 +91,11 @@ public class ModelService {
             return Flux.empty();
         }
 
+        String systemPrompt = skillService.getSystemPrompt();
         StringBuilder turnResponse = new StringBuilder();
 
         return llamaChatService.streamPrompt(
-                cfg.getId(), DEFAULT_SYSTEM_PROMPT, currentInput, cfg.getTemperature(),
+                cfg.getId(), systemPrompt, currentInput, cfg.getTemperature(),
                 cancellationRequested, localHistory, cfg.getMaxTokens()
         ).map(response -> {
             String text = response.getResults() != null && !response.getResults().isEmpty()
@@ -119,7 +120,7 @@ public class ModelService {
             }
 
             if (!toolResults.equals(fullResponse)) {
-                log.info("🛠️ [JNA STREAM TOOL CALL] Turno {}: Herramientas ejecutadas", turn);
+                log.info("🛠️ [JNA STREAM TOOL CALL] Turno {}: Herramientas ejecutadas (skills)", turn);
 
                 localHistory.add(new com.boris.librixsoft.ai.UserMessage(currentInput));
                 localHistory.add(new com.boris.librixsoft.ai.AssistantMessage(fullResponse));
@@ -127,19 +128,17 @@ public class ModelService {
                 String toolSummary = toolResults.length() > 500 ? toolResults.substring(0, 500) + "..." : toolResults;
                 localHistory.add(new com.boris.librixsoft.ai.UserMessage("[Resultado de herramienta]:\n" + toolSummary));
 
-                // Guardar el bloque JSON y el resultado de la herramienta en la base de datos para que persistan en el chat
                 conversationHistoryService.appendAssistantMessage(normalizedSessionId, fullResponse);
 
                 String toolFeedbackText = "\n\n🛠️ *[Backend: Herramienta ejecutada]*\n```\n" + toolSummary + "\n```\n\n";
                 conversationHistoryService.appendUserMessage(normalizedSessionId, toolFeedbackText);
 
-                // Emitir feedback visual de ejecución de herramienta al frontend
                 ChatMessageResponse toolFeedback = new ChatMessageResponse(
                         null, "success", null, toolFeedbackText
                 );
 
                 String nextInput = "[TOOL_RESULT]\n" + toolResults.trim() + "\n[/TOOL_RESULT]\n" +
-                                   "Tarea completada. ¿Necesitas realizar alguna otra acción en los archivos leídos o ejecutar comandos?";
+                                   "Tarea completada. ¿Necesitas realizar alguna otra acción con las skills disponibles?";
 
                 return Flux.just(toolFeedback)
                         .concatWith(streamFlowAgent(nextInput, localHistory, turn + 1, maxTurns, cfg, cancellationRequested, normalizedSessionId));

@@ -43,7 +43,7 @@ class LlamaChatServiceJsonExtractionTest {
     }
 
     private static String extractJson(String response) throws Exception {
-        LlamaChatService service = new LlamaChatService(null, null, null, null, null, null, null, null);
+        LlamaChatService service = new LlamaChatService(null, null, null, null);
         Method method = LlamaChatService.class.getDeclaredMethod("extractJsonFromResponse", String.class);
         method.setAccessible(true);
         return (String) method.invoke(service, response);

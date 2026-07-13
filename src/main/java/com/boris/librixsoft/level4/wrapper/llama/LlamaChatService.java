@@ -2,7 +2,8 @@ package com.boris.librixsoft.level4.wrapper.llama;
 
 import com.boris.librixsoft.ai.*;
 import com.boris.librixsoft.exception.LlamaModelException;
-import com.boris.librixsoft.level2.application.agent.tools.*;
+import com.boris.librixsoft.level3.domain.service.SkillExecutor;
+import com.boris.librixsoft.level3.domain.service.SkillService;
 import com.boris.librixsoft.dto.TokenInfo;
 import com.boris.librixsoft.level5.nativeCpp.jna.LlamaInstance;
 import com.boris.librixsoft.level5.nativeCpp.jna.LlamaLibrary;
@@ -23,7 +24,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
@@ -39,12 +43,8 @@ public class LlamaChatService implements ChatModel, StreamingChatModel {
             .enable(com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature())
             .enable(com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_SINGLE_QUOTES.mappedFeature());
 
-    private final CreateFileTool createFileTool;
-    private final ReadFileTool readFileTool;
-    private final EditFileTool editFileTool;
-    private final DeleteFileTool deleteFileTool;
-    private final DeleteFolderTool deleteFolderTool;
-    private final RunCommandTool runCommandTool;
+    private final SkillService skillService;
+    private final SkillExecutor skillExecutor;
 
     private final AtomicReference<LlamaInstance> activeInstance = new AtomicReference<>();
     private final ReentrantLock generateLock = new ReentrantLock();
@@ -63,22 +63,22 @@ public class LlamaChatService implements ChatModel, StreamingChatModel {
     public static final String SYSTEM_PROMPT = loadSystemPrompt();
 
     private static String loadSystemPrompt() {
-        try (java.io.InputStream is = LlamaChatService.class.getClassLoader().getResourceAsStream("prompts/system_prompt.md")) {
+        try (java.io.InputStream is = LlamaChatService.class.getClassLoader().getResourceAsStream("prompts/AGENT.md")) {
             if (is == null) {
                 throw new com.boris.librixsoft.exception.PromptLoadException(
-                        "Required system prompt resource 'prompts/system_prompt.md' not found in classpath.");
+                        "Required system prompt resource 'prompts/AGENT.md' not found in classpath.");
             }
             String prompt = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).trim();
             if (prompt.isEmpty()) {
                 throw new com.boris.librixsoft.exception.PromptLoadException(
-                        "Required system prompt resource 'prompts/system_prompt.md' is empty.");
+                        "Required system prompt resource 'prompts/AGENT.md' is empty.");
             }
             return prompt;
         } catch (com.boris.librixsoft.exception.PromptLoadException e) {
             throw e;
         } catch (Exception e) {
             throw new com.boris.librixsoft.exception.PromptLoadException(
-                    "Error loading system prompt resource 'prompts/system_prompt.md'.", e);
+                    "Error loading system prompt resource 'prompts/AGENT.md'.", e);
         }
     }
 
@@ -368,53 +368,26 @@ public class LlamaChatService implements ChatModel, StreamingChatModel {
                         log.info("🛑 Tool execution cancelled before running next tool.");
                         break;
                     }
-                    String toolName = action.path("tool").asText("");
-                    JsonNode args = action.path("args");
+                    String skillOrToolName = action.path("tool").asText("");
+                    Map<String, String> args = jsonArgsToMap(action.path("args"));
 
-                    String result = "";
+                    if (!skillExecutor.canExecute(skillOrToolName)) {
+                        log.warn("⚠️ [TOOL SKIP] Skill desconocida o sin command: '{}' (skills: {})",
+                                skillOrToolName, skillService.getSkills().keySet());
+                        continue;
+                    }
+
+                    String result;
                     try {
-                        switch (toolName) {
-                            case "createFile" -> {
-                                String path = args.path("path").asText("");
-                                String content = args.path("content").asText("");
-                                if (!path.isBlank()) result = createFileTool.call(path, content);
-                            }
-                            case "readFile" -> {
-                                String path = args.path("path").asText("");
-                                if (!path.isBlank()) result = readFileTool.call(path);
-                            }
-                            case "editFile" -> {
-                                String path = args.path("path").asText("");
-                                String oldContent = args.path("oldContent").asText(null);
-                                String newContent = args.path("newContent").asText("");
-                                if (!path.isBlank()) result = editFileTool.call(path, oldContent, newContent);
-                            }
-                            case "deleteFile" -> {
-                                String path = args.path("path").asText("");
-                                if (!path.isBlank()) result = deleteFileTool.call(path);
-                            }
-                            case "deleteFolder" -> {
-                                String path = args.path("path").asText("");
-                                if (!path.isBlank()) result = deleteFolderTool.call(path);
-                            }
-                            case "runCommand" -> {
-                                String command = args.path("command").asText("");
-                                String workingDir = args.path("workingDirectory").asText("");
-                                if (!command.isBlank()) result = runCommandTool.call(command, workingDir);
-                            }
-                            default -> {
-                                log.warn("⚠️ [TOOL SKIP] Herramienta desconocida: {}", toolName);
-                                continue;
-                            }
-                        }
+                        result = skillExecutor.execute(skillOrToolName, args);
                         found = true;
                     } catch (Exception e) {
-                        result = "Error ejecutando herramienta " + toolName + ": " + e.getMessage();
+                        result = "Error ejecutando herramienta " + skillOrToolName + ": " + e.getMessage();
                         found = true;
                     }
 
-                    log.info("⚙️ [TOOL EXECUTION] {}: {}", toolName, result);
-                    toolResults.append("[tool:").append(toolName).append("] Result: ").append(result).append("\n");
+                    log.info("⚙️ [TOOL EXECUTION] {}: {}", skillOrToolName, result);
+                    toolResults.append("[tool:").append(skillOrToolName).append("] Result: ").append(result).append("\n");
                 }
             }
         } catch (Exception e) {
@@ -442,7 +415,7 @@ public class LlamaChatService implements ChatModel, StreamingChatModel {
                 log.info("🛑 Legacy tool execution cancelled before running next tool.");
                 break;
             }
-            String toolName = matcher.group(1);
+            String skillOrToolName = matcher.group(1);
             String argsStr = matcher.group(2);
 
             List<String> args = parseLegacyArgs(argsStr);
@@ -453,46 +426,44 @@ public class LlamaChatService implements ChatModel, StreamingChatModel {
                 }
             }
 
-            String result = "";
+            if (!skillExecutor.canExecute(skillOrToolName)) {
+                continue;
+            }
+
+            String result;
             try {
-                switch (toolName) {
-                    case "createFile" -> {
-                        if (args.size() >= 2) result = createFileTool.call(args.get(0), args.get(1));
-                    }
-                    case "readFile" -> {
-                        if (args.size() >= 1) result = readFileTool.call(args.get(0));
-                    }
-                    case "editFile" -> {
-                        if (args.size() >= 3) {
-                            result = editFileTool.call(args.get(0), args.get(1), args.get(2));
-                        } else if (args.size() == 2) {
-                            result = editFileTool.call(args.get(0), null, args.get(1));
-                        }
-                    }
-                    case "deleteFile" -> {
-                        if (args.size() >= 1) result = deleteFileTool.call(args.get(0));
-                    }
-                    case "deleteFolder" -> {
-                        if (args.size() >= 1) result = deleteFolderTool.call(args.get(0));
-                    }
-                    case "runCommand" -> {
-                        if (args.size() >= 2) result = runCommandTool.call(args.get(0), args.get(1));
-                    }
-                    default -> {
-                        continue;
-                    }
-                }
+                result = skillExecutor.executeLegacy(skillOrToolName, args);
                 found = true;
             } catch (Exception e) {
-                result = "Error ejecutando herramienta " + toolName + ": " + e.getMessage();
+                result = "Error ejecutando herramienta " + skillOrToolName + ": " + e.getMessage();
                 found = true;
             }
 
-            log.info("⚙️ [TOOL EXECUTION] {}: {}", toolName, result);
-            toolResults.append("[tool:").append(toolName).append("] Result: ").append(result).append("\n");
+            log.info("⚙️ [TOOL EXECUTION] {}: {}", skillOrToolName, result);
+            toolResults.append("[tool:").append(skillOrToolName).append("] Result: ").append(result).append("\n");
         }
 
         return found ? toolResults.toString() : response;
+    }
+
+    private static Map<String, String> jsonArgsToMap(JsonNode args) {
+        Map<String, String> map = new LinkedHashMap<>();
+        if (args == null || args.isNull() || !args.isObject()) {
+            return map;
+        }
+        Iterator<Map.Entry<String, JsonNode>> fields = args.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> entry = fields.next();
+            JsonNode value = entry.getValue();
+            if (value == null || value.isNull()) {
+                map.put(entry.getKey(), null);
+            } else if (value.isTextual()) {
+                map.put(entry.getKey(), value.asText());
+            } else {
+                map.put(entry.getKey(), value.toString());
+            }
+        }
+        return map;
     }
 
     private List<String> parseLegacyArgs(String argsStr) {
