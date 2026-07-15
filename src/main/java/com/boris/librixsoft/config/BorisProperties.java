@@ -35,6 +35,17 @@ public class BorisProperties {
     /** Propiedad: boris.preload-models. Lista de modelos (ej. con .gguf) a precargar en memoria al arrancar. */
     private List<ModelConfig> preloadModels = new ArrayList<>();
 
+    /** Configuración del grupo de contextos que colaboran en una misma tarea. */
+    private Orchestration orchestration = new Orchestration();
+
+    @Data
+    public static class Orchestration {
+        /** Activa la planificación, revisión y síntesis con varios contextos. */
+        private boolean enabled = true;
+        /** Incluye el contexto principal: 4 = principal + 3 workers auxiliares. */
+        private int workers = 4;
+    }
+
     @Data
     public static class ModelConfig {
         private String id;
@@ -164,5 +175,4 @@ public class BorisProperties {
         private String ui;
     }
 }
-
 

@@ -14,6 +14,7 @@ public class LlamaModelUnloader {
 
     private final LlamaServerState serverState;
     private final LlamaChatService llamaChatService;
+    private final LlamaWorkerPool workerPool;
 
     public void unloadModel(String modelName) throws IOException {
         log.info("[*] Native model unload requested for: {}.", modelName);
@@ -29,6 +30,7 @@ public class LlamaModelUnloader {
         if (matchesActiveId || matchesDefaultPath) {
             log.info("📤 Unloading active model: {}", modelName);
             if (defaultInstance != null) {
+                workerPool.close();
                 defaultInstance.clearKvCache();
                 defaultInstance.close();
                 serverState.setDefaultInstance(null);
@@ -44,6 +46,7 @@ public class LlamaModelUnloader {
     public void forceUnloadAll() {
         log.info("🚨 [EXTREME CLEAN] Unloading all models and releasing all VRAM...");
         LlamaInstance defaultInstance = serverState.getDefaultInstance();
+        workerPool.close();
         if (defaultInstance != null) {
             defaultInstance.close();
             serverState.setDefaultInstance(null);

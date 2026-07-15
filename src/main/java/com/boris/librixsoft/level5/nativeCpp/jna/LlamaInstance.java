@@ -13,12 +13,19 @@ public class LlamaInstance implements AutoCloseable {
     private final Pointer context;
     @Getter
     private final String modelPath;
+    /** True únicamente para la instancia que es propietaria del llama_model*. */
+    private final boolean ownsModel;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public LlamaInstance(Pointer model, Pointer context, String modelPath) {
+        this(model, context, modelPath, true);
+    }
+
+    public LlamaInstance(Pointer model, Pointer context, String modelPath, boolean ownsModel) {
         this.model = model;
         this.context = context;
         this.modelPath = modelPath;
+        this.ownsModel = ownsModel;
     }
 
     public boolean isAlive() {
@@ -62,7 +69,7 @@ public class LlamaInstance implements AutoCloseable {
             if (context != null) {
                 LlamaLibrary.get().llama_free(context);
             }
-            if (model != null) {
+            if (ownsModel && model != null) {
                 LlamaLibrary.get().llama_model_free(model);
             }
             log.info("[✔] Native resources released.");

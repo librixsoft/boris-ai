@@ -4,6 +4,10 @@ boris:
   workspace-prefix: "/.boris/workspace"
   llama-server-core: "b9305"
   models-max: 4
+  orchestration:
+    enabled: true
+    # Total de agentes: el contexto principal + contextos auxiliares compartiendo los pesos.
+    workers: 4
 
   preload-models:
      - id: "qwen2.5-coder-1.5b-instruct-q3_k_m"

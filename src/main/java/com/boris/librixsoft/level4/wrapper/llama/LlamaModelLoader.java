@@ -19,6 +19,7 @@ public class LlamaModelLoader {
     private final BorisProperties properties;
     private final LlamaServerState serverState;
     private final LlamaChatService llamaChatService;
+    private final LlamaWorkerPool workerPool;
 
     private static final String GREEN  = "\u001B[32m";
     private static final String RESET  = "\u001B[0m";
@@ -34,6 +35,7 @@ public class LlamaModelLoader {
             log.info("📤 Unloading current model before loading new one: {}", serverState.getActiveModelId());
             System.out.println("🔄 [Loader] Unloading existing model...");
             // Desvincular primero del motor de inferencia para evitar uso concurrente
+            workerPool.close();
             this.llamaChatService.setActiveModel(null);
             System.out.println("🔄 [Loader] setActiveModel(null) done");
 
@@ -155,9 +157,12 @@ public class LlamaModelLoader {
             // para que no queden tokens sucios del modelo anterior
             System.out.println("🔄 [Loader] About to call llamaChatService.setActiveModel(instance)");
             this.llamaChatService.setActiveModel(instance);
+            int workerCount = Math.max(1, properties.getOrchestration().getWorkers());
+            workerPool.initialize(modelPtr, cparams, modelPath, workerCount - 1);
             System.out.println("✅ [Loader] setActiveModel(instance) done. Model loaded and active: " + id);
 
         } catch (Exception e) {
+            workerPool.close();
             log.error("[!] Failed to load model {}: {}", modelName, e.getMessage(), e);
             serverState.setDefaultInstance(null);
             serverState.setActiveModelId(null);
