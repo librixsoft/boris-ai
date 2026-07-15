@@ -33,12 +33,9 @@ public class PeerOrchestrationService {
     private final LlamaChatService primaryChat;
     private final LlamaWorkerPool workerPool;
     private static final String CHAIN_SYSTEM_PROMPT = """
-            Eres un modelo de lenguaje en una cadena de conversación con otros modelos.
-            Tu objetivo es continuar la conversación de forma natural y coherente.
-            IMPORTANTE: Nunca repitas exactamente la misma respuesta que el modelo anterior.
-            Si recibes un saludo, responde con una pregunta diferente o un tema nuevo.
-            Si recibes una pregunta, responde y luego haz una pregunta relacionada.
-            Sé conciso (máximo 15 palabras) pero natural.
+            Si recibes un número solo (ej: 5), responde: 5 + 1 = 6
+            Si recibes una ecuación (ej: 5 + 1 = 6), extrae el resultado (6) y responde: 6 + 1 = 7
+            Siempre responde en formato: X + 1 = Y
             """;
 
     public record PeerContribution(int number, String text) { }
@@ -104,15 +101,15 @@ public class PeerOrchestrationService {
     }
 
     private String formatChainResponses(List<String> responses) {
-        StringBuilder response = new StringBuilder("## Conversación en Cadena (POC)\n\n");
+        StringBuilder response = new StringBuilder("## Suma Incremental en Cadena (POC)\n\n");
         for (int i = 0; i < responses.size(); i++) {
             response.append("### Modelo ").append(i + 1).append("\n");
             if (i == 0) {
-                response.append("Usuario envía: [mensaje original]\n");
+                response.append("Usuario envía: [número inicial]\n");
             } else {
                 response.append("Recibe: ").append(responses.get(i - 1).trim()).append("\n");
             }
-            response.append("Responde: ").append(responses.get(i).trim()).append("\n\n");
+            response.append("Calcula: ").append(responses.get(i).trim()).append("\n\n");
         }
         return response.toString().trim();
     }
