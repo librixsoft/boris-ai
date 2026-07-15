@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +28,7 @@ public class ModelService {
     private final BorisLLamaServer borisLLamaServer;
     private final ConversationHistoryService conversationHistoryService;
     private final SkillService skillService;
+    private final PeerOrchestrationService peerOrchestrationService;
 
     public ApiResponse<Map<String, Object>> executeFlow(String instruction,
                                                         AtomicBoolean cancellationRequested,
@@ -33,16 +36,26 @@ public class ModelService {
         try {
             BorisProperties.ModelConfig cfg = resolveModelConfig();
             List<Message> history = conversationHistoryService.getHistoryAsAiMessages(sessionId);
-            String systemPrompt = skillService.getSystemPrompt();
-            String modelResponse = llamaChatService.executePromptWithTools(
-                cfg.getId(), systemPrompt, instruction, cfg.getTemperature(), null, cancellationRequested, cfg.getMaxTokens(), history);
+            String modelResponse;
+            String responseType;
+            if (peerOrchestrationService.isReady()) {
+                modelResponse = peerOrchestrationService.execute(cfg.getId(), instruction, cfg.getTemperature(),
+                        cfg.getMaxTokens(), history, cancellationRequested);
+                responseType = "peer-orchestration-poc";
+            } else {
+                String systemPrompt = skillService.getSystemPrompt();
+                modelResponse = llamaChatService.executePromptWithTools(
+                        cfg.getId(), systemPrompt, instruction, cfg.getTemperature(), null,
+                        cancellationRequested, cfg.getMaxTokens(), history);
+                responseType = "skills";
+            }
 
             conversationHistoryService.appendUserMessage(sessionId, instruction);
             conversationHistoryService.appendAssistantMessage(sessionId, modelResponse);
 
             TokenInfo tokens = llamaChatService.getTokenInfo();
             return ApiResponse.ok(modelResponse, Map.of(
-                "type", "skills",
+                "type", responseType,
                 "result", modelResponse,
                 "sessionId", sessionId,
                 "skillsDir", skillService.getSkillsDirectory().toString(),
@@ -60,6 +73,19 @@ public class ModelService {
         BorisProperties.ModelConfig cfg = resolveModelConfig();
         List<Message> history = conversationHistoryService.getHistoryAsAiMessages(sessionId);
         String normalizedSessionId = sessionId == null || sessionId.isBlank() ? "default-session" : sessionId;
+
+        // The browser uses SSE for every request. The POC emits one message only
+        // after the four peers have finished their simultaneous round.
+        if (peerOrchestrationService.isReady()) {
+            return Mono.fromCallable(() -> peerOrchestrationService.execute(cfg.getId(), instruction,
+                            cfg.getTemperature(), cfg.getMaxTokens(), history, cancellationRequested))
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .map(modelResponse -> {
+                        conversationHistoryService.appendUserMessage(normalizedSessionId, instruction);
+                        conversationHistoryService.appendAssistantMessage(normalizedSessionId, modelResponse);
+                        return new ChatMessageResponse(null, "success", null, modelResponse);
+                    }).flux();
+        }
 
         conversationHistoryService.appendUserMessage(normalizedSessionId, instruction);
 

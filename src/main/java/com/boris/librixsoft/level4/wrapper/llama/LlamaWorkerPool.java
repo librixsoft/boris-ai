@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -74,6 +75,37 @@ public class LlamaWorkerPool {
             worker = workers.get(Math.floorMod(nextWorker.getAndIncrement(), workers.size()));
         }
         return worker.chat().executePrompt(modelId, systemPrompt, instruction, temperature, cancelled, history, maxTokens);
+    }
+
+    /**
+     * Runs exactly one prompt per worker concurrently.  Unlike {@link #execute}, this
+     * method pins each prompt to a different context, which is required by the
+     * peer-orchestration flow.
+     */
+    public List<String> executeAll(String modelId, String systemPrompt, List<String> instructions,
+                                   Double temperature, Integer maxTokens, List<Message> history,
+                                   AtomicBoolean cancelled) {
+        List<Worker> assignedWorkers;
+        synchronized (this) {
+            if (workers.isEmpty()) {
+                throw new IllegalStateException("Auxiliary model contexts are not initialized");
+            }
+            if (instructions.size() != workers.size()) {
+                throw new IllegalArgumentException("Expected " + workers.size() + " peer prompts, got " + instructions.size());
+            }
+            assignedWorkers = new ArrayList<>(workers);
+        }
+
+        List<CompletableFuture<String>> results = new ArrayList<>();
+        for (int i = 0; i < assignedWorkers.size(); i++) {
+            Worker worker = assignedWorkers.get(i);
+            String instruction = instructions.get(i);
+            results.add(CompletableFuture.supplyAsync(() ->
+                    worker.chat().executePrompt(modelId, systemPrompt, instruction, temperature,
+                            cancelled, history, maxTokens)));
+        }
+        CompletableFuture.allOf(results.toArray(CompletableFuture[]::new)).join();
+        return results.stream().map(CompletableFuture::join).toList();
     }
 
     public synchronized void close() {
