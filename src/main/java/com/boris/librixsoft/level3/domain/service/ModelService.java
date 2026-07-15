@@ -39,7 +39,7 @@ public class ModelService {
             if (peerOrchestrationService.isReady()) {
                 modelResponse = peerOrchestrationService.execute(cfg.getId(), instruction, cfg.getTemperature(),
                         cfg.getMaxTokens(), history, cancellationRequested);
-                responseType = "peer-orchestration-poc";
+                responseType = "chain-orchestration-poc";
             } else {
                 String systemPrompt = skillService.getSystemPrompt();
                 modelResponse = llamaChatService.executePromptWithTools(
@@ -75,7 +75,7 @@ public class ModelService {
         // The browser uses SSE for every request. The POC emits one message only
         // per peer as soon as its short contribution is ready.
         if (peerOrchestrationService.isReady()) {
-            StringBuilder teamResponse = new StringBuilder("## Resultado del equipo (POC)\n\n");
+            StringBuilder teamResponse = new StringBuilder("## Conversación en Cadena (POC)\n\n");
             return peerOrchestrationService.stream(cfg.getId(), instruction, cfg.getTemperature(),
                             cfg.getMaxTokens(), history, cancellationRequested)
                     .doOnSubscribe(subscription -> conversationHistoryService.appendUserMessage(normalizedSessionId, instruction))

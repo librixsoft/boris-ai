@@ -18,40 +18,27 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 
 /**
- * First horizontal orchestration proof of concept.
+ * Chain orchestration proof of concept.
  *
- * The Java code only assigns and collects work.  It does not ask a model to
- * supervise, rank, or synthesize the other models: all peers return one
- * equally sized contribution and the response is assembled mechanically.
+ * The Java code implements a chain interaction where each model receives
+ * the output of the previous model as input, creating a conversation flow
+ * between the 4 models.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class PeerOrchestrationService {
 
-    private static final List<String> WORK_AREAS = List.of(
-            "Entiende el objetivo, requisitos y archivos o componentes que probablemente intervienen.",
-            "Propón una solución técnica concreta, con cambios pequeños y ordenados.",
-            "Busca riesgos, errores, seguridad, compatibilidad y casos límite.",
-            "Define cómo integrar y comprobar el resultado: pruebas, pasos manuales y criterios de aceptación.",
-            "Identifica dependencias, contratos entre módulos y el orden seguro de los cambios.",
-            "Evalúa rendimiento, consumo de recursos y alternativas más simples.",
-            "Revisa la experiencia de uso, mensajes de error y documentación necesaria.",
-            "Examina compatibilidad hacia atrás, migración de datos y despliegue.",
-            "Busca supuestos no comprobados y formula preguntas o verificaciones necesarias.",
-            "Propón criterios objetivos para considerar la tarea terminada.",
-            "Explora una solución alternativa y compara sus ventajas y desventajas.",
-            "Haz una revisión final independiente de coherencia y mantenibilidad."
-    );
-
     private final BorisProperties properties;
     private final LlamaChatService primaryChat;
     private final LlamaWorkerPool workerPool;
-    private static final String PEER_SYSTEM_PROMPT = """
-            Eres un integrante igual de un equipo. Responde únicamente a la parte asignada.
-            No uses herramientas, JSON, scripts, pasos genéricos ni explicaciones de relleno.
-            Responde con una sola frase concreta de máximo 25 palabras. Si tu parte no aporta,
-            responde exactamente: No aplica.
+    private static final String CHAIN_SYSTEM_PROMPT = """
+            Eres un modelo de lenguaje en una cadena de conversación con otros modelos.
+            Tu objetivo es continuar la conversación de forma natural y coherente.
+            IMPORTANTE: Nunca repitas exactamente la misma respuesta que el modelo anterior.
+            Si recibes un saludo, responde con una pregunta diferente o un tema nuevo.
+            Si recibes una pregunta, responde y luego haz una pregunta relacionada.
+            Sé conciso (máximo 15 palabras) pero natural.
             """;
 
     public record PeerContribution(int number, String text) { }
@@ -66,11 +53,11 @@ public class PeerOrchestrationService {
     public String execute(String modelId, String instruction, Double temperature, Integer maxTokens,
                           List<Message> history, AtomicBoolean cancelled) {
         if (!isReady()) {
-            throw new IllegalStateException("Peer orchestration requires the configured number of initialized contexts, but they are not ready");
+            throw new IllegalStateException("Chain orchestration requires the configured number of initialized contexts, but they are not ready");
         }
 
         int totalPeers = properties.getOrchestration().getWorkers();
-        List<String> contributions = stream(modelId, instruction, temperature, maxTokens, history, cancelled)
+        List<String> chainResponses = stream(modelId, instruction, temperature, maxTokens, history, cancelled)
                 .collectList()
                 .block()
                 .stream()
@@ -78,62 +65,59 @@ public class PeerOrchestrationService {
                 .map(PeerContribution::text)
                 .toList();
 
-        log.info("[PEER-ORCHESTRATION] {} equal peer contributions completed", totalPeers);
-        return formatContributions(contributions);
+        log.info("[CHAIN-ORCHESTRATION] {} chain responses completed", totalPeers);
+        return formatChainResponses(chainResponses);
     }
 
-    /** Emits one complete, short contribution as soon as that peer finishes. */
+    /** Emits chain responses where each model receives the previous model's output. */
     public Flux<PeerContribution> stream(String modelId, String instruction, Double temperature, Integer maxTokens,
                                          List<Message> history, AtomicBoolean cancelled) {
         if (!isReady()) {
-            return Flux.error(new IllegalStateException("Peer orchestration contexts are not ready"));
+            return Flux.error(new IllegalStateException("Chain orchestration contexts are not ready"));
         }
 
         int totalPeers = properties.getOrchestration().getWorkers();
-        int peerMaxTokens = maxTokens == null ? 48 : Math.min(maxTokens, 48);
-        List<String> prompts = IntStream.range(0, totalPeers)
-                .mapToObj(index -> peerPrompt(instruction, workAreaFor(index), index + 1, totalPeers))
-                .toList();
-
-        List<Mono<PeerContribution>> calls = new ArrayList<>();
-        calls.add(Mono.fromCallable(() -> primaryChat.executePrompt(modelId, PEER_SYSTEM_PROMPT, prompts.get(0),
-                        temperature, cancelled, List.of(), peerMaxTokens))
-                .subscribeOn(Schedulers.boundedElastic())
-                .map(text -> new PeerContribution(1, text)));
+        
+        // Build the chain sequentially
+        List<PeerContribution> contributions = new ArrayList<>();
+        String currentInput = instruction;
+        
+        // Model 1 (primary) receives the original instruction
+        log.info("[CHAIN-ORCHESTRATION] Modelo 1 recibe: {}", currentInput);
+        String response1 = primaryChat.executePrompt(modelId, CHAIN_SYSTEM_PROMPT, currentInput,
+                temperature, cancelled, List.of(), maxTokens);
+        log.info("[CHAIN-ORCHESTRATION] Modelo 1 responde: {}", response1);
+        contributions.add(new PeerContribution(1, response1));
+        
+        // Subsequent models receive the previous model's output
         for (int index = 1; index < totalPeers; index++) {
-            int peerIndex = index;
-            calls.add(Mono.fromCallable(() -> workerPool.executeOnWorker(peerIndex - 1, modelId,
-                            PEER_SYSTEM_PROMPT, prompts.get(peerIndex), temperature, peerMaxTokens,
-                            List.of(), cancelled))
-                    .subscribeOn(Schedulers.boundedElastic())
-                    .map(text -> new PeerContribution(peerIndex + 1, text)));
+            currentInput = response1; // Each model receives the previous response
+            log.info("[CHAIN-ORCHESTRATION] Modelo {} recibe: {}", index + 1, currentInput);
+            String response = workerPool.executeOnWorker(index - 1, modelId, CHAIN_SYSTEM_PROMPT, 
+                    currentInput, temperature, maxTokens, List.of(), cancelled);
+            log.info("[CHAIN-ORCHESTRATION] Modelo {} responde: {}", index + 1, response);
+            contributions.add(new PeerContribution(index + 1, response));
+            response1 = response; // Update for next iteration
         }
-        return Flux.merge(calls);
+        
+        return Flux.fromIterable(contributions);
     }
 
-    private String workAreaFor(int index) {
-        if (index < WORK_AREAS.size()) {
-            return WORK_AREAS.get(index);
-        }
-        return "Realiza una revisión independiente número " + (index + 1)
-                + ", enfocada en un ángulo no cubierto por las demás aportaciones.";
-    }
-
-    private String peerPrompt(String instruction, String workArea, int peerNumber, int totalPeers) {
-        return "Tarea: " + instruction + "\n"
-                + "Parte " + peerNumber + "/" + totalPeers + ": " + workArea;
-    }
-
-    private String formatContributions(List<String> contributions) {
-        StringBuilder response = new StringBuilder("## Resultado del equipo (POC)\n\n");
-        for (int i = 0; i < contributions.size(); i++) {
-            response.append("### Integrante ").append(i + 1).append("\n")
-                    .append(contributions.get(i).trim()).append("\n\n");
+    private String formatChainResponses(List<String> responses) {
+        StringBuilder response = new StringBuilder("## Conversación en Cadena (POC)\n\n");
+        for (int i = 0; i < responses.size(); i++) {
+            response.append("### Modelo ").append(i + 1).append("\n");
+            if (i == 0) {
+                response.append("Usuario envía: [mensaje original]\n");
+            } else {
+                response.append("Recibe: ").append(responses.get(i - 1).trim()).append("\n");
+            }
+            response.append("Responde: ").append(responses.get(i).trim()).append("\n\n");
         }
         return response.toString().trim();
     }
 
     public String formatContribution(PeerContribution contribution) {
-        return "### Integrante " + contribution.number() + "\n" + contribution.text().trim() + "\n\n";
+        return "### Modelo " + contribution.number() + "\n" + contribution.text().trim() + "\n\n";
     }
 }

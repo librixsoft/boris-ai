@@ -1,7 +1,7 @@
 # Tareas Pendientes (TODO)
 
 
-- [ ] Mensajes entre los N workers (4)
+- [x] Mensajes entre los N workers (4)
 
  1. Quitar la funcionalidad donde el programa intena delegar tareas
  entre los 4 workers esto no es funciona.
