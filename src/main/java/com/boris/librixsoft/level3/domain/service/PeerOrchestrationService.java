@@ -75,29 +75,40 @@ public class PeerOrchestrationService {
 
         int totalPeers = properties.getOrchestration().getWorkers();
         
-        // Build the chain sequentially
-        List<PeerContribution> contributions = new ArrayList<>();
-        String currentInput = instruction;
-        
-        // Model 1 (primary) receives the original instruction
-        log.info("[CHAIN-ORCHESTRATION] Modelo 1 recibe: {}", currentInput);
-        String response1 = primaryChat.executePrompt(modelId, CHAIN_SYSTEM_PROMPT, currentInput,
-                temperature, cancelled, List.of(), maxTokens);
-        log.info("[CHAIN-ORCHESTRATION] Modelo 1 responde: {}", response1);
-        contributions.add(new PeerContribution(1, response1));
-        
-        // Subsequent models receive the previous model's output
-        for (int index = 1; index < totalPeers; index++) {
-            currentInput = response1; // Each model receives the previous response
-            log.info("[CHAIN-ORCHESTRATION] Modelo {} recibe: {}", index + 1, currentInput);
-            String response = workerPool.executeOnWorker(index - 1, modelId, CHAIN_SYSTEM_PROMPT, 
-                    currentInput, temperature, maxTokens, List.of(), cancelled);
-            log.info("[CHAIN-ORCHESTRATION] Modelo {} responde: {}", index + 1, response);
-            contributions.add(new PeerContribution(index + 1, response));
-            response1 = response; // Update for next iteration
-        }
-        
-        return Flux.fromIterable(contributions);
+        // Create a sequential chain using Reactor
+        return Flux.defer(() -> {
+            String[] currentInput = {instruction};
+            
+            // Model 1 (primary) receives the original instruction
+            log.info("[CHAIN-ORCHESTRATION] Modelo 1 recibe: {}", currentInput[0]);
+            return Mono.fromCallable(() -> primaryChat.executePrompt(modelId, CHAIN_SYSTEM_PROMPT, currentInput[0],
+                            temperature, cancelled, List.of(), maxTokens))
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .doOnNext(response -> {
+                        log.info("[CHAIN-ORCHESTRATION] Modelo 1 responde: {}", response);
+                        currentInput[0] = response;
+                    })
+                    .map(response -> new PeerContribution(1, response))
+                    // Chain subsequent models
+                    .expand(contribution -> {
+                        int currentIndex = contribution.number();
+                        if (currentIndex >= totalPeers) {
+                            return Mono.empty();
+                        }
+                        
+                        int workerIndex = currentIndex - 1;
+                        log.info("[CHAIN-ORCHESTRATION] Modelo {} recibe: {}", currentIndex + 1, currentInput[0]);
+                        return Mono.fromCallable(() -> workerPool.executeOnWorker(workerIndex, modelId, CHAIN_SYSTEM_PROMPT,
+                                        currentInput[0], temperature, maxTokens, List.of(), cancelled))
+                                .subscribeOn(Schedulers.boundedElastic())
+                                .doOnNext(response -> {
+                                    log.info("[CHAIN-ORCHESTRATION] Modelo {} responde: {}", currentIndex + 1, response);
+                                    currentInput[0] = response;
+                                })
+                                .map(response -> new PeerContribution(currentIndex + 1, response));
+                    })
+                    .take(totalPeers);
+        });
     }
 
     private String formatChainResponses(List<String> responses) {
