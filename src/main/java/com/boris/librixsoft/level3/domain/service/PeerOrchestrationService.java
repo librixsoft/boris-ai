@@ -33,9 +33,8 @@ public class PeerOrchestrationService {
     private final LlamaChatService primaryChat;
     private final LlamaWorkerPool workerPool;
     private static final String CHAIN_SYSTEM_PROMPT = """
-            Si recibes un número solo (ej: 5), responde: 5 + 1 = 6
-            Si recibes una ecuación (ej: 5 + 1 = 6), extrae el resultado (6) y responde: 6 + 1 = 7
-            Siempre responde en formato: X + 1 = Y
+            Extrae el último número del texto y súmale 1. Responde: X + 1 = Y
+            Ejemplos: "5" → "5 + 1 = 6", "5 + 1 = 6" → "6 + 1 = 7"
             """;
 
     public record PeerContribution(int number, String text) { }
