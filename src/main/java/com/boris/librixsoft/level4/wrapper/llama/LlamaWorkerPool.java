@@ -77,6 +77,21 @@ public class LlamaWorkerPool {
         return worker.chat().executePrompt(modelId, systemPrompt, instruction, temperature, cancelled, history, maxTokens);
     }
 
+    /** Executes a prompt on one specific peer context. */
+    public String executeOnWorker(int workerIndex, String modelId, String systemPrompt, String instruction,
+                                  Double temperature, Integer maxTokens, List<Message> history,
+                                  AtomicBoolean cancelled) {
+        Worker worker;
+        synchronized (this) {
+            if (workerIndex < 0 || workerIndex >= workers.size()) {
+                throw new IllegalArgumentException("Unknown peer context: " + workerIndex);
+            }
+            worker = workers.get(workerIndex);
+        }
+        return worker.chat().executePrompt(modelId, systemPrompt, instruction, temperature,
+                cancelled, history, maxTokens);
+    }
+
     /**
      * Runs exactly one prompt per worker concurrently.  Unlike {@link #execute}, this
      * method pins each prompt to a different context, which is required by the

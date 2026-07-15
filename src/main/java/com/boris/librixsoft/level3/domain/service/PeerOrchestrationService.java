@@ -7,6 +7,9 @@ import com.boris.librixsoft.level4.wrapper.llama.LlamaWorkerPool;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +47,14 @@ public class PeerOrchestrationService {
     private final BorisProperties properties;
     private final LlamaChatService primaryChat;
     private final LlamaWorkerPool workerPool;
-    private final SkillService skillService;
+    private static final String PEER_SYSTEM_PROMPT = """
+            Eres un integrante igual de un equipo. Responde únicamente a la parte asignada.
+            No uses herramientas, JSON, scripts, pasos genéricos ni explicaciones de relleno.
+            Responde con una sola frase concreta de máximo 25 palabras. Si tu parte no aporta,
+            responde exactamente: No aplica.
+            """;
+
+    public record PeerContribution(int number, String text) { }
 
     public boolean isReady() {
         int totalPeers = properties.getOrchestration().getWorkers();
@@ -59,34 +69,46 @@ public class PeerOrchestrationService {
             throw new IllegalStateException("Peer orchestration requires the configured number of initialized contexts, but they are not ready");
         }
 
-        String peerSystemPrompt = skillService.getSystemPrompt() + "\n\n"
-                + "MODO EQUIPO HORIZONTAL: eres uno de varios pares. No eres jefe ni delegas. "
-                + "No ejecutes herramientas ni generes llamadas de herramientas. Entrega solamente tu análisis "
-                + "para que el backend lo comparta literalmente con el resto del equipo.\n"
-                + "BREVEDAD OBLIGATORIA: responde en un máximo de 3 viñetas y 120 tokens. "
-                + "Incluye solo datos directamente útiles para la tarea. No inventes archivos, scripts, "
-                + "riesgos, pruebas o pasos técnicos si la tarea no los requiere. Si tu parte no aplica, "
-                + "dilo en una sola frase breve.";
-        int peerMaxTokens = maxTokens == null ? 160 : Math.min(maxTokens, 160);
+        int totalPeers = properties.getOrchestration().getWorkers();
+        List<String> contributions = stream(modelId, instruction, temperature, maxTokens, history, cancelled)
+                .collectList()
+                .block()
+                .stream()
+                .sorted(java.util.Comparator.comparingInt(PeerContribution::number))
+                .map(PeerContribution::text)
+                .toList();
+
+        log.info("[PEER-ORCHESTRATION] {} equal peer contributions completed", totalPeers);
+        return formatContributions(contributions);
+    }
+
+    /** Emits one complete, short contribution as soon as that peer finishes. */
+    public Flux<PeerContribution> stream(String modelId, String instruction, Double temperature, Integer maxTokens,
+                                         List<Message> history, AtomicBoolean cancelled) {
+        if (!isReady()) {
+            return Flux.error(new IllegalStateException("Peer orchestration contexts are not ready"));
+        }
 
         int totalPeers = properties.getOrchestration().getWorkers();
+        int peerMaxTokens = maxTokens == null ? 48 : Math.min(maxTokens, 48);
         List<String> prompts = IntStream.range(0, totalPeers)
                 .mapToObj(index -> peerPrompt(instruction, workAreaFor(index), index + 1, totalPeers))
                 .toList();
 
-        // The first context is simply peer 1. It has no coordinating authority.
-        CompletableFuture<String> firstPeer = CompletableFuture.supplyAsync(() -> primaryChat.executePrompt(
-                modelId, peerSystemPrompt, prompts.get(0), temperature, cancelled, history, peerMaxTokens));
-        CompletableFuture<List<String>> remainingPeers = CompletableFuture.supplyAsync(() -> workerPool.executeAll(
-                modelId, peerSystemPrompt, prompts.subList(1, totalPeers), temperature, peerMaxTokens, history, cancelled));
-
-        CompletableFuture.allOf(firstPeer, remainingPeers).join();
-        List<String> contributions = new ArrayList<>();
-        contributions.add(firstPeer.join());
-        contributions.addAll(remainingPeers.join());
-
-        log.info("[PEER-ORCHESTRATION] {} equal peer contributions completed", totalPeers);
-        return formatContributions(contributions);
+        List<Mono<PeerContribution>> calls = new ArrayList<>();
+        calls.add(Mono.fromCallable(() -> primaryChat.executePrompt(modelId, PEER_SYSTEM_PROMPT, prompts.get(0),
+                        temperature, cancelled, List.of(), peerMaxTokens))
+                .subscribeOn(Schedulers.boundedElastic())
+                .map(text -> new PeerContribution(1, text)));
+        for (int index = 1; index < totalPeers; index++) {
+            int peerIndex = index;
+            calls.add(Mono.fromCallable(() -> workerPool.executeOnWorker(peerIndex - 1, modelId,
+                            PEER_SYSTEM_PROMPT, prompts.get(peerIndex), temperature, peerMaxTokens,
+                            List.of(), cancelled))
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .map(text -> new PeerContribution(peerIndex + 1, text)));
+        }
+        return Flux.merge(calls);
     }
 
     private String workAreaFor(int index) {
@@ -98,11 +120,8 @@ public class PeerOrchestrationService {
     }
 
     private String peerPrompt(String instruction, String workArea, int peerNumber, int totalPeers) {
-        return "TAREA COMPARTIDA:\n" + instruction + "\n\n"
-                + "TU PARTE DEL TRABAJO (integrante " + peerNumber + " de " + totalPeers + "):\n"
-                + workArea + "\n\n"
-                + "Haz una aportación concreta y autocontenida. No intentes resolver el trabajo de los demás pares. "
-                + "Sé breve y no agregues secciones de relleno.";
+        return "Tarea: " + instruction + "\n"
+                + "Parte " + peerNumber + "/" + totalPeers + ": " + workArea;
     }
 
     private String formatContributions(List<String> contributions) {
@@ -112,5 +131,9 @@ public class PeerOrchestrationService {
                     .append(contributions.get(i).trim()).append("\n\n");
         }
         return response.toString().trim();
+    }
+
+    public String formatContribution(PeerContribution contribution) {
+        return "### Integrante " + contribution.number() + "\n" + contribution.text().trim() + "\n\n";
     }
 }

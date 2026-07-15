@@ -11,8 +11,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -75,16 +73,21 @@ public class ModelService {
         String normalizedSessionId = sessionId == null || sessionId.isBlank() ? "default-session" : sessionId;
 
         // The browser uses SSE for every request. The POC emits one message only
-        // after the four peers have finished their simultaneous round.
+        // per peer as soon as its short contribution is ready.
         if (peerOrchestrationService.isReady()) {
-            return Mono.fromCallable(() -> peerOrchestrationService.execute(cfg.getId(), instruction,
-                            cfg.getTemperature(), cfg.getMaxTokens(), history, cancellationRequested))
-                    .subscribeOn(Schedulers.boundedElastic())
-                    .map(modelResponse -> {
-                        conversationHistoryService.appendUserMessage(normalizedSessionId, instruction);
-                        conversationHistoryService.appendAssistantMessage(normalizedSessionId, modelResponse);
-                        return new ChatMessageResponse(null, "success", null, modelResponse);
-                    }).flux();
+            StringBuilder teamResponse = new StringBuilder("## Resultado del equipo (POC)\n\n");
+            return peerOrchestrationService.stream(cfg.getId(), instruction, cfg.getTemperature(),
+                            cfg.getMaxTokens(), history, cancellationRequested)
+                    .doOnSubscribe(subscription -> conversationHistoryService.appendUserMessage(normalizedSessionId, instruction))
+                    .map(contribution -> {
+                        String text = peerOrchestrationService.formatContribution(contribution);
+                        synchronized (teamResponse) {
+                            teamResponse.append(text);
+                        }
+                        return new ChatMessageResponse(null, "success", null, text);
+                    })
+                    .doOnComplete(() -> conversationHistoryService.appendAssistantMessage(
+                            normalizedSessionId, teamResponse.toString().trim()));
         }
 
         conversationHistoryService.appendUserMessage(normalizedSessionId, instruction);
