@@ -8,7 +8,7 @@ boris:
   preload-models:
     - id: "Qwen2.5-Coder-1.5B-Instruct-Q4_K_M"
       name: "Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf"
-      context-size: 4096
+      context-size: 32768
       threads: 8
       gpu-layers: 28
       batch-size: 512
