@@ -6,8 +6,8 @@ boris:
   models-max: 4
 
   preload-models:
-    - id: "Qwen2.5-Coder-1.5B-Instruct-Q4_K_M"
-      name: "Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf"
+    - id: "gemma-2-2b-it-Q5_K_M.gguf"
+      name: "gemma-2-2b-it-Q5_K_M.gguf"
       context-size: 32768
       threads: 8
       gpu-layers: 28
