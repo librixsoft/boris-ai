@@ -44,8 +44,7 @@ public class ToolCallingConfig {
             """;
 
     private static final String[] SYSTEM_PROMPT_PATHS = {
-        "~/.boris/system_prompt.txt",
-        "/Users/lastprophet/.boris/system_prompt.txt"
+        "~/.boris/AGENTS.md"
     };
 
     public static ToolRegistry buildDefaultRegistry() {
