@@ -87,7 +87,7 @@ public class BorisUI {
         spinnerRunning = true;
         while (spinnerRunning) {
             System.out.print("\r" + Ansi.ansi().fgBlack().bold());
-            System.out.println(SPINNER[spinnerIndex] + " " + Ansi.ansi().reset());
+            System.out.print(SPINNER[spinnerIndex] + " " + Ansi.ansi().reset());
             spinnerIndex = (spinnerIndex + 1) % SPINNER.length;
             try { Thread.sleep(80); }
             catch (InterruptedException ignored) {}
