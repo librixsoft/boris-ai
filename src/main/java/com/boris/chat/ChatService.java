@@ -9,6 +9,7 @@ import org.springframework.ai.openai.api.OpenAiApi;
 
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
+import com.boris.task.TaskAborter;
 import com.boris.tooling.integration.ToolCallingConfig;
 
 public class ChatService {
@@ -17,15 +18,22 @@ public class ChatService {
 
     private final Supplier<ChatClient> chatClientSupplier;
     private final String botName;
+    private final TaskAborter taskAborter;
 
-    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName) {
+    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter) {
         this.chatClientSupplier = chatClientSupplier;
         this.botName = botName;
+        this.taskAborter = taskAborter;
     }
 
     public String sendMessage(String userMessage) {
         if (userMessage == null || userMessage.trim().isEmpty()) {
             throw new com.boris.exceptions.BorisException("User message cannot be null or empty");
+        }
+
+        // Fast path: if ESC was already pressed before the HTTP call starts, bail out
+        if (taskAborter.isAborted()) {
+            return null;
         }
 
         String lower = userMessage.toLowerCase().trim();
@@ -38,8 +46,15 @@ public class ChatService {
             throw new IllegalStateException("Spring AI ChatClient is required — tool calling must be used. Use ChatService.withTools() to construct.");
         }
 
-        String response = client.prompt(userMessage).call().content();
-        return "*%s* %s".formatted(botName, response != null ? response : "");
+        try {
+            String response = client.prompt(userMessage).call().content();
+            return "*%s* %s".formatted(botName, response != null ? response : "");
+        } catch (Exception e) {
+            if (taskAborter.isAborted()) {
+                return null; // ESC was pressed — silently discard
+            }
+            throw new com.boris.exceptions.BorisException("Chat error", e);
+        }
     }
 
     public static ChatService withTools(String settingsPath, String botName) throws Exception {
@@ -56,7 +71,13 @@ public class ChatService {
                 .defaultTools(ToolCallingConfig.buildNativeToolCallbacks())
                 .build();
 
-        return new ChatService(() -> client, botName);
+        TaskAborter aborter = new TaskAborter();
+        return new ChatService(() -> client, botName, aborter);
+    }
+
+    /** Expose the aborter so UI can wire ESC key to it. */
+    public TaskAborter getTaskAborter() {
+        return taskAborter;
     }
 
     private static org.springframework.ai.chat.model.ChatModel buildChatModel(Settings settings) throws Exception {
