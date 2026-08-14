@@ -92,8 +92,7 @@ public class BorisUI {
             String status = tick < 3 ? "" : tick % 6 == 0 ? " working..." : tick % 4 == 0 ? " in progress." : " spinning..";
             long elapsed = tick / 12;
             String timeStr = formatTime(elapsed);
-            System.out.print(SPINNER[spinnerIndex] + status + " " + timeStr);
-            System.out.println(Ansi.ansi().reset());
+            System.out.print(SPINNER[spinnerIndex] + status + " " + timeStr + Ansi.ansi().reset());
             spinnerIndex = (spinnerIndex + 1) % SPINNER.length;
             tick++;
             try { Thread.sleep(80); }
@@ -115,7 +114,9 @@ public class BorisUI {
     }
 
     private void stopSpinner() {
-        System.out.print("\r" + " ".repeat(4) + "\r");
+        System.out.print("\r" + Ansi.ansi().fgRgb(255, 255, 255).bold());
+        System.out.print(" " .repeat(40) + "\r");
+        System.out.println();
         spinnerRunning = false;
     }
 }
