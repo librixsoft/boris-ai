@@ -76,7 +76,7 @@ public class BorisUI {
     }
 
     private void printlnGray(String text) {
-        System.out.print(Ansi.ansi().fgBlack().bold());
+        System.out.print(Ansi.ansi().fgWhite().bold());
         System.out.println(text + Ansi.ansi().reset());
     }
 
