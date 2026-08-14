@@ -12,6 +12,8 @@ public class BorisUI {
     private static final String GRAY   = "\u001B[90m";
     private static final String RESET  = "\u001B[0m";
 
+    private volatile boolean spinnerRunning = false;
+
     private final LlmClient llmClient;
 
     public BorisUI(LlmClient llmClient) {
@@ -41,7 +43,17 @@ public class BorisUI {
             input = input.trim();
             if (input.isEmpty()) continue;
 
-            String response = chatService.sendMessage(input);
+            String response;
+            if (spinnerRunning) {
+                response = chatService.sendMessage(input);
+            } else {
+                Thread spinnerThread = new Thread(() -> startSpinner());
+                spinnerThread.setDaemon(true);
+                spinnerThread.start();
+                response = chatService.sendMessage(input);
+                stopSpinner();
+            }
+
             if (response != null && ChatService.EXIT_COMMAND.equals(response)) {
                 break;
             }
@@ -51,5 +63,23 @@ public class BorisUI {
         }
 
         System.out.println();
+    }
+
+    private final String[] SPINNER = {"⠋", "⠙", "⠸", "⠴", "⠦", "⠇", "⠉", "⠈"};
+    private int spinnerIndex = 0;
+
+    private void startSpinner() {
+        spinnerRunning = true;
+        while (spinnerRunning) {
+            System.out.print("\r" + GRAY + SPINNER[spinnerIndex] + " " + RESET);
+            spinnerIndex = (spinnerIndex + 1) % SPINNER.length;
+            try { Thread.sleep(80); }
+            catch (InterruptedException ignored) {}
+        }
+    }
+
+    private void stopSpinner() {
+        System.out.print("\r" + " ".repeat(4) + "\r");
+        spinnerRunning = false;
     }
 }
