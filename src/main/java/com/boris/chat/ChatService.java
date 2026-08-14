@@ -1,10 +1,12 @@
 package com.boris.chat;
 
+import java.util.Map;
 import java.util.function.Supplier;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.openai.api.OpenAiApi;
 
-import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 import com.boris.tooling.integration.ToolCallingConfig;
@@ -43,9 +45,12 @@ public class ChatService {
     public static ChatService withTools(String settingsPath, String botName) throws Exception {
         SettingsManager mgr = new SettingsManager();
         Settings s = mgr.loadSettings(settingsPath);
-        String prompt = ToolCallingConfig.loadSystemPrompt(s);
+        if (s == null || s.getModel() == null) {
+            throw new IllegalStateException("Settings file not found or invalid: " + settingsPath);
+        }
 
-        var chatModel = extractChatModel(new LlmClient(settingsPath));
+        String prompt = ToolCallingConfig.loadSystemPrompt(s);
+        var chatModel = buildChatModel(s);
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultSystem(prompt)
                 .defaultTools(ToolCallingConfig.buildNativeToolCallbacks())
@@ -54,12 +59,20 @@ public class ChatService {
         return new ChatService(() -> client, botName);
     }
 
-    @SuppressWarnings("unchecked")
-    private static org.springframework.ai.chat.model.ChatModel extractChatModel(LlmClient llmClient) throws Exception {
-        var field = llmClient.getClass().getDeclaredField("chatClient");
-        field.setAccessible(true);
-        ChatClient c = (ChatClient) field.get(llmClient);
-        var method = c.getClass().getMethod("getModel");
-        return (org.springframework.ai.chat.model.ChatModel) method.invoke(c);
+    private static org.springframework.ai.chat.model.ChatModel buildChatModel(Settings settings) throws Exception {
+        String baseUrl = settings.getModel().getBaseUrl();
+        String modelName = settings.getModel().getName();
+        Map<String, String> envMap = settings.getEnv();
+        String apiKey = (String) envMap.getOrDefault("OLLAMA_API_KEY", "ollama");
+
+        OpenAiApi openAiApi = new OpenAiApi.Builder()
+                .baseUrl(baseUrl)
+                .apiKey(apiKey)
+                .build();
+
+        return org.springframework.ai.openai.OpenAiChatModel.builder()
+                .openAiApi(openAiApi)
+                .defaultOptions(OpenAiChatOptions.builder().model(modelName).build())
+                .build();
     }
 }
