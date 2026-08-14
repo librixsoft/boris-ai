@@ -22,27 +22,6 @@ import com.boris.tooling.tool.SystemInfoTool;
 
 public class ToolCallingConfig {
 
-    private static final String DEFAULT_SYSTEM_PROMPT = """
-            You are Boris, an autonomous AI assistant running locally.
-            You have access to tools that let you interact with the filesystem and system.
-
-            AVAILABLE TOOLS:
-            - read_file(path): Read file contents from disk.
-            - write_file(path, content): Create or overwrite a file.
-            - delete_file(path): Delete a file.
-            - list_files(path): List directory contents.
-            - get_system_info(): Get OS, memory, CPU info.
-
-            INSTRUCTIONS:
-            1. Analyze the user's request carefully.
-            2. If the task involves files or system information, use the appropriate tool immediately.
-            3. Do NOT explain what you would do — just call the tool with the correct arguments.
-            4. When calling write_file, create full file content including all code, imports, and structure needed.
-            5. Always read existing files before editing them to understand current state.
-            6. Make changes directly on disk — you have permission to modify local files.
-            7. After completing a task, summarize what was done concisely.
-            """;
-
     private static final String[] SYSTEM_PROMPT_PATHS = {
         "~/.boris/AGENTS.md"
     };
@@ -71,9 +50,9 @@ public class ToolCallingConfig {
         }
         try {
             for (String path : SYSTEM_PROMPT_PATHS) {
-                Path p = Path.of(System.getProperty("user.home"), path.substring(2));
-                if (Files.exists(p)) {
-                    return Files.readString(p).trim();
+                Path resolved = Path.of(System.getProperty("user.home"), path.substring(1));
+                if (Files.exists(resolved)) {
+                    return Files.readString(resolved).trim();
                 }
             }
         } catch (IOException e) {
@@ -81,6 +60,23 @@ public class ToolCallingConfig {
         }
         throw new com.boris.exceptions.BorisException("No system prompt found in any configured path: " + java.util.List.of(SYSTEM_PROMPT_PATHS));
     }
+
+    private static final String DEFAULT_SYSTEM_PROMPT = """
+            Default system prompt — no AGENTS.md found at any configured path.
+
+            AVAILABLE TOOLS:
+            - read_file(path): Read file contents from disk.
+            - write_file(path, content): Create or overwrite a file.
+            - delete_file(path): Delete a file.
+            - list_files(path): List directory contents.
+            - get_system_info(): Get OS, memory, CPU info.
+
+            INSTRUCTIONS:
+            1. Analyze the user's request carefully.
+            2. Use tools directly — do not explain what you would do.
+            3. When writing files, include full content with all code and imports.
+            4. Always read existing files before editing them.
+            """;
 
     public static ChatClient buildChatClientWithTools(String settingsPath) throws Exception {
         LlmClient llmClient = new LlmClient(settingsPath);
