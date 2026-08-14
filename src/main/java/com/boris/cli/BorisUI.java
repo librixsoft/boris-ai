@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.jline.jansi.Ansi;
@@ -16,6 +17,7 @@ import com.boris.task.TaskAborter;
 public class BorisUI {
 
     private volatile boolean spinnerRunning = false;
+    private final AtomicLong spinnerStartTime = new AtomicLong(0);
     private static String savedTermSettings = null;
 
     // ── Command history (like zsh / bash) ──────────────────────────────────
@@ -68,6 +70,7 @@ public class BorisUI {
                 }
 
                 spinnerRunning = true;
+                spinnerStartTime.set(System.currentTimeMillis());
                 Thread spinnerThread = new Thread(this::startSpinner);
                 spinnerThread.setDaemon(true);
                 spinnerThread.start();
@@ -260,8 +263,12 @@ public class BorisUI {
     private void startSpinner() {
         spinnerRunning = true;
         while (spinnerRunning) {
+            long elapsed = (System.currentTimeMillis() - spinnerStartTime.get()) / 1000;
+            String counter = elapsed < 60
+                ? elapsed + "s"
+                : (elapsed / 60) + "m";
             System.out.print("\r" + Ansi.ansi().fgRgb(255, 255, 255).bold());
-            System.out.print(SPINNER[spinnerIndex] + " spinning.." + Ansi.ansi().reset());
+            System.out.print(SPINNER[spinnerIndex] + " spinning.. " + counter + Ansi.ansi().reset());
             spinnerIndex = (spinnerIndex + 1) % SPINNER.length;
             try {
                 Thread.sleep(80);
