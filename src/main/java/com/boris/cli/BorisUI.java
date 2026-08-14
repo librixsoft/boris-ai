@@ -4,8 +4,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.jline.jansi.Ansi;
@@ -16,8 +17,6 @@ import com.boris.task.TaskAborter;
 
 public class BorisUI {
 
-    private volatile boolean spinnerRunning = false;
-    private final AtomicLong spinnerStartTime = new AtomicLong(0);
     private static String savedTermSettings = null;
 
     // ── Command history (like zsh / bash) ──────────────────────────────────
@@ -69,22 +68,40 @@ public class BorisUI {
                     history.add(input);
                 }
 
-                spinnerRunning = true;
-                spinnerStartTime.set(System.currentTimeMillis());
-                Thread spinnerThread = new Thread(this::startSpinner);
-                spinnerThread.setDaemon(true);
-                spinnerThread.start();
+                // Print thinking indicator (non-spinning)
+                System.out.print(Ansi.ansi().fgRgb(120, 120, 120).bold().fgBlack().bgRgb(120, 120, 120).toString());
+                System.out.println(" thinking..");
+                System.out.print(Ansi.ansi().fgGreen().reset().toString());
 
-                // sendMessage() makes a blocking HTTP call that can't be interrupted,
-                // so we run it in a daemon thread and bail out of the wait on ESC.
+                // Use streaming to print chunks as they arrive from the model.
                 AtomicReference<String> responseRef = new AtomicReference<>(null);
                 AtomicReference<Exception> errorRef = new AtomicReference<>(null);
+                StringBuilder fullResponse = new StringBuilder();
+                CountDownLatch streamDone = new CountDownLatch(1);
                 String finalInput = input;
                 Thread taskThread = new Thread(() -> {
                     try {
-                        responseRef.set(chatService.sendMessage(finalInput));
+                        chatService.sendMessageStream(
+                            finalInput,
+                            chunk -> {
+                                if (chunk != null && !chunk.isEmpty()) {
+                                    synchronized (fullResponse) {
+                                        fullResponse.append(chunk);
+                                    }
+                                    System.out.print(chunk);
+                                    System.out.flush();
+                                }
+                            },
+                            () -> {
+                                synchronized (fullResponse) {
+                                    responseRef.set(fullResponse.toString());
+                                }
+                                streamDone.countDown();
+                            }
+                        );
                     } catch (Exception e) {
                         errorRef.set(e);
+                        streamDone.countDown();
                     }
                 });
                 taskThread.setDaemon(true);
@@ -93,9 +110,8 @@ public class BorisUI {
                 taskThread.start();
 
                 // Main thread polls /dev/tty for ESC while the task is running.
-                // /dev/tty is in raw mode so each keystroke is immediately available.
                 boolean aborted = false;
-                while (taskThread.isAlive()) {
+                while (taskThread.isAlive() || !streamDone.await(50, TimeUnit.MILLISECONDS)) {
                     if (tty.available() > 0) {
                         int ch = tty.read();
                         if (ch == 0x1B) {           // ESC → abort task
@@ -108,11 +124,7 @@ public class BorisUI {
                             System.exit(0);
                         }
                     }
-                    taskThread.join(50);
                 }
-
-                // Clear spinner line and return cursor to start of line
-                stopSpinner();
 
                 if (aborted || taskAborter.isAborted()) {
                     printlnGray("*Aborted*");
@@ -129,10 +141,7 @@ public class BorisUI {
                     break;
                 }
                 if (response != null) {
-                    for (String line : response.split("\\n", -1)) {
-                        printlnGray(line);
-                        System.out.println();
-                    }
+                    System.out.println(Ansi.ansi().reset());
                 }
             }
 
@@ -255,34 +264,6 @@ public class BorisUI {
     private void printlnGray(String text) {
         System.out.print(Ansi.ansi().fgRgb(255, 255, 255));
         System.out.println(text + Ansi.ansi().reset());
-    }
-
-    private final String[] SPINNER = {"\u280B", "\u2819", "\u2838", "\u2834", "\u2826", "\u2807", "\u2809", "\u2808"};
-    private int spinnerIndex = 0;
-
-    private void startSpinner() {
-        spinnerRunning = true;
-        while (spinnerRunning) {
-            long elapsed = (System.currentTimeMillis() - spinnerStartTime.get()) / 1000;
-            String counter = elapsed < 60
-                ? elapsed + "s"
-                : (elapsed / 60) + "m";
-            System.out.print("\r" + Ansi.ansi().fgRgb(255, 255, 255).bold());
-            System.out.print(SPINNER[spinnerIndex] + " spinning.. " + counter + Ansi.ansi().reset());
-            spinnerIndex = (spinnerIndex + 1) % SPINNER.length;
-            try {
-                Thread.sleep(80);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new com.boris.exceptions.BorisException("Spinner interrupted", e);
-            }
-        }
-    }
-
-    private void stopSpinner() {
-        spinnerRunning = false;
-        System.out.print("\r" + " ".repeat(40) + "\r");
-        System.out.flush();
     }
 
     /** Put terminal into raw mode: one char at a time, no echo. */

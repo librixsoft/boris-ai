@@ -1,6 +1,7 @@
 package com.boris.chat;
 
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import org.springframework.ai.chat.client.ChatClient;
@@ -31,7 +32,6 @@ public class ChatService {
             throw new com.boris.exceptions.BorisException("User message cannot be null or empty");
         }
 
-        // Fast path: if ESC was already pressed before the HTTP call starts, bail out
         if (taskAborter.isAborted()) {
             return null;
         }
@@ -51,7 +51,48 @@ public class ChatService {
             return "*%s* %s".formatted(botName, response != null ? response : "");
         } catch (Exception e) {
             if (taskAborter.isAborted()) {
-                return null; // ESC was pressed — silently discard
+                return null;
+            }
+            throw new com.boris.exceptions.BorisException("Chat error", e);
+        }
+    }
+
+    public void sendMessageStream(String userMessage, Consumer<String> onChunk, Runnable onComplete) {
+        if (userMessage == null || userMessage.trim().isEmpty()) {
+            throw new com.boris.exceptions.BorisException("User message cannot be null or empty");
+        }
+
+        if (taskAborter.isAborted()) {
+            return;
+        }
+
+        String lower = userMessage.toLowerCase().trim();
+        if ("q".equals(lower) || "exit".equals(lower)) {
+            return;
+        }
+
+        ChatClient client = chatClientSupplier.get();
+        if (client == null) {
+            throw new IllegalStateException("Spring AI ChatClient is required — tool calling must be used. Use ChatService.withTools() to construct.");
+        }
+
+        try {
+            client.prompt(userMessage)
+                .stream()
+                .content()
+                .doOnNext(chunk -> onChunk.accept(chunk))
+                .doOnComplete(() -> {
+                    if (onComplete != null) onComplete.run();
+                })
+                .doOnError(e -> {
+                    if (!taskAborter.isAborted()) {
+                        throw new com.boris.exceptions.BorisException("Chat error", e);
+                    }
+                })
+                .subscribe();
+        } catch (Exception e) {
+            if (taskAborter.isAborted()) {
+                return;
             }
             throw new com.boris.exceptions.BorisException("Chat error", e);
         }
