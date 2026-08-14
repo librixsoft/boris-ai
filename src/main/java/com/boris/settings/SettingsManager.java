@@ -4,12 +4,15 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 public class SettingsManager {
 
     private static final String DEFAULT_SETTINGS_PATH = System.getProperty("user.home") + "/.boris/settings.json";
+
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+        .enable(SerializationFeature.INDENT_OUTPUT);
 
     public void ensureExists(String path) throws IOException {
         Path settingsFile = Paths.get(path);
@@ -25,19 +28,17 @@ public class SettingsManager {
             Files.createDirectories(parent);
         }
 
-        String defaultJson = """
-                {
-                  "model": {
-                    "baseUrl": "http://localhost:11434/v1",
-                    "name": "qwen3.6-35b-64k"
-                  },
-                  "env": {
-                    "OLLAMA_API_KEY": "ollama"
-                  }
-                }\
-                """;
-
+        String defaultJson = MAPPER.writeValueAsString(Settings.defaultSettings());
         Files.writeString(path, defaultJson, StandardCharsets.UTF_8);
+    }
+
+    public Settings loadSettings(String path) throws IOException {
+        Path settingsFile = Paths.get(path);
+        if (!Files.exists(settingsFile)) {
+            return null;
+        }
+        String json = Files.readString(settingsFile, StandardCharsets.UTF_8);
+        return MAPPER.readValue(json, Settings.class);
     }
 
     public String load(String path) throws IOException {

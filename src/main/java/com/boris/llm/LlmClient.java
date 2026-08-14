@@ -1,15 +1,13 @@
 package com.boris.llm;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
-import com.google.gson.JsonObject;
+import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 
 public class LlmClient {
@@ -18,21 +16,14 @@ public class LlmClient {
 
     public LlmClient(String settingsPath) throws IOException {
         SettingsManager settingsMgr = new SettingsManager();
-        String json = settingsMgr.load(settingsPath);
-        if (json == null) {
-            throw new IllegalStateException("Settings file not found: " + settingsPath);
+        Settings settings = settingsMgr.loadSettings(settingsPath);
+        if (settings == null || settings.getModel() == null) {
+            throw new IllegalStateException("Settings file not found or invalid: " + settingsPath);
         }
 
-        JsonObject root = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
-        String baseUrl = root.getAsJsonObject("model").get("baseUrl").getAsString();
-        String modelName = root.getAsJsonObject("model").get("name").getAsString();
-
-        Map<String, Object> envMap = new LinkedHashMap<>();
-        JsonObject envObj = root.get("env").getAsJsonObject();
-        for (String key : envObj.keySet()) {
-            envMap.put(key, envObj.get(key).getAsString());
-        }
-
+        String baseUrl = settings.getModel().getBaseUrl();
+        String modelName = settings.getModel().getName();
+        Map<String, String> envMap = settings.getEnv();
         String apiKey = (String) envMap.getOrDefault("OLLAMA_API_KEY", "ollama");
 
         OpenAiApi openAiApi = new OpenAiApi.Builder()
