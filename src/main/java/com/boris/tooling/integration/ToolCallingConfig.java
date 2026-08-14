@@ -47,20 +47,22 @@ public class ToolCallingConfig {
     }
 
     public static String loadSystemPrompt(Settings settings) {
-        if (settings != null && settings.getSystemPrompt() != null && !settings.getSystemPrompt().isBlank()) {
-            return settings.getSystemPrompt();
-        }
+        StringBuilder prompt = new StringBuilder();
+        prompt.append(DEFAULT_SYSTEM_PROMPT.trim());
+
         try {
             for (String path : SYSTEM_PROMPT_PATHS) {
                 Path resolved = Path.of(System.getProperty("user.home"), path.substring(1));
                 if (Files.exists(resolved)) {
-                    return Files.readString(resolved).trim();
+                    String agentsContent = Files.readString(resolved).trim();
+                    if (!agentsContent.isEmpty()) {
+                        prompt.append("\n\n").append(agentsContent);
+                    }
                 }
             }
-        } catch (IOException e) {
-            throw new BorisException("Failed to read system prompt from any configured path", e);
-        }
-        throw new BorisException("No system prompt found in any configured path: " + java.util.List.of(SYSTEM_PROMPT_PATHS));
+        } catch (IOException ignored) {}
+
+        return prompt.toString();
     }
 
     private static final String DEFAULT_SYSTEM_PROMPT = """

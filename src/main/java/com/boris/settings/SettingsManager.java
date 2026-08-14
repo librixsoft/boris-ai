@@ -11,6 +11,9 @@ public class SettingsManager {
 
     private static final String DEFAULT_SETTINGS_PATH = System.getProperty("user.home") + "/.boris/settings.json";
 
+    private static final String AGENTS_MD_RESOURCE = "/AGENTS.md";
+    private static final String AGENTS_MD_DEST = System.getProperty("user.home") + "/.boris/AGENTS.md";
+
     private static final ObjectMapper MAPPER = new ObjectMapper()
         .enable(SerializationFeature.INDENT_OUTPUT);
 
@@ -47,5 +50,22 @@ public class SettingsManager {
             return null;
         }
         return Files.readString(settingsFile, StandardCharsets.UTF_8);
+    }
+
+    public void ensureAgentsMd() throws IOException {
+        Path agentsFile = Paths.get(AGENTS_MD_DEST);
+        if (Files.exists(agentsFile)) {
+            return;
+        }
+        Path parent = agentsFile.getParent();
+        if (parent != null && !Files.exists(parent)) {
+            Files.createDirectories(parent);
+        }
+        try (var in = getClass().getResourceAsStream(AGENTS_MD_RESOURCE)) {
+            if (in == null) {
+                throw new IOException("Template AGENTS.md not found on classpath");
+            }
+            Files.copy(in, agentsFile);
+        }
     }
 }

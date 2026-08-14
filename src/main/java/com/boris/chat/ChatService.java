@@ -59,6 +59,7 @@ public class ChatService {
 
     public static ChatService withTools(String settingsPath, String botName) throws Exception {
         SettingsManager mgr = new SettingsManager();
+        mgr.ensureAgentsMd();
         Settings s = mgr.loadSettings(settingsPath);
         if (s == null || s.getModel() == null) {
             throw new IllegalStateException("Settings file not found or invalid: " + settingsPath);
