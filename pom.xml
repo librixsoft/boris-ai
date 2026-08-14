@@ -15,6 +15,8 @@
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <picocli.version>4.7.6</picocli.version>
+        <spring-boot.version>3.4.5</spring-boot.version>
+        <spring-ai.version>1.0.0-M6</spring-ai.version>
     </properties>
 
     <dependencies>
@@ -41,10 +43,30 @@
             <version>5.11.4</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <version>${spring-boot.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
+            <version>${spring-ai.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.14.2</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
