@@ -16,7 +16,6 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
-import com.boris.tooling.ToolRegistry;
 import com.boris.tooling.tool.FileTool;
 import com.boris.tooling.tool.SystemInfoTool;
 
@@ -26,23 +25,6 @@ public class ToolCallingConfig {
         "~/.boris/AGENTS.md"
     };
 
-    public static ToolRegistry buildDefaultRegistry() {
-        ToolRegistry registry = new ToolRegistry();
-        registerFileTools(registry);
-        registerSystemInfoTool(registry);
-        return registry;
-    }
-
-    private static void registerFileTools(ToolRegistry registry) {
-        registry.register(FileTool.read_file(), FileTool::read_file);
-        registry.register(FileTool.write_file(), FileTool::write_file);
-        registry.register(FileTool.delete_file(), FileTool::delete_file);
-        registry.register(FileTool.list_files(), FileTool::list_files);
-    }
-
-    private static void registerSystemInfoTool(ToolRegistry registry) {
-        registry.register(SystemInfoTool.get_system_info(), SystemInfoTool::get_system_info);
-    }
 
     public static String loadSystemPrompt(Settings settings) {
         if (settings != null && settings.getSystemPrompt() != null && !settings.getSystemPrompt().isBlank()) {

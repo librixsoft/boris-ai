@@ -13,71 +13,31 @@ public class ChatService {
 
     public static final String EXIT_COMMAND = "EXIT";
 
-    private final LlmProvider llmProvider;
     private final Supplier<ChatClient> chatClientSupplier;
     private final String botName;
-    private boolean useToolCalling;
 
-    public ChatService(LlmProvider llmProvider, String botName) {
-        this(llmProvider, null, botName);
-    }
-
-    public ChatService(LlmProvider llmProvider, Supplier<ChatClient> chatClientSupplier, String botName) {
-        this.llmProvider = llmProvider;
+    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName) {
         this.chatClientSupplier = chatClientSupplier;
         this.botName = botName;
-        this.useToolCalling = (chatClientSupplier != null);
-    }
-
-    public void setUseToolCalling(boolean useToolCalling) {
-        this.useToolCalling = useToolCalling;
-    }
-
-    public boolean isUsingToolCalling() {
-        return useToolCalling;
     }
 
     public String sendMessage(String userMessage) {
         if (userMessage == null || userMessage.trim().isEmpty()) {
-            return null;
+            throw new com.boris.exceptions.BorisException("User message cannot be null or empty");
         }
 
         String lower = userMessage.toLowerCase().trim();
-        if ("q".equals(lower)) {
-            return EXIT_COMMAND;
-        }
-        if ("exit".equals(lower)) {
+        if ("q".equals(lower) || "exit".equals(lower)) {
             return EXIT_COMMAND;
         }
 
-        try {
-            if (useToolCalling && chatClientSupplier != null) {
-                String response = sendWithTools(userMessage);
-                return "*%s* %s".formatted(botName, response != null ? response : "");
-            }
-        } catch (Exception e) {
-            throw new com.boris.exceptions.BorisException("Tool calling failed for message: " + userMessage, e);
-        }
-
-        try {
-            String response = llmProvider.send(userMessage);
-            return "*%s* %s".formatted(botName, response != null ? response : "");
-        } catch (Exception e) {
-            throw new com.boris.exceptions.BorisException("LLM provider failed for message: " + userMessage, e);
-        }
-    }
-
-    private String sendWithTools(String userMessage) {
         ChatClient client = chatClientSupplier.get();
         if (client == null) {
-            throw new IllegalStateException("ChatClient not available for tool calling");
+            throw new IllegalStateException("Spring AI ChatClient is required — tool calling must be used. Use ChatService.withTools() to construct.");
         }
 
-        try {
-            return client.prompt(userMessage).call().content() != null ? client.prompt(userMessage).call().content() : "";
-        } catch (Exception e) {
-            throw new RuntimeException("Tool calling failed: " + e.getMessage(), e);
-        }
+        String response = client.prompt(userMessage).call().content();
+        return "*%s* %s".formatted(botName, response != null ? response : "");
     }
 
     public static ChatService withTools(String settingsPath, String botName) throws Exception {
@@ -85,14 +45,13 @@ public class ChatService {
         Settings s = mgr.loadSettings(settingsPath);
         String prompt = ToolCallingConfig.loadSystemPrompt(s);
 
-        LlmClient llmClient = new LlmClient(settingsPath);
-        var chatModel = extractChatModel(llmClient);
+        var chatModel = extractChatModel(new LlmClient(settingsPath));
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultSystem(prompt)
                 .defaultTools(ToolCallingConfig.buildNativeToolCallbacks())
                 .build();
 
-        return new ChatService(null, () -> client, botName);
+        return new ChatService(() -> client, botName);
     }
 
     @SuppressWarnings("unchecked")

@@ -42,7 +42,4 @@ public class LlmClient {
         this.chatClient = ChatClient.create(chatModel);
     }
 
-    public String send(String userMessage) {
-        return chatClient.prompt(userMessage).call().content();
-    }
 }

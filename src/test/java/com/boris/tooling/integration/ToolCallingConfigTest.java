@@ -3,33 +3,10 @@ package com.boris.tooling.integration;
 import org.junit.jupiter.api.*;
 import org.springframework.ai.model.function.FunctionCallback;
 import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.definition.ToolDefinition;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class ToolCallingConfigTest {
-
-    @Test
-    void buildDefaultRegistry_registersAllTools() {
-        var registry = ToolCallingConfig.buildDefaultRegistry();
-
-        assertEquals(5, registry.size());
-        assertTrue(registry.contains("read_file"));
-        assertTrue(registry.contains("write_file"));
-        assertTrue(registry.contains("delete_file"));
-        assertTrue(registry.contains("list_files"));
-        assertTrue(registry.contains("get_system_info"));
-    }
-
-    @Test
-    void buildDefaultRegistry_allToolsHaveValidDefinitions() {
-        var registry = ToolCallingConfig.buildDefaultRegistry();
-
-        for (var def : registry.getAll()) {
-            assertNotNull(def.name());
-            assertFalse(def.description().isBlank());
-        }
-    }
 
     @Test
     void buildNativeToolCallbacks_returnsNonEmptyArray() {
@@ -77,12 +54,6 @@ class ToolCallingConfigTest {
         String result = readCb.call("{\"path\":\"/tmp/test_read.txt\"}");
 
         assertNotNull(result);
-    }
-
-    @Test
-    void buildChatClientWithTools_Registry_createsValidChatModelCallbacks() {
-        var registry = ToolCallingConfig.buildDefaultRegistry();
-        assertEquals(5, registry.getAll().size());
     }
 
     @Test

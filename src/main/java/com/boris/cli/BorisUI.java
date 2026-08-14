@@ -9,16 +9,15 @@ import org.jline.jansi.Ansi;
 import org.jline.jansi.AnsiConsole;
 
 import com.boris.chat.ChatService;
-import com.boris.llm.LlmClient;
 
 public class BorisUI {
 
     private volatile boolean spinnerRunning = false;
 
-    private final LlmClient llmClient;
+    private final ChatService chatService;
 
-    public BorisUI(LlmClient llmClient) {
-        this.llmClient = llmClient;
+    public BorisUI(String settingsPath) throws Exception {
+        this.chatService = ChatService.withTools(settingsPath, "boris");
     }
 
     public void start() throws Exception {
@@ -29,7 +28,6 @@ public class BorisUI {
             printlnGray("I'm an invisible");
             System.out.println();
 
-            ChatService chatService = new ChatService(llmClient::send, "boris");
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
 
             while (true) {
