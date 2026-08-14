@@ -14,6 +14,10 @@ public class LlmClient {
 
     private final ChatClient chatClient;
 
+    public LlmClient(ChatClient chatClient) {
+        this.chatClient = chatClient;
+    }
+
     public LlmClient(String settingsPath) throws IOException {
         SettingsManager settingsMgr = new SettingsManager();
         Settings settings = settingsMgr.loadSettings(settingsPath);
