@@ -86,16 +86,32 @@ public class BorisUI {
 
     private void startSpinner() {
         spinnerRunning = true;
+        int tick = 0;
         while (spinnerRunning) {
             System.out.print("\r" + Ansi.ansi().fgRgb(255, 255, 255).bold());
-            System.out.print(SPINNER[spinnerIndex] + " " + Ansi.ansi().reset());
+            String status = tick < 3 ? "" : tick % 6 == 0 ? " working..." : tick % 4 == 0 ? " in progress." : " spinning..";
+            long elapsed = tick / 12;
+            String timeStr = formatTime(elapsed);
+            System.out.print(SPINNER[spinnerIndex] + status + " " + timeStr);
+            System.out.println(Ansi.ansi().reset());
             spinnerIndex = (spinnerIndex + 1) % SPINNER.length;
+            tick++;
             try { Thread.sleep(80); }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new com.boris.exceptions.BorisException("Spinner interrupted", e);
             }
         }
+    }
+
+    private String formatTime(long seconds) {
+        if (seconds < 60) return seconds + "s";
+        long minutes = seconds / 60;
+        long remainingSec = seconds % 60;
+        if (minutes < 60) return minutes + "m" + (remainingSec > 0 ? remainingSec + "s" : "");
+        long hours = minutes / 60;
+        long remMin = minutes % 60;
+        return hours + "h" + (remMin > 0 ? remMin + "m" : "") + (remainingSec > 0 ? remainingSec + "s" : "");
     }
 
     private void stopSpinner() {
