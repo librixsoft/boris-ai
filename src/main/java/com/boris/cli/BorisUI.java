@@ -93,7 +93,10 @@ public class BorisUI {
             System.out.print(SPINNER[spinnerIndex] + " " + Ansi.ansi().reset());
             spinnerIndex = (spinnerIndex + 1) % SPINNER.length;
             try { Thread.sleep(80); }
-            catch (InterruptedException ignored) {}
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new com.boris.exceptions.BorisException("Spinner interrupted", e);
+            }
         }
     }
 

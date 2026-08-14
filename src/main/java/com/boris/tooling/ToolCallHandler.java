@@ -29,7 +29,7 @@ public class ToolCallHandler {
                 com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                 return mapper.readValue(json, java.util.Map.class);
             } catch (Exception e) {
-                return Map.of();
+                throw new com.boris.exceptions.BorisException("Failed to parse tool arguments JSON: " + json, e);
             }
         }
     }

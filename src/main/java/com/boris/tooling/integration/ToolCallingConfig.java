@@ -76,8 +76,10 @@ public class ToolCallingConfig {
                     return Files.readString(p).trim();
                 }
             }
-        } catch (IOException ignored) {}
-        return DEFAULT_SYSTEM_PROMPT;
+        } catch (IOException e) {
+            throw new com.boris.exceptions.BorisException("Failed to read system prompt from any configured path", e);
+        }
+        throw new com.boris.exceptions.BorisException("No system prompt found in any configured path: " + java.util.List.of(SYSTEM_PROMPT_PATHS));
     }
 
     public static ChatClient buildChatClientWithTools(String settingsPath) throws Exception {

@@ -46,7 +46,7 @@ public class FileTool {
             String content = Files.readString(path);
             return formatOutput(true, content);
         } catch (IOException e) {
-            return formatOutput(false, "Error reading file: " + e.getMessage());
+            throw new com.boris.exceptions.BorisException("Error reading file: " + pathStr, e);
         }
     }
 
@@ -87,7 +87,7 @@ public class FileTool {
             long size = Files.size(path);
             return formatOutput(true, "File written successfully: " + pathStr + " (" + size + " bytes)");
         } catch (IOException e) {
-            return formatOutput(false, "Error writing file: " + e.getMessage());
+            throw new com.boris.exceptions.BorisException("Error writing file: " + pathStr, e);
         }
     }
 
@@ -123,7 +123,7 @@ public class FileTool {
             Files.delete(path);
             return formatOutput(true, "File deleted successfully: " + pathStr);
         } catch (IOException e) {
-            return formatOutput(false, "Error deleting file: " + e.getMessage());
+            throw new com.boris.exceptions.BorisException("Error deleting file: " + pathStr, e);
         }
     }
 
@@ -160,18 +160,13 @@ public class FileTool {
             StringBuilder sb = new StringBuilder();
             for (Path entry : entries) {
                 String type = Files.isDirectory(entry) ? "D" : "F";
-                long size;
-                try {
-                    size = Files.size(entry);
-                } catch (IOException e) {
-                    size = -1;
-                }
+                long size = Files.size(entry);
                 sb.append(type).append(" ").append(String.format("%10d", size)).append("  ")
                         .append(entry.getFileName()).append("\n");
             }
             return formatOutput(true, sb.toString().trim());
         } catch (IOException e) {
-            return formatOutput(false, "Error listing directory: " + e.getMessage());
+            throw new com.boris.exceptions.BorisException("Error listing directory: " + pathStr, e);
         }
     }
 
@@ -182,7 +177,7 @@ public class FileTool {
             node.put("message", message);
             return MAPPER.writeValueAsString(node);
         } catch (IOException e) {
-            return "{\"success\":" + success + ",\"message\":\"" + escapeJson(message) + "\"}";
+            throw new com.boris.exceptions.BorisException("Failed to format output", e);
         }
     }
 

@@ -34,15 +34,17 @@ public class SystemInfoTool {
         try {
             totalMemory = getTotalStorageBytes();
             freeMemory = getFreeStorageBytes();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            throw new com.boris.exceptions.BorisException("Failed to get storage information", e);
         }
 
         int availableProcessors = Runtime.getRuntime().availableProcessors();
 
-        String hostname = "unknown";
+        String hostname;
         try {
             hostname = InetAddress.getLocalHost().getHostName();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            throw new com.boris.exceptions.BorisException("Failed to get hostname", e);
         }
 
         Map<String, Object> info = new LinkedHashMap<>();
@@ -65,10 +67,7 @@ public class SystemInfoTool {
         long total = 0;
         Iterable<FileStore> stores = java.nio.file.FileSystems.getDefault().getFileStores();
         for (FileStore store : stores) {
-            try {
-                total += store.getTotalSpace();
-            } catch (Exception ignored) {
-            }
+            total += store.getTotalSpace();
         }
         return total;
     }
@@ -77,10 +76,7 @@ public class SystemInfoTool {
         long free = 0;
         Iterable<FileStore> stores = java.nio.file.FileSystems.getDefault().getFileStores();
         for (FileStore store : stores) {
-            try {
-                free += store.getUsableSpace();
-            } catch (Exception ignored) {
-            }
+            free += store.getUsableSpace();
         }
         return free;
     }

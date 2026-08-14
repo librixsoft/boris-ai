@@ -56,14 +56,14 @@ public class ChatService {
                 return "*%s* %s".formatted(botName, response != null ? response : "");
             }
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            throw new com.boris.exceptions.BorisException("Tool calling failed for message: " + userMessage, e);
         }
 
         try {
             String response = llmProvider.send(userMessage);
             return "*%s* %s".formatted(botName, response != null ? response : "");
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            throw new com.boris.exceptions.BorisException("LLM provider failed for message: " + userMessage, e);
         }
     }
 

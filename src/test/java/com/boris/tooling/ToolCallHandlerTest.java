@@ -88,14 +88,12 @@ class ToolCallHandlerTest {
     }
 
     @Test
-    void handle_preservesNullInRegistryWhenParserFails() {
-        registry.register(ToolDefinition.of("fail_parse", "test"), args -> {
-            if (args.isEmpty()) return "default";
-            return "has_args";
-        });
+    void handle_throwsWhenParserFails() {
+        registry.register(ToolDefinition.of("fail_parse", "test"), args -> "default");
 
-        String result = handler.handle(registry, "fail_parse", "{invalid json!!!");
+        com.boris.exceptions.BorisException ex = assertThrows(com.boris.exceptions.BorisException.class, () ->
+                handler.handle(registry, "fail_parse", "{invalid json!!!"));
 
-        assertEquals("default", result);
+        assertTrue(ex.getMessage().contains("Failed to parse tool arguments JSON"));
     }
 }

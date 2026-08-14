@@ -86,15 +86,16 @@ class ChatServiceTest {
     }
 
     @Test
-    void sendMessage_returnsError_whenLlmThrows() {
+    void sendMessage_throwsWhenLlmThrows() {
         LlmProvider mockLlm = mock(LlmProvider.class);
         when(mockLlm.send("hola")).thenThrow(new RuntimeException("connection failed"));
 
         ChatService service = new ChatService(mockLlm, "boris");
-        String result = service.sendMessage("hola");
 
-        assertTrue(result.startsWith("Error:"));
-        assertTrue(result.contains("connection failed"));
+        com.boris.exceptions.BorisException ex = assertThrows(com.boris.exceptions.BorisException.class,
+                () -> service.sendMessage("hola"));
+        assertTrue(ex.getMessage().contains("LLM provider failed"));
+        assertEquals("connection failed", ex.getCause().getMessage());
     }
 
     @Test
