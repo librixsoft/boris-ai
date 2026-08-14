@@ -34,7 +34,7 @@ public class BorisUI {
 
             while (true) {
                 System.out.print(Ansi.ansi().fgGreen());
-                System.out.print("_> ");
+                System.out.print("\uD83D\uDC80_> ");
                 System.out.println(Ansi.ansi().reset());
 
                 String input;
