@@ -32,16 +32,16 @@ class ToolCallingConfigTest {
     }
 
     @Test
-    void buildToolCallbacks_returnsNonEmptyArray() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildToolCallbacks();
+    void buildNativeToolCallbacks_returnsNonEmptyArray() {
+        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
 
         assertNotNull(callbacks);
         assertTrue(callbacks.length > 0);
     }
 
     @Test
-    void buildToolCallbacks_allHaveValidDefinitions() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildToolCallbacks();
+    void buildNativeToolCallbacks_allHaveValidDefinitions() {
+        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
 
         for (ToolCallback callback : callbacks) {
             assertNotNull(callback.getToolDefinition().name());
@@ -51,8 +51,8 @@ class ToolCallingConfigTest {
     }
 
     @Test
-    void buildToolCallbacks_containsExpectedTools() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildToolCallbacks();
+    void buildNativeToolCallbacks_containsExpectedTools() {
+        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
 
         var names = java.util.Arrays.stream(callbacks)
                 .map(cb -> cb.getToolDefinition().name())
@@ -66,8 +66,8 @@ class ToolCallingConfigTest {
     }
 
     @Test
-    void buildToolCallbacks_callbackCallsExecuteCorrectly() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildToolCallbacks();
+    void buildNativeToolCallbacks_callbackCallsExecuteCorrectly() {
+        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
 
         var readCb = java.util.Arrays.stream(callbacks)
                 .filter(cb -> "read_file".equals(cb.getToolDefinition().name()))
@@ -87,7 +87,7 @@ class ToolCallingConfigTest {
 
     @Test
     void toolCallbacks_allAreFunctionCallbacks() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildToolCallbacks();
+        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
 
         for (ToolCallback cb : callbacks) {
             assertInstanceOf(FunctionCallback.class, cb);

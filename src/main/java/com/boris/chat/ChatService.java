@@ -5,6 +5,8 @@ import java.util.function.Supplier;
 import org.springframework.ai.chat.client.ChatClient;
 
 import com.boris.llm.LlmClient;
+import com.boris.settings.Settings;
+import com.boris.settings.SettingsManager;
 import com.boris.tooling.integration.ToolCallingConfig;
 
 public class ChatService {
@@ -79,11 +81,15 @@ public class ChatService {
     }
 
     public static ChatService withTools(String settingsPath, String botName) throws Exception {
-        var registry = ToolCallingConfig.buildDefaultRegistry();
+        SettingsManager mgr = new SettingsManager();
+        Settings s = mgr.loadSettings(settingsPath);
+        String prompt = ToolCallingConfig.loadSystemPrompt(s);
+
         LlmClient llmClient = new LlmClient(settingsPath);
         var chatModel = extractChatModel(llmClient);
         ChatClient client = ChatClient.builder(chatModel)
-                .defaultTools(ToolCallingConfig.buildToolCallbacks())
+                .defaultSystem(prompt)
+                .defaultTools(ToolCallingConfig.buildNativeToolCallbacks())
                 .build();
 
         return new ChatService(null, () -> client, botName);
