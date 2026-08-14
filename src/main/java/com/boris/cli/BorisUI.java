@@ -3,6 +3,8 @@ package com.boris.cli;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.jline.jansi.Ansi;
@@ -15,6 +17,10 @@ public class BorisUI {
 
     private volatile boolean spinnerRunning = false;
     private static String savedTermSettings = null;
+
+    // ── Command history (like zsh / bash) ──────────────────────────────────
+    private final List<String> history = new ArrayList<>();
+    private int historyIndex = -1;   // -1 = not navigating history
 
     private final ChatService chatService;
     private final TaskAborter taskAborter;
@@ -46,6 +52,7 @@ public class BorisUI {
                 System.out.print("boris> ");
                 System.out.flush();
 
+                historyIndex = -1;  // reset navigation before each new prompt
                 String input = readLineFromTty();
                 if (input == null) {
                     // ESC or Ctrl+C at the prompt — just redraw
@@ -54,6 +61,11 @@ public class BorisUI {
                 }
                 input = input.trim();
                 if (input.isEmpty()) continue;
+
+                // Save to history (avoid duplicate consecutive entries)
+                if (history.isEmpty() || !history.get(history.size() - 1).equals(input)) {
+                    history.add(input);
+                }
 
                 spinnerRunning = true;
                 Thread spinnerThread = new Thread(this::startSpinner);
@@ -130,19 +142,70 @@ public class BorisUI {
 
     /**
      * Reads one line of input from /dev/tty in raw mode.
-     * Characters are echoed manually. Returns null if ESC or Ctrl+C is pressed.
+     * Characters are echoed manually. Returns null if ESC (bare) or Ctrl+C is pressed.
+     * Supports arrow-key history navigation (↑ previous, ↓ next).
      */
     private String readLineFromTty() throws IOException {
         StringBuilder sb = new StringBuilder();
         while (true) {
             int ch = tty.read();
             if (ch < 0) return null;                // EOF
+
             if (ch == 0x03) {                       // Ctrl+C → exit
                 sttyRestore();
                 System.exit(0);
             }
-            if (ch == 0x1B) return null;            // ESC → back to prompt
+
+            // ── Escape sequence handling ───────────────────────────────────
+            if (ch == 0x1B) {
+                // Peek at the next byte (non-blocking with a tiny wait)
+                int next = -1;
+                long deadline = System.currentTimeMillis() + 50;
+                while (System.currentTimeMillis() < deadline) {
+                    if (tty.available() > 0) { next = tty.read(); break; }
+                    try { Thread.sleep(5); } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                if (next != '[' && next != 0x4F) {
+                    // Bare ESC (or unknown sequence) → cancel current line
+                    return null;
+                }
+                // Read the final byte of the CSI sequence
+                int arrow = -1;
+                deadline = System.currentTimeMillis() + 50;
+                while (System.currentTimeMillis() < deadline) {
+                    if (tty.available() > 0) { arrow = tty.read(); break; }
+                    try { Thread.sleep(5); } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+
+                if (arrow == 'A') {              // ↑ Arrow Up — go to previous command
+                    if (!history.isEmpty()) {
+                        if (historyIndex < 0) historyIndex = history.size();
+                        if (historyIndex > 0) {
+                            historyIndex--;
+                            replaceCurrentLine(sb, history.get(historyIndex));
+                        }
+                    }
+                } else if (arrow == 'B') {       // ↓ Arrow Down — go to next command
+                    if (historyIndex >= 0) {
+                        historyIndex++;
+                        if (historyIndex >= history.size()) {
+                            historyIndex = history.size(); // past-end = empty line
+                            replaceCurrentLine(sb, "");
+                        } else {
+                            replaceCurrentLine(sb, history.get(historyIndex));
+                        }
+                    }
+                }
+                // Ignore other sequences (→, ←, F-keys, etc.)
+                continue;
+            }
+
             if (ch == '\r' || ch == '\n') break;    // Enter → submit
+
             if (ch == 0x7F || ch == '\b') {         // Backspace / Del
                 if (sb.length() > 0) {
                     sb.deleteCharAt(sb.length() - 1);
@@ -151,6 +214,7 @@ public class BorisUI {
                 }
                 continue;
             }
+
             if (ch >= 32) {                         // Printable char — echo it
                 sb.append((char) ch);
                 System.out.print((char) ch);
@@ -159,6 +223,25 @@ public class BorisUI {
         }
         System.out.println();
         return sb.toString();
+    }
+
+    /**
+     * Clears the current input on the terminal line and replaces it with {@code newText}.
+     * Updates {@code sb} in-place to reflect the new content.
+     */
+    private void replaceCurrentLine(StringBuilder sb, String newText) {
+        // Erase what is currently displayed
+        int currentLen = sb.length();
+        if (currentLen > 0) {
+            // Move cursor back to start of typed text, overwrite with spaces, move back again
+            String blanks = " ".repeat(currentLen);
+            System.out.print("\b".repeat(currentLen) + blanks + "\b".repeat(currentLen));
+        }
+        // Write the history entry
+        sb.setLength(0);
+        sb.append(newText);
+        System.out.print(newText);
+        System.out.flush();
     }
 
     private void printGreen(String text) {
