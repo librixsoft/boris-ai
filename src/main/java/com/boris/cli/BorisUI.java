@@ -34,8 +34,8 @@ public class BorisUI {
 
             while (true) {
                 System.out.print(Ansi.ansi().fgGreen());
-                System.out.print("\uD83D\uDC80_> ");
-                System.out.println(Ansi.ansi().reset());
+                System.out.print("boris> ");
+                System.out.flush();
 
                 String input;
                 try {
@@ -62,6 +62,7 @@ public class BorisUI {
                 if (response != null) {
                     for (String line : response.split("\\n", -1)) {
                         printlnGray(line);
+                        System.out.println();
                     }
                 }
             }
