@@ -60,7 +60,9 @@ public class BorisUI {
                     break;
                 }
                 if (response != null) {
-                    printlnGray(response);
+                    for (String line : response.split("\\n", -1)) {
+                        printlnGray(line);
+                    }
                 }
             }
 
@@ -86,7 +88,7 @@ public class BorisUI {
     private void startSpinner() {
         spinnerRunning = true;
         while (spinnerRunning) {
-            System.out.print("\r" + Ansi.ansi().fgBlack().bold());
+            System.out.print("\r" + Ansi.ansi().fgRgb(255, 255, 255).bold());
             System.out.print(SPINNER[spinnerIndex] + " " + Ansi.ansi().reset());
             spinnerIndex = (spinnerIndex + 1) % SPINNER.length;
             try { Thread.sleep(80); }
