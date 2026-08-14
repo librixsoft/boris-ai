@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.Map;
 
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
 import com.boris.settings.Settings;
@@ -35,9 +34,10 @@ public class LlmClient {
                 .apiKey(apiKey)
                 .build();
 
-        ChatModel chatModel = new org.springframework.ai.openai.OpenAiChatModel(
-                openAiApi,
-                OpenAiChatOptions.builder().model(modelName).build());
+        org.springframework.ai.openai.OpenAiChatModel chatModel = org.springframework.ai.openai.OpenAiChatModel.builder()
+                .openAiApi(openAiApi)
+                .defaultOptions(OpenAiChatOptions.builder().model(modelName).build())
+                .build();
 
         this.chatClient = ChatClient.create(chatModel);
     }

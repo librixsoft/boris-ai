@@ -15,7 +15,7 @@ public class Settings {
 
     public static Settings defaultSettings() {
         return new Settings(
-            new ModelConfig("http://localhost:11434/v1", "qwen3.6-35b-64k"),
+            new ModelConfig("http://localhost:11434", "qwen3.6-35b-64k"),
             Map.of("OLLAMA_API_KEY", "ollama")
         );
     }
