@@ -84,4 +84,59 @@ class ChatServiceTest {
         assertEquals(ChatService.EXIT_COMMAND, result);
         verify(mockLlm, never()).send(anyString());
     }
+
+    @Test
+    void sendMessage_returnsError_whenLlmThrows() {
+        LlmProvider mockLlm = mock(LlmProvider.class);
+        when(mockLlm.send("hola")).thenThrow(new RuntimeException("connection failed"));
+
+        ChatService service = new ChatService(mockLlm, "boris");
+        String result = service.sendMessage("hola");
+
+        assertTrue(result.startsWith("Error:"));
+        assertTrue(result.contains("connection failed"));
+    }
+
+    @Test
+    void sendMessage_returnsNull_whenUserMessageIsNull() {
+        LlmProvider mockLlm = mock(LlmProvider.class);
+
+        ChatService service = new ChatService(mockLlm, "boris");
+        String result = service.sendMessage(null);
+
+        assertNull(result);
+    }
+
+    @Test
+    void withTools_construction_throwsWhenSettingsMissing() {
+        assertThrows(Exception.class, () -> ChatService.withTools("/nonexistent/settings.json", "test"));
+    }
+
+    @Test
+    void setUseToolCalling_togglesBehavior() {
+        LlmProvider mockLlm = mock(LlmProvider.class);
+        when(mockLlm.send("hola")).thenReturn("response");
+
+        ChatService service = new ChatService(mockLlm, "boris");
+        assertFalse(service.isUsingToolCalling());
+
+        service.setUseToolCalling(true);
+        assertTrue(service.isUsingToolCalling());
+
+        String result = service.sendMessage("hola");
+        assertEquals("*boris* response", result);
+    }
+
+    @Test
+    void constructorWithNullChatClient_fallsBackToLlmProvider() {
+        LlmProvider mockLlm = mock(LlmProvider.class);
+        when(mockLlm.send("test")).thenReturn("ok");
+
+        ChatService service = new ChatService(mockLlm, null, "boris");
+        assertFalse(service.isUsingToolCalling());
+
+        String result = service.sendMessage("test");
+        assertEquals("*boris* ok", result);
+        verify(mockLlm).send("test");
+    }
 }
