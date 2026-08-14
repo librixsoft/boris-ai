@@ -3,7 +3,7 @@ package com.boris.tooling.integration;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Objects;
+import java.util.Map;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.model.function.FunctionCallback;
@@ -13,11 +13,16 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.ai.tool.definition.DefaultToolDefinition;
 import org.springframework.ai.tool.definition.ToolDefinition;
 
+import com.boris.exceptions.BorisException;
 import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
-import com.boris.tooling.tool.FileTool;
+import com.boris.tooling.tool.DeleteTool;
+import com.boris.tooling.tool.EditTool;
+import com.boris.tooling.tool.ListFilesTool;
+import com.boris.tooling.tool.ReadFileTool;
 import com.boris.tooling.tool.SystemInfoTool;
+import com.boris.tooling.tool.WriteTool;
 
 public class ToolCallingConfig {
 
@@ -25,6 +30,21 @@ public class ToolCallingConfig {
         "~/.boris/AGENTS.md"
     };
 
+    private final ReadFileTool readFileTool;
+    private final WriteTool writeTool;
+    private final DeleteTool deleteTool;
+    private final ListFilesTool listFilesTool;
+    private final EditTool editTool;
+    private final SystemInfoTool systemInfoTool;
+
+    public ToolCallingConfig() {
+        this.readFileTool = new ReadFileTool();
+        this.writeTool = new WriteTool();
+        this.deleteTool = new DeleteTool();
+        this.listFilesTool = new ListFilesTool();
+        this.editTool = new EditTool();
+        this.systemInfoTool = new SystemInfoTool();
+    }
 
     public static String loadSystemPrompt(Settings settings) {
         if (settings != null && settings.getSystemPrompt() != null && !settings.getSystemPrompt().isBlank()) {
@@ -38,9 +58,9 @@ public class ToolCallingConfig {
                 }
             }
         } catch (IOException e) {
-            throw new com.boris.exceptions.BorisException("Failed to read system prompt from any configured path", e);
+            throw new BorisException("Failed to read system prompt from any configured path", e);
         }
-        throw new com.boris.exceptions.BorisException("No system prompt found in any configured path: " + java.util.List.of(SYSTEM_PROMPT_PATHS));
+        throw new BorisException("No system prompt found in any configured path: " + java.util.List.of(SYSTEM_PROMPT_PATHS));
     }
 
     private static final String DEFAULT_SYSTEM_PROMPT = """
@@ -51,6 +71,9 @@ public class ToolCallingConfig {
             - write_file(path, content): Create or overwrite a file.
             - delete_file(path): Delete a file.
             - list_files(path): List directory contents.
+            - apply_edit(path, old_text, new_text): Apply a surgical edit to an existing file.
+            - multi_edit(path, edits): Apply multiple sequential edits to a file.
+            - revert_edit(path, old_text, new_text): Revert a previous edit by restoring original content.
             - get_system_info(): Get OS, memory, CPU info.
 
             INSTRUCTIONS:
@@ -66,14 +89,16 @@ public class ToolCallingConfig {
         SettingsManager mgr = new SettingsManager();
         Settings s = mgr.loadSettings(settingsPath);
         String prompt = loadSystemPrompt(s);
+        ToolCallingConfig config = new ToolCallingConfig();
         return ChatClient.builder(chatModel)
                 .defaultSystem(prompt)
-                .defaultTools(new BorisToolCallbackProvider().getToolCallbacks())
+                .defaultTools(ToolCallbacks.from(config))
                 .build();
     }
 
     public static org.springframework.ai.tool.ToolCallback[] buildNativeToolCallbacks() {
-        return new BorisToolCallbackProvider().getToolCallbacks();
+        ToolCallingConfig config = new ToolCallingConfig();
+        return ToolCallbacks.from(config);
     }
 
     @SuppressWarnings("unchecked")
@@ -85,48 +110,65 @@ public class ToolCallingConfig {
         return (org.springframework.ai.chat.model.ChatModel) method.invoke(client);
     }
 
-    private static class BorisToolCallbackProvider {
-        public org.springframework.ai.tool.ToolCallback[] getToolCallbacks() {
-            return ToolCallbacks.from(new FileAndSystemTools());
-        }
+    @Tool(
+            name = "read_file",
+            description = "Read the contents of a file at the given path. Returns the file content as a string.")
+    public String read_file(@ToolParam(description = "Absolute or relative path to the file to read") String path) {
+        return readFileTool.execute(Map.of("path", path));
     }
 
-    private static class FileAndSystemTools {
+    @Tool(
+            name = "write_file",
+            description = "Create a new file or overwrite an existing one with the given content.")
+    public String write_file(@ToolParam(description = "Absolute or relative path for the file to create/overwrite") String path,
+                             @ToolParam(description = "Full text content to write into the file") String content) {
+        return writeTool.execute(Map.of("path", path, "content", content));
+    }
 
-        @Tool(
-                name = "read_file",
-                description = "Read the contents of a file at the given path. Returns the file content as a string.")
-        public String read_file(@ToolParam(description = "Absolute or relative path to the file to read") String path) {
-            return FileTool.read_file(java.util.Map.of("path", path));
-        }
+    @Tool(
+            name = "delete_file",
+            description = "Delete a file at the given path. Returns success status and message.")
+    public String delete_file(@ToolParam(description = "Absolute or relative path to the file to delete") String path) {
+        return deleteTool.execute(Map.of("path", path));
+    }
 
-        @Tool(
-                name = "write_file",
-                description = "Create a new file or overwrite an existing one with the given content.")
-        public String write_file(@ToolParam(description = "Absolute or relative path for the file to create/overwrite") String path,
-                                 @ToolParam(description = "Full text content to write into the file") String content) {
-            return FileTool.write_file(java.util.Map.of("path", path, "content", content));
-        }
+    @Tool(
+            name = "list_files",
+            description = "List files and directories in the given directory. Returns a formatted listing.")
+    public String list_files(@ToolParam(description = "Directory path to list contents of") String path) {
+        return listFilesTool.execute(Map.of("path", path));
+    }
 
-        @Tool(
-                name = "delete_file",
-                description = "Delete a file at the given path. Returns success status and message.")
-        public String delete_file(@ToolParam(description = "Absolute or relative path to the file to delete") String path) {
-            return FileTool.delete_file(java.util.Map.of("path", path));
-        }
+    @Tool(
+            name = "apply_edit",
+            description = "Apply a surgical edit to an existing file by finding old_text and replacing it with new_text. Returns success status and message.")
+    public String apply_edit(@ToolParam(description = "Absolute or relative file path") String path,
+                             @ToolParam(description = "Exact text to find and replace in the file") String old_text,
+                             @ToolParam(description = "Replacement text") String new_text) {
+        return editTool.apply_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
+    }
 
-        @Tool(
-                name = "list_files",
-                description = "List files and directories in the given directory. Returns a formatted listing.")
-        public String list_files(@ToolParam(description = "Directory path to list contents of") String path) {
-            return FileTool.list_files(java.util.Map.of("path", path));
-        }
+    @Tool(
+            name = "multi_edit",
+            description = "Apply multiple sequential edits to a file. Each edit replaces old_text with new_text. Returns success status and message.")
+    public String multi_edit(@ToolParam(description = "Absolute or relative file path") String path,
+                             @ToolParam(description = "Array of edit objects, each with old_text and new_text fields") java.util.List<java.util.Map<String, Object>> edits) {
+        return editTool.multi_edit(Map.of("path", path, "edits", edits));
+    }
 
-        @Tool(
-                name = "get_system_info",
-                description = "Get system information including OS name, memory, CPU cores, and hostname.")
-        public String get_system_info() {
-            return SystemInfoTool.get_system_info(java.util.Map.of());
-        }
+    @Tool(
+            name = "revert_edit",
+            description = "Revert a previous edit by finding the edited text and replacing it with its original value. Returns success status and message.")
+    public String revert_edit(@ToolParam(description = "Absolute or relative file path") String path,
+                              @ToolParam(description = "Exact text to find and replace with new_text (the original content)") String old_text,
+                              @ToolParam(description = "Replacement text (original value to restore)") String new_text) {
+        return editTool.revert_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
+    }
+
+    @Tool(
+            name = "get_system_info",
+            description = "Get system information including OS name, memory, CPU cores, and hostname.")
+    public String get_system_info() {
+        return systemInfoTool.get_system_info(Map.of());
     }
 }
