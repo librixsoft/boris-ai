@@ -22,7 +22,11 @@ public class BorisApp implements Runnable {
 
     @Override
     public void run() {
-        new BorisUI(llmClient).start();
+        try {
+            new BorisUI(llmClient).start();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static void main(String[] args) {
