@@ -136,8 +136,16 @@ public class BorisUI {
                 taskThread.start();
 
                 // Main thread polls /dev/tty for ESC while the task is running.
+                // NOTE: streamDone.await(...) must be called unconditionally on every
+                // iteration — it's what paces this loop. The previous version used
+                // `taskThread.isAlive() || !streamDone.await(...)`, and because `||`
+                // short-circuits, await() was never invoked while the thread was
+                // alive, turning this into an unthrottled busy-spin for the entire
+                // duration of the task (100% CPU on one core, and no fixed cadence
+                // for polling /dev/tty).
                 boolean aborted = false;
-                while (taskThread.isAlive() || !streamDone.await(50, TimeUnit.MILLISECONDS)) {
+                while (true) {
+                    boolean finished = streamDone.await(50, TimeUnit.MILLISECONDS);
                     if (tty.available() > 0) {
                         int ch = tty.read();
                         if (ch == 0x1B) {           // ESC → abort task
@@ -150,6 +158,7 @@ public class BorisUI {
                             System.exit(0);
                         }
                     }
+                    if (finished) break;
                 }
 
                 if (aborted || taskAborter.isAborted()) {
