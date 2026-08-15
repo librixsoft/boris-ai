@@ -425,7 +425,7 @@ public class BorisUI {
                     out(frames[frame % frames.length]);
                     out(reset());
                     out(rgb(DIM));
-                    out(" " + seconds + "s");
+                    out(" " + seconds + "s" + " - tokens: " + "131k"); // TODO: Calcuñate real tokens, ins, outs (mejorar) 
                     out(reset());
                     frame++;
                     Thread.sleep(80);
