@@ -8,7 +8,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
 import org.jline.jansi.Ansi;
 import org.jline.jansi.AnsiConsole;
 
@@ -18,6 +21,7 @@ import com.boris.task.TaskAborter;
 public class BorisUI {
 
     private static String savedTermSettings = null;
+    private Terminal terminal;
 
     // ── Command history (like zsh / bash) ──────────────────────────────────
     private final List<String> history = new ArrayList<>();
@@ -28,6 +32,7 @@ public class BorisUI {
     private final InputStream tty;
 
     public BorisUI(String settingsPath) throws Exception {
+        this.terminal = TerminalBuilder.builder().system(true).build();
         this.chatService = ChatService.withTools(settingsPath, "boris");
         this.taskAborter = this.chatService.getTaskAborter();
         // Open /dev/tty directly — works even when stdin/stdout are redirected
@@ -38,10 +43,15 @@ public class BorisUI {
     }
 
     public void start() throws Exception {
+        // Install JLine's AnsiConsole so Ansi output works correctly
         AnsiConsole.systemInstall();
         sttyRaw();
         // Always restore terminal on JVM exit (covers Ctrl+C / SIGTERM)
-        Runtime.getRuntime().addShutdownHook(new Thread(BorisUI::sttyRestore));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            sttyRestore();
+            try { terminal.close(); } catch (Exception ignored) {}
+            AnsiConsole.systemUninstall();
+        }));
         try {
             System.out.println();
             printGreen("boris");
@@ -68,10 +78,9 @@ public class BorisUI {
                     history.add(input);
                 }
 
-                // Print thinking indicator (non-spinning)
-                System.out.print(Ansi.ansi().fgRgb(120, 120, 120).bold().fgBlack().bgRgb(120, 120, 120).toString());
-                System.out.println(" thinking..");
-                System.out.print(Ansi.ansi().fgGreen().reset().toString());
+                // Print thinking indicator with spinner
+                AtomicReference<Thread> spinnerRef = new AtomicReference<>(startSpinner());
+                AtomicBoolean firstChunk = new AtomicBoolean(true);
 
                 // Use streaming to print chunks as they arrive from the model.
                 AtomicReference<String> responseRef = new AtomicReference<>(null);
@@ -85,11 +94,19 @@ public class BorisUI {
                             finalInput,
                             chunk -> {
                                 if (chunk != null && !chunk.isEmpty()) {
+                                    if (firstChunk.compareAndSet(true, false)) {
+                                        Thread sp = spinnerRef.getAndSet(null);
+                                        if (sp != null) {
+                                            try { stopSpinner(sp); } catch (Exception ignored) {}
+                                        }
+                                        terminal.writer().print(Ansi.ansi().fgRgb(255, 255, 255).toString());
+                                        terminal.writer().println();
+                                        terminal.writer().flush();
+                                    }
                                     synchronized (fullResponse) {
                                         fullResponse.append(chunk);
                                     }
-                                    System.out.print(chunk);
-                                    System.out.flush();
+                                    try { terminal.writer().print(chunk); terminal.writer().flush(); } catch (Exception ignored) {}
                                 }
                             },
                             () -> {
@@ -291,5 +308,58 @@ public class BorisUI {
             new ProcessBuilder("sh", "-c", cmd)
                 .inheritIO().start().waitFor();
         } catch (Exception ignored) {}
+    }
+
+    /**
+     * Start a spinner on the thinking line using JLine's Terminal API.
+     * The spinner writes to terminal.output() using JLine's Ansi builder,
+     * so colors and cursor control go through JLine's ANSI bridge.
+     */
+    private Thread startSpinner() throws Exception {
+        // Write the initial thinking line with a trailing space for the spinner char
+        System.out.print(Ansi.ansi().fgRgb(120, 120, 120).bold().fgBlack().bgRgb(120, 120, 120).toString());
+        System.out.print(" thinking");
+        System.out.print(Ansi.ansi().fgGreen().reset().toString());
+        System.out.flush();
+
+        Thread t = new Thread(() -> {
+            String[] frames = { "⠋", "⠙", "⠸", "⠴", "⠂", "⠒", "⠑", "⠘" };
+            int frame = 0;
+            long start = System.currentTimeMillis();
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    long elapsed = System.currentTimeMillis() - start;
+                    int minutes = (int) (elapsed / 60000);
+                    int seconds = (int) ((elapsed % 60000) / 1000);
+                    System.out.print("\r\033[?25l\033[2K");
+                    System.out.print(Ansi.ansi().fgRgb(120, 120, 120).bold().fgBlack().bgRgb(120, 120, 120).toString());
+                    System.out.print(frames[frame % frames.length]);
+                    System.out.print(" ");
+                    System.out.print(Ansi.ansi().fgGreen().reset().toString());
+                    System.out.print(":: thinking");
+                    System.out.print(String.format("%dm %ds", minutes, seconds));
+                    System.out.print(Ansi.ansi().fgGreen().reset().toString());
+                    System.out.flush();
+                    frame++;
+                    Thread.sleep(80);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        t.setDaemon(true);
+        t.start();
+        return t;
+    }
+
+    /**
+     * Stop the spinner thread. The spinner is left on the thinking line;
+     * the caller handles cursor repositioning.
+     */
+    private void stopSpinner(Thread spinnerThread) throws InterruptedException {
+        spinnerThread.interrupt();
+        spinnerThread.join(200);
+        System.out.print("\033[2K\033[?25h");
+        System.out.flush();
     }
 }
