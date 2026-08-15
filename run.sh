@@ -5,22 +5,29 @@ set -e
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 JAR="$DIR/target/boris-cli-1.0.0.jar"
 
+# Skip tests flag
+SKIP_TESTS=false
+BORIS_ARGS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --skip-tests|--no-test)
+      SKIP_TESTS=true
+      ;;
+    *)
+      BORIS_ARGS+=("$arg")
+      ;;
+  esac
+done
+
 # Clean and package
-echo "=> Making clean and package..."
-mvn clean compile package -q
-
-if [ $? != 0 ]; then
-    echo "Error: Maven build failed." >&2
-    exit 1
-fi
-
-# Find the jar
-JAR="$DIR/target/boris-cli-1.0.0.jar"
-
-if [ ! -f "$JAR" ]; then
-    echo "Error: JAR file not found at $JAR" >&2
-    exit 1
+if [ "$SKIP_TESTS" = true ]; then
+  echo "=> Making clean and package (skipping tests)..."
+  mvn clean package -DskipTests -q
+else
+  echo "=> Making clean and package..."
+  mvn clean package -q
 fi
 
 echo ">> Running Boris CLI..."
-exec java -jar "$JAR" "$@"
+exec java -jar "$JAR" "${BORIS_ARGS[@]}"

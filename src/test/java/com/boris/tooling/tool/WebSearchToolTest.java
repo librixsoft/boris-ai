@@ -2,34 +2,35 @@ package com.boris.tooling.tool;
 
 import com.boris.tooling.ToolDefinition;
 import org.junit.jupiter.api.*;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.*;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpHeaders;
+import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.net.http.HttpClient;
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import javax.net.ssl.SSLSession;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class WebSearchToolTest {
 
     @Mock
-    HttpFetcher mockFetcher;
+    HttpClient mockHttpClient;
+
+    @Mock
+    HttpClient.Builder mockBuilder;
+
+    @Mock
+    HttpResponse<String> mockHttpResponse;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
     }
+
+    // -- ToolDefinition tests --
 
     @Test
     void web_search_definition_hasCorrectName() {
@@ -41,7 +42,7 @@ class WebSearchToolTest {
     void web_search_definition_hasDescription() {
         var def = WebSearchTool.web_search();
         assertNotNull(def.description());
-        assertTrue(def.description().contains("search") || def.description().contains("SearXNG"));
+        assertTrue(def.description().toLowerCase().contains("duckduckgo") || def.description().toLowerCase().contains("search"));
     }
 
     @Test
@@ -53,270 +54,463 @@ class WebSearchToolTest {
     }
 
     @Test
+    void web_search_definition_hasCountParameter() {
+        var def = WebSearchTool.web_search();
+        Map<String, Object> props = (Map<String, Object>) def.parameters().get("properties");
+        assertNotNull(props);
+        assertTrue(props.containsKey("count"));
+    }
+
+    @Test
+    void web_search_definition_hasRegionParameter() {
+        var def = WebSearchTool.web_search();
+        Map<String, Object> props = (Map<String, Object>) def.parameters().get("properties");
+        assertNotNull(props);
+        assertTrue(props.containsKey("region"));
+    }
+
+    @Test
+    void web_search_definition_hasSafeSearchParameter() {
+        var def = WebSearchTool.web_search();
+        Map<String, Object> props = (Map<String, Object>) def.parameters().get("properties");
+        assertNotNull(props);
+        assertTrue(props.containsKey("safeSearch"));
+    }
+
+    // -- Input validation tests --
+
+    @Test
     void execute_returnsError_whenQueryIsNull() {
         var args = new HashMap<String, Object>();
         args.put("query", (Object) null);
         String result = WebSearchTool.execute(args);
         assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("query"));
+        assertTrue(result.toLowerCase().contains("query"));
     }
 
     @Test
     void execute_returnsError_whenQueryIsEmpty() {
         String result = WebSearchTool.execute(Map.ofEntries(Map.entry("query", "")));
         assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("query"));
+        assertTrue(result.toLowerCase().contains("query"));
     }
 
     @Test
     void execute_returnsError_whenQueryIsBlank() {
         String result = WebSearchTool.execute(Map.ofEntries(Map.entry("query", "   ")));
         assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("query"));
+        assertTrue(result.toLowerCase().contains("query"));
+    }
+
+    // -- Successful search with DuckDuckGo HTML response --
+
+    @Test
+    void execute_returnsResults_whenDuckDuckGoReturnsHtml() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildMockDuckDuckGoHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
+
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
+
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+
+            assertTrue(result.contains("\"success\":true"));
+            assertTrue(result.contains("\"results\""));
+        }
     }
 
     @Test
-    void execute_returnsResults_whenSearXNGReturnsJson() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
-        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
-                .thenReturn(mockResponse)
-                .thenReturn(mockContent);
+    void execute_parsesTitleFromHtml() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildMockDuckDuckGoHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
 
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
 
-        assertTrue(result.contains("\"success\":true"));
-        assertTrue(result.contains("\"results\""));
-        verify(mockFetcher, times(2)).send(any(HttpRequest.class), any(Duration.class));
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+
+            assertTrue(result.contains("First Result"));
+        }
     }
 
     @Test
-    void execute_parsesTitleFromJson() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
-        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
-                .thenReturn(mockResponse)
-                .thenReturn(mockContent);
+    void execute_parsesCorrectUrlFromHtml() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildMockDuckDuckGoHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
 
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
 
-        assertTrue(result.contains("First Result"));
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+
+            assertTrue(result.contains("https://example.com/result1"));
+        }
     }
 
     @Test
-    void execute_parsesCorrectUrlFromJson() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
-        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
-                .thenReturn(mockResponse)
-                .thenReturn(mockContent);
+    void execute_parsesSnippetFromHtml() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildMockDuckDuckGoHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
 
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
 
-        assertTrue(result.contains("https://example.com/result1"));
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+
+            assertTrue(result.contains("snippet text"));
+        }
     }
 
     @Test
-    void execute_parsesSnippetFromJson() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
-        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>This is a longer snippet text for the first result here and some more content to make it valid</p></body></html>");
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
-                .thenReturn(mockResponse)
-                .thenReturn(mockContent);
+    void execute_returnsJsonWithCorrectResultFields() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildMockDuckDuckGoHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
 
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
 
-        assertTrue(result.contains("snippet text"));
-    }
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
 
-    @Test
-    void execute_returnsError_whenSearXNGReturnsEmptyResults() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, "{\"results\": []}");
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
-
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "no results")));
-
-        assertTrue(result.contains("\"success\":false"));
-    }
-
-    @Test
-    void execute_returnsError_whenHttpTimeout() throws Exception {
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
-                .thenThrow(new java.net.http.HttpTimeoutException("Timed out"));
-
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "timeout test")));
-
-        assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("no results found") || result.contains("timed out"));
-    }
-
-    @Test
-    void execute_returnsError_whenHttp500() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(500, "{\"error\": \"Server Error\"}");
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
-
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "server error")));
-
-        assertTrue(result.contains("\"success\":false"));
-    }
-
-    @Test
-    void execute_returnsError_whenHttp403() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(403, "{\"error\": \"Forbidden\"}");
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
-
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "forbidden")));
-
-        assertTrue(result.contains("\"success\":false"));
-    }
-
-    @Test
-    void execute_returnsError_whenIOException() throws Exception {
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
-                .thenThrow(new IOException("Connection refused"));
-
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "connection error")));
-
-        assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("error"));
-    }
-
-    @Test
-    void execute_buildsCorrectSearXNGUrl() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
-
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        tool.search(Map.ofEntries(Map.entry("query", "mi consulta")));
-
-        verify(mockFetcher, atLeast(1)).send(argThat(request -> {
-            String uri = request.uri().toString();
-            return uri.contains("/search?q=")
-                    && uri.contains("mi+consulta")
-                    && uri.contains("format=json");
-        }), any(Duration.class));
-    }
-
-    @Test
-    void execute_returnsError_whenInterrupted() throws Exception {
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
-                .thenThrow(new InterruptedException("Interrupted"));
-
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "interrupted")));
-
-        assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("no results found") || result.contains("interrupted"));
-    }
-
-    @Test
-    void execute_returnsJsonWithContentField() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
-        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
-                .thenReturn(mockResponse)
-                .thenReturn(mockContent);
-
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
-
-        assertTrue(result.contains("\"success\":true"));
-        assertTrue(result.contains("\"title\""));
-        assertTrue(result.contains("\"url\""));
-        assertTrue(result.contains("\"content\""));
+            assertTrue(result.contains("\"success\":true"));
+            assertTrue(result.contains("\"title\""));
+            assertTrue(result.contains("\"url\""));
+            assertTrue(result.contains("\"snippet\""));
+        }
     }
 
     @Test
     void execute_resultsHaveCorrectNumberOfResults() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
-        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Some content from the first result page for testing purposes</p></body></html>");
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
-                .thenReturn(mockResponse)
-                .thenReturn(mockContent);
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildMockDuckDuckGoHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
 
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
 
-        assertTrue(result.contains("First Result"));
-        assertTrue(result.contains("Second Result"));
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+
+            assertTrue(result.contains("First Result"));
+            assertTrue(result.contains("Second Result"));
+        }
     }
 
     @Test
-    void execute_fallsBackToNextInstance_whenFirstFails() throws Exception {
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
-                .thenThrow(new IOException("Connection refused"))
-                .thenReturn(new FakeHttpResponse(200, buildMockSearXNGJson()))
-                .thenReturn(new FakeHttpResponse(200, "<html><body><p>Content</p></body></html>"));
+    void execute_respectsCountParameter() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildMockDuckDuckGoHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
 
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
 
-        assertTrue(result.contains("\"success\":true"));
-        assertTrue(result.contains("First Result"));
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(
+                    Map.entry("query", "test query"),
+                    Map.entry("count", 1)
+            ));
+
+            assertTrue(result.contains("\"success\":true"));
+            assertTrue(result.contains("First Result"));
+            assertFalse(result.contains("Second Result"));
+        }
+    }
+
+    // -- Error cases --
+
+    @Test
+    void execute_returnsError_whenDuckDuckGoReturnsEmptyResults() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildEmptyDuckDuckGoHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
+
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
+
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(Map.entry("query", "no results")));
+
+            assertTrue(result.contains("\"success\":false"));
+        }
     }
 
     @Test
-    void execute_parsesEngineFromJson() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
-        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Content</p></body></html>");
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
-                .thenReturn(mockResponse)
-                .thenReturn(mockContent);
+    void execute_returnsError_whenHttpTimeout() throws Exception {
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenThrow(new java.net.http.HttpTimeoutException("Timed out"));
 
-        WebSearchTool tool = new WebSearchTool(mockFetcher);
-        String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
 
-        // El engine puede ser Google, Bing, o cualquier motor que SearXNG devuelva
-        assertTrue(result.contains("\"engine\""));
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(Map.entry("query", "timeout test")));
+
+            assertTrue(result.contains("\"success\":false"));
+            assertTrue(result.toLowerCase().contains("timed out"));
+        }
     }
 
-    private String buildMockSearXNGJson() {
+    @Test
+    void execute_returnsError_whenHttp500() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(500);
+        when(mockHttpResponse.body()).thenReturn("<html>Server Error</html>");
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
+
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
+
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(Map.entry("query", "server error")));
+
+            assertTrue(result.contains("\"success\":false"));
+        }
+    }
+
+    @Test
+    void execute_returnsError_whenHttp403() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(403);
+        when(mockHttpResponse.body()).thenReturn("<html>Forbidden</html>");
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
+
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
+
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(Map.entry("query", "forbidden")));
+
+            assertTrue(result.contains("\"success\":false"));
+        }
+    }
+
+    @Test
+    void execute_returnsError_whenIOException() throws Exception {
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenThrow(new IOException("Connection refused"));
+
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
+
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(Map.entry("query", "connection error")));
+
+            assertTrue(result.contains("\"success\":false"));
+            assertTrue(result.toLowerCase().contains("error"));
+        }
+    }
+
+    @Test
+    void execute_returnsError_whenBotChallenge() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildBotChallengeHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
+
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
+
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(Map.entry("query", "bot test")));
+
+            assertTrue(result.contains("\"success\":false"));
+            assertTrue(result.toLowerCase().contains("bot"));
+        }
+    }
+
+    @Test
+    void execute_returnsError_whenInterrupted() throws Exception {
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenThrow(new InterruptedException("Interrupted"));
+
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
+
+            WebSearchTool tool = new WebSearchTool();
+            String result = tool.search(Map.ofEntries(Map.entry("query", "interrupted")));
+
+            assertTrue(result.contains("\"success\":false"));
+            assertTrue(result.toLowerCase().contains("interrupted"));
+        }
+    }
+
+    // -- SafeSearch tests --
+
+    @Test
+    void execute_usesModerateSafeSearchByDefault() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildMockDuckDuckGoHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
+
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
+
+            WebSearchTool tool = new WebSearchTool();
+            tool.search(Map.ofEntries(Map.entry("query", "test query")));
+
+            verify(mockHttpClient, atLeast(1)).send(argThat(request -> {
+                String uri = request.uri().toString();
+                return uri.contains("kp=-1");
+            }), any(HttpResponse.BodyHandler.class));
+        }
+    }
+
+    @Test
+    void execute_usesStrictSafeSearch() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildMockDuckDuckGoHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
+
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
+
+            WebSearchTool tool = new WebSearchTool();
+            tool.search(Map.ofEntries(Map.entry("query", "test query"), Map.entry("safeSearch", "strict")));
+
+            verify(mockHttpClient, atLeast(1)).send(argThat(request -> {
+                String uri = request.uri().toString();
+                return uri.contains("kp=1");
+            }), any(HttpResponse.BodyHandler.class));
+        }
+    }
+
+    @Test
+    void execute_usesOffSafeSearch() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildMockDuckDuckGoHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
+
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
+
+            WebSearchTool tool = new WebSearchTool();
+            tool.search(Map.ofEntries(Map.entry("query", "test query"), Map.entry("safeSearch", "off")));
+
+            verify(mockHttpClient, atLeast(1)).send(argThat(request -> {
+                String uri = request.uri().toString();
+                return uri.contains("kp=-2");
+            }), any(HttpResponse.BodyHandler.class));
+        }
+    }
+
+    // -- Region tests --
+
+    @Test
+    void execute_usesRegionWhenProvided() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildMockDuckDuckGoHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
+
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
+
+            WebSearchTool tool = new WebSearchTool();
+            tool.search(Map.ofEntries(Map.entry("query", "test query"), Map.entry("region", "us-en")));
+
+            verify(mockHttpClient, atLeast(1)).send(argThat(request -> {
+                String uri = request.uri().toString();
+                return uri.contains("kl=us-en");
+            }), any(HttpResponse.BodyHandler.class));
+        }
+    }
+
+    @Test
+    void execute_doesNotAddRegionWhenNull() throws Exception {
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(buildMockDuckDuckGoHtml());
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockBuilder.build()).thenReturn(mockHttpClient);
+
+        try (var staticMock = mockStatic(HttpClient.class)) {
+            staticMock.when(HttpClient::newBuilder).thenReturn(mockBuilder);
+
+            WebSearchTool tool = new WebSearchTool();
+            tool.search(Map.ofEntries(Map.entry("query", "test query")));
+
+            verify(mockHttpClient, atLeast(1)).send(argThat(request -> {
+                String uri = request.uri().toString();
+                return !uri.contains("kl=");
+            }), any(HttpResponse.BodyHandler.class));
+        }
+    }
+
+    // -- Helpers --
+
+    private String buildMockDuckDuckGoHtml() {
         return """
-            {
-                "query": "test",
-                "results": [
-                    {
-                        "title": "First Result",
-                        "url": "https://example.com/result1",
-                        "content": "This is a longer snippet text for the first result here",
-                        "engine": "Google"
-                    },
-                    {
-                        "title": "Second Result",
-                        "url": "https://example.com/result2",
-                        "content": "This is a longer snippet text for the second result here",
-                        "engine": "Bing"
-                    }
-                ]
-            }
+            <!DOCTYPE html>
+            <html class="no-js">
+            <body>
+                <div class="result__snippet">snippet text for first result</div>
+                <a class="result__a" href="https://example.com/result1">First Result</a>
+                <div class="result__snippet">snippet text for second result</div>
+                <a class="result__a" href="https://example.com/result2">Second Result</a>
+            </body>
+            </html>
             """;
     }
 
-    private static class FakeHttpResponse implements HttpResponse<String> {
-        private final int statusCode;
-        private final String body;
+    private String buildEmptyDuckDuckGoHtml() {
+        return """
+            <!DOCTYPE html>
+            <html class="no-js">
+            <body>
+                <div>No results found</div>
+            </body>
+            </html>
+            """;
+    }
 
-        FakeHttpResponse(int statusCode, String body) {
-            this.statusCode = statusCode;
-            this.body = body;
-        }
-
-        @Override public int statusCode() { return statusCode; }
-        @Override public String body() { return body; }
-        @Override public HttpHeaders headers() { return HttpHeaders.of(Map.of(), (n, v) -> true); }
-        @Override public Optional<SSLSession> sslSession() { return Optional.empty(); }
-        @Override public URI uri() { return null; }
-        @Override public HttpRequest request() { return null; }
-        @Override public HttpClient.Version version() { return null; }
-        @Override public Optional<HttpResponse<String>> previousResponse() { return Optional.empty(); }
+    private String buildBotChallengeHtml() {
+        return """
+            <!DOCTYPE html>
+            <html>
+            <body>
+                <div class="g-recaptcha" data-sitekey="fake"></div>
+                <form id="challenge-form"></form>
+            </body>
+            </html>
+            """;
     }
 }

@@ -80,7 +80,7 @@ public class ToolCallingConfig {
             - multi_edit(path, edits): Apply multiple sequential edits to a file.
             - revert_edit(path, old_text, new_text): Revert a previous edit by restoring original content.
             - get_system_info(): Get OS, memory, CPU info.
-            - web_search(query): Search via SearXNG (aggregates Google, Bing, DuckDuckGo, Wikipedia, etc.) for current information. Returns structured JSON results with title, URL, engine (source), and snippet. The `content` field contains the extracted text from the first search result page. Read the `content` field to answer the user's question directly — do not need to fetch the URL yourself.
+            - web_search(query, count, region, safeSearch): Search the web using DuckDuckGo. Returns titles, URLs, and snippets with no API key required. Parameters: query (required), count (1-10, default 5), region (optional, e.g. us-en), safeSearch (optional: strict/moderate/off).
 
             INSTRUCTIONS:
             1. Analyze the user's request carefully.
@@ -180,8 +180,16 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "web_search",
-            description = "Search via SearXNG (aggregates Google, Bing, DuckDuckGo, Wikipedia, etc.) for current information. Returns structured JSON results with title, URL, engine, and snippet.")
-    public String web_search(@ToolParam(description = "Search query string") String query) {
-        return WebSearchTool.execute(Map.ofEntries(Map.entry("query", query)));
+            description = "Search the web using DuckDuckGo. Returns titles, URLs, and snippets with no API key required.")
+    public String web_search(@ToolParam(description = "Search query string") String query,
+                             @ToolParam(description = "Number of results to return (1-10)") Integer count,
+                             @ToolParam(description = "Optional DuckDuckGo region code such as us-en") String region,
+                             @ToolParam(description = "SafeSearch level: strict, moderate, or off") String safeSearch) {
+        Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("query", query);
+        if (count != null) args.put("count", count);
+        if (region != null) args.put("region", region);
+        if (safeSearch != null) args.put("safeSearch", safeSearch);
+        return WebSearchTool.execute(args);
     }
 }

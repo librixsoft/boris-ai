@@ -1,20 +1,15 @@
 package com.boris.tooling.tool;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,45 +18,39 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.tooling.ToolDefinition;
 
 /**
- * Usa SearXNG como metamotor de búsqueda: agrega resultados de Google,
- * Bing, DuckDuckGo, Wikipedia, etc. en un solo endpoint JSON.
- * No requiere API key ni pago.
- *
- * Usa una lista de instancias públicas con fallback: si una devuelve
- * error, intenta la siguiente. Para producción se recomienda
- * self-hostear una instancia de SearXNG.
+ * DuckDuckGo key-free web search. Scrapes https://html.duckduckgo.com/html
+ * and parses the HTML response. No API key required.
  */
 public class WebSearchTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private final HttpFetcher httpFetcher;
+    private static final String DDG_HTML_ENDPOINT = "https://html.duckduckgo.com/html";
+    private static final int DEFAULT_TIMEOUT_SECONDS = 20;
+    private static final String DEFAULT_SAFE_SEARCH = "moderate";
+    private static final Map<String, String> DDG_SAFE_SEARCH_PARAM = new LinkedHashMap<>();
 
-    private static final List<String> SEARXNG_INSTANCES = List.of(
-        "https://searx.be",
-        "https://searx.tiekoetter.com",
-        "https://search.sapti.me",
-        "https://searxng.lexie.dev",
-        "https://search.ononoki.org"
-    );
-
-    public WebSearchTool() {
-        this.httpFetcher = createDefaultFetcher();
-    }
-
-    public WebSearchTool(HttpFetcher httpFetcher) {
-        this.httpFetcher = httpFetcher;
+    static {
+        DDG_SAFE_SEARCH_PARAM.put("strict", "1");
+        DDG_SAFE_SEARCH_PARAM.put("moderate", "-1");
+        DDG_SAFE_SEARCH_PARAM.put("off", "-2");
     }
 
     public static ToolDefinition web_search() {
         var queryProp = Map.of("type", "string", "description", "Search query string");
         var properties = new LinkedHashMap<String, Object>();
         properties.put("query", queryProp);
+        var countProp = Map.of("type", "integer", "description", "Number of results to return (1-10)");
+        properties.put("count", countProp);
+        var regionProp = Map.of("type", "string", "description", "Optional DuckDuckGo region code such as us-en, uk-en, or de-de");
+        properties.put("region", regionProp);
+        var safeSearchProp = Map.of("type", "string", "description", "SafeSearch level: strict, moderate, or off");
+        properties.put("safeSearch", safeSearchProp);
         var schema = new LinkedHashMap<String, Object>();
         schema.put("type", "object");
         schema.put("properties", properties);
         return ToolDefinition.of(
                 "web_search",
-                "Search via SearXNG (aggregates Google, Bing, DuckDuckGo, Wikipedia, etc.) for current information. Returns a JSON with title, url, engine, and summarized content.",
+                "Search the web using DuckDuckGo. Returns titles, URLs, and snippets with no API key required.",
                 schema);
     }
 
@@ -78,20 +67,18 @@ public class WebSearchTool {
         }
 
         try {
-            List<Map<String, String>> results = searchViaSearXNG(query);
+            int count = resolveCount(args);
+            String region = (String) args.get("region");
+            String safeSearch = resolveSafeSearch(args);
+            List<Map<String, String>> results = searchViaDuckDuckGo(query, count, region, safeSearch);
 
             if (results.isEmpty()) {
-                return formatError("no results found via any SearXNG instance");
+                return formatError("no results found");
             }
-
-            Map<String, String> first = results.get(0);
-            String rawContent = fetchAndExtractContent(first.get("url"));
-            String summary = summarize(rawContent);
-            first.put("content", summary != null ? summary : "");
 
             return formatSuccess(query, results);
         } catch (java.net.http.HttpTimeoutException e) {
-            return formatError("search timed out after 15 seconds");
+            return formatError("search timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds");
         } catch (IOException e) {
             return formatError("IO error: " + e.getMessage());
         } catch (InterruptedException e) {
@@ -100,109 +87,159 @@ public class WebSearchTool {
         }
     }
 
-    private List<Map<String, String>> searchViaSearXNG(String query) throws IOException, InterruptedException {
+    private List<Map<String, String>> searchViaDuckDuckGo(String query, int count, String region, String safeSearch) throws IOException, InterruptedException {
         String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
-        List<Map<String, String>> results = new ArrayList<>();
+        StringBuilder sb = new StringBuilder(DDG_HTML_ENDPOINT);
+        sb.append("?q=").append(encoded);
+        if (region != null && !region.isBlank()) {
+            sb.append("&kl=").append(region);
+        }
+        sb.append("&kp=").append(DDG_SAFE_SEARCH_PARAM.getOrDefault(safeSearch, "-1"));
 
-        for (String instance : SEARXNG_INSTANCES) {
-            try {
-                String url = instance + "/search?q=" + encoded + "&format=json&categories=general&language=en";
-                HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .GET()
-                    .timeout(Duration.ofSeconds(10))
-                    .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
-                    .header("Accept", "application/json")
-                    .header("Accept-Language", "en-US,en;q=0.9")
-                    .build();
+        java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
+        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+            .uri(java.net.URI.create(sb.toString()))
+            .GET()
+            .timeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS))
+            .header("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+            .build();
 
-                HttpResponse<String> response = httpFetcher.send(request, Duration.ofSeconds(10));
+        java.net.http.HttpResponse<String> response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
 
-                if (response.statusCode() == 200 && response.body() != null && !response.body().isEmpty()) {
-                    results = parseSearXNGJson(response.body());
-                    if (!results.isEmpty()) {
-                        break;
-                    }
-                }
-            } catch (Exception e) {
-                // Try next instance
-            }
+        if (response.statusCode() != 200) {
+            throw new IOException("DuckDuckGo search error (" + response.statusCode() + ")");
+        }
+
+        String html = response.body();
+        if (isBotChallenge(html)) {
+            throw new IOException("DuckDuckGo returned a bot-detection challenge");
+        }
+
+        List<Map<String, String>> results = parseDuckDuckGoHtml(html);
+
+        if (results.size() > count) {
+            results = results.subList(0, count);
         }
 
         return results;
     }
 
-    private List<Map<String, String>> parseSearXNGJson(String jsonBody) {
+    private int resolveCount(Map<String, Object> args) {
+        Object countObj = args.get("count");
+        if (countObj instanceof Integer c) {
+            return Math.max(1, Math.min(10, c));
+        }
+        return 5;
+    }
+
+    private String resolveSafeSearch(Map<String, Object> args) {
+        Object ssObj = args.get("safeSearch");
+        if (ssObj instanceof String ss) {
+            String normalized = ss.trim().toLowerCase();
+            if (normalized.equals("strict") || normalized.equals("moderate") || normalized.equals("off")) {
+                return normalized;
+            }
+        }
+        return DEFAULT_SAFE_SEARCH;
+    }
+
+    private boolean isBotChallenge(String html) {
+        if (html == null) return false;
+        if (Pattern.compile("class=\"[^\"]*\\bresult__a\\b[^\"]*\"").matcher(html).find()) return false;
+        return Pattern.compile("g-recaptcha", Pattern.CASE_INSENSITIVE).matcher(html).find() ||
+               Pattern.compile("are you a human", Pattern.CASE_INSENSITIVE).matcher(html).find() ||
+               Pattern.compile("id=\"challenge-form\"", Pattern.CASE_INSENSITIVE).matcher(html).find() ||
+               Pattern.compile("name=\"challenge\"", Pattern.CASE_INSENSITIVE).matcher(html).find();
+    }
+
+    private List<Map<String, String>> parseDuckDuckGoHtml(String html) {
         List<Map<String, String>> results = new ArrayList<>();
-        try {
-            JsonNode root = MAPPER.readTree(jsonBody);
-            JsonNode resultsNode = root.get("results");
-            if (resultsNode == null || !resultsNode.isArray()) return results;
+        if (html == null) return results;
 
-            for (JsonNode result : resultsNode) {
-                String title = result.has("title") ? result.get("title").asText() : "";
-                String url = result.has("url") ? result.get("url").asText() : "";
-                String snippet = result.has("content") ? result.get("content").asText() : "";
+        Pattern resultPattern = Pattern.compile(
+            "<a\\b(?=[^>]*\\bclass=\"[^\"]*\\bresult__a\\b[^\"]*\")([^>]*)>([\\s\\S]*?)</a>",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+        );
+        Matcher resultMatcher = resultPattern.matcher(html);
 
-                if (title.isEmpty() || url.isEmpty()) continue;
+        while (resultMatcher.find()) {
+            String rawAttributes = resultMatcher.group(1);
+            String rawTitle = resultMatcher.group(2);
+            String rawUrl = extractHref(rawAttributes);
 
+            int matchEnd = resultMatcher.end();
+            String trailingHtml = html.substring(matchEnd);
+            Pattern nextResultPattern = Pattern.compile(
+                "<a\\b(?=[^>]*\\bclass=\"[^\"]*\\bresult__a\\b[^\"]*\")[^>]*>",
+                Pattern.CASE_INSENSITIVE
+            );
+            Matcher nextResultMatcher = nextResultPattern.matcher(trailingHtml);
+            int nextResultIndex = nextResultMatcher.find() ? nextResultMatcher.start() : -1;
+            String scopedTrailingHtml = nextResultIndex >= 0 ? trailingHtml.substring(0, nextResultIndex) : trailingHtml;
+
+            Pattern snippetPattern = Pattern.compile(
+                "<a\\b(?=[^>]*\\bclass=\"[^\"]*\\bresult__snippet\\b[^\"]*\")[^>]*>([\\s\\S]*?)</a>",
+                Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+            );
+            Matcher snippetMatcher = snippetPattern.matcher(scopedTrailingHtml);
+            String rawSnippet = snippetMatcher.find() ? snippetMatcher.group(1) : "";
+
+            String title = decodeHtmlEntities(rawTitle);
+            String url = decodeDuckDuckGoUrl(decodeHtmlEntities(rawUrl));
+            String snippet = decodeHtmlEntities(stripHtml(rawSnippet));
+
+            if (!title.isEmpty() && !url.isEmpty()) {
                 Map<String, String> entry = new LinkedHashMap<>();
                 entry.put("title", title);
                 entry.put("url", url);
                 entry.put("snippet", snippet);
-                entry.put("engine", result.has("engine") ? result.get("engine").asText() : "");
                 results.add(entry);
-
-                if (results.size() >= 10) break;
             }
-        } catch (IOException ignored) {}
+        }
+
         return results;
     }
 
-    private String fetchAndExtractContent(String url) {
-        try {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .GET()
-                    .timeout(Duration.ofSeconds(5))
-                    .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
-                    .header("Accept", "text/html,application/xhtml+xml")
-                    .build();
-
-            HttpResponse<String> response = httpFetcher.send(request, Duration.ofSeconds(5));
-
-            if (response.statusCode() != 200) {
-                return null;
-            }
-
-            Document doc = Jsoup.parse(response.body());
-            doc.select("script, style, nav, footer, header, noscript").remove();
-            String text = doc.body() != null ? doc.body().text() : doc.text();
-
-            if (text.length() > 5000) {
-                text = text.substring(0, 5000);
-            }
-
-            return text;
-        } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            return null;
-        }
+    private String extractHref(String attributes) {
+        if (attributes == null) return "";
+        Matcher m = Pattern.compile("\\bhref=\"([^\"]*)\"").matcher(attributes);
+        return m.find() ? m.group(1) : "";
     }
 
-    private String summarize(String rawContent) {
-        if (rawContent == null || rawContent.isBlank()) return "";
+    private String decodeHtmlEntities(String text) {
+        if (text == null) return "";
+        return text
+            .replaceAll("&lt;", "<")
+            .replaceAll("&gt;", ">")
+            .replaceAll("&quot;", "\"")
+            .replaceAll("&apos;", "'")
+            .replaceAll("&#39;", "'")
+            .replaceAll("&#x27;", "'")
+            .replaceAll("&#x2f;", "/")
+            .replaceAll("&nbsp;", " ")
+            .replaceAll("&ndash;", "-")
+            .replaceAll("&mdash;", "--")
+            .replaceAll("&hellip;", "...")
+            .replaceAll("&amp;", "&");
+    }
 
-        String[] sentences = rawContent.split("(?<=[.!?])\\s+");
-        StringBuilder sb = new StringBuilder();
-        for (String s : sentences) {
-            if (sb.length() + s.length() > 800) break;
-            sb.append(s).append(" ");
-        }
-        String result = sb.toString().trim();
-        return result.isEmpty() ? rawContent.substring(0, Math.min(800, rawContent.length())) : result;
+    private String stripHtml(String html) {
+        if (html == null) return "";
+        return html.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").trim();
+    }
+
+    private String decodeDuckDuckGoUrl(String rawUrl) {
+        if (rawUrl == null) return "";
+        try {
+            String normalized = rawUrl.startsWith("//") ? "https:" + rawUrl : rawUrl;
+            Matcher m = Pattern.compile("uddg=([^&]+)").matcher(normalized);
+            if (m.find()) {
+                return java.net.URLDecoder.decode(m.group(1), StandardCharsets.UTF_8.name());
+            }
+        } catch (Exception ignored) {}
+        return rawUrl;
     }
 
     private String formatSuccess(String query, List<Map<String, String>> results) {
@@ -210,17 +247,14 @@ public class WebSearchTool {
             ObjectNode node = MAPPER.createObjectNode();
             node.put("success", true);
             node.put("query", query);
-
             ArrayNode array = node.putArray("results");
             for (Map<String, String> r : results) {
                 ObjectNode obj = array.addObject();
                 obj.put("title", r.get("title"));
                 obj.put("url", r.get("url"));
-                obj.put("content", r.getOrDefault("content", ""));
-                obj.put("engine", r.getOrDefault("engine", ""));
+                obj.put("snippet", r.getOrDefault("snippet", ""));
             }
             node.putNull("error");
-
             return MAPPER.writeValueAsString(node);
         } catch (IOException e) {
             throw new com.boris.exceptions.BorisException("Failed to format output", e);
@@ -238,14 +272,5 @@ public class WebSearchTool {
         } catch (IOException e) {
             throw new com.boris.exceptions.BorisException("Failed to format output", e);
         }
-    }
-
-    private HttpFetcher createDefaultFetcher() {
-        return (request, timeout) -> {
-            HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(5))
-                    .build();
-            return client.send(request, HttpResponse.BodyHandlers.ofString());
-        };
     }
 }
