@@ -21,7 +21,7 @@ import com.boris.task.TaskAborter;
 /**
  * BorisUI — minimal terminal front-end, in the spirit of modern coding-agent
  * CLIs (Claude Code / opencode): a plain-text name + slogan on startup (no
- * ASCII art), a boxed single-line input prompt, a "Boris ·" label on
+ * ASCII art), a borderless single-line input prompt, a "Boris ·" label on
  * responses, and a quiet dot-spinner while working.
  */
 public class BorisUI {
@@ -31,7 +31,6 @@ public class BorisUI {
     private static final int[] DIM    = { 118, 118, 124 };  // secondary / help text
     private static final int[] FG     = { 225, 225, 228 };  // response text
     private static final int[] WARN   = { 209, 160, 100 };  // aborted
-    private static final int[] BORDER = { 235, 235, 238 };  // near-white, used for the input box frame
 
     private static String savedTermSettings = null;
     private Terminal terminal;
@@ -39,11 +38,6 @@ public class BorisUI {
     // ── Command history (like zsh / bash) ──────────────────────────────────
     private final List<String> history = new ArrayList<>();
     private int historyIndex = -1;   // -1 = not navigating history
-
-    // Width used for the box currently on screen. Fixed once per prompt so
-    // the top/side/bottom borders always agree, even if the terminal is
-    // resized mid-input.
-    private int lastBoxWidth = 0;
 
     private final ChatService chatService;
     private final TaskAborter taskAborter;
@@ -192,13 +186,13 @@ public class BorisUI {
     // ── Chrome / framing (kept deliberately quiet) ─────────────────────────
 
     /**
-     * Single output channel for all chrome (banner, box, prompts, status
-     * lines). Everything used to go through System.out while streamed
-     * responses went through terminal.writer(); Jansi's AnsiConsole and
-     * JLine's writer don't always agree on ANSI state until the writer has
-     * been used at least once, which is why the border color used to look
-     * "wrong" until the first message came back. Routing everything through
-     * terminal.writer() keeps colors consistent from the very first frame.
+     * Single output channel for all chrome (banner, prompt, status lines).
+     * Everything used to go through System.out while streamed responses
+     * went through terminal.writer(); Jansi's AnsiConsole and JLine's writer
+     * don't always agree on ANSI state until the writer has been used at
+     * least once, which is why colors used to look "wrong" until the first
+     * message came back. Routing everything through terminal.writer() keeps
+     * colors consistent from the very first frame.
      */
     private void out(String s) {
         terminal.writer().print(s);
@@ -219,90 +213,41 @@ public class BorisUI {
     }
 
     /**
-     * Real terminal column count. Tries JLine's own {@code terminal.getWidth()}
-     * first — it works in the vast majority of real terminals and costs no
-     * subprocess spawn. Falls back to {@code stty size} on /dev/tty only if
-     * JLine reports something implausible (0, or a "dumb terminal" default),
-     * and finally to a conservative fixed value if both fail. This order
-     * matters: silently trusting a fixed 80-column fallback (the old
-     * behavior) is what caused the box to be drawn wider than the real
-     * terminal and get wrapped/cut by the emulator whenever `stty size`
-     * couldn't reach a real tty (common in IDE-integrated terminals,
-     * some containers, and other non-interactive-tty setups).
-     */
-    private int queryTerminalColumns() {
-        int jlineWidth = terminal.getWidth();
-        if (jlineWidth > 20) {
-            return jlineWidth;
-        }
-        try {
-            Process p = new ProcessBuilder("sh", "-c", "stty size </dev/tty")
-                .redirectErrorStream(true)
-                .start();
-            String out = new String(p.getInputStream().readAllBytes()).trim();
-            p.waitFor();
-            String[] parts = out.split("\\s+");
-            if (parts.length == 2) {
-                int cols = Integer.parseInt(parts[1]);
-                if (cols > 20) return cols;
-            }
-        } catch (Exception ignored) {}
-        return 60; // conservative fallback — better a smaller box than a cut one
-    }
-
-    /**
-     * Width of the input box. A line that fills the terminal's full column
-     * count edge-to-edge causes some terminals to insert an implicit
-     * line-wrap before our own trailing newline, which is what made the box
-     * look "cut in half" / folded onto an extra line. Reserving 3 columns
-     * (2 border chars + 1 margin) instead of 2 avoids ever touching the
-     * last column.
-     */
-    private int boxWidth() {
-        int cols = queryTerminalColumns();
-        return Math.max(cols - 3, 20);
-    }
-
-    /**
-     * Boxed input prompt, Claude Code / opencode style. Unlike the previous
-     * version — which only drew the top rule and left border up front, and
-     * only closed the box with a bottom rule after Enter — this draws the
-     * ENTIRE box (top, sides, bottom) immediately, then moves the cursor
-     * back up into the input line. That's what fixes the "cut in half"
-     * look: the box was never incomplete on screen, you were just typing
-     * into a box whose bottom (and right side) hadn't been drawn yet.
+     * Borderless input prompt, just "› " followed by whatever the user
+     * types. No box, no fixed-width padding, nothing that depends on the
+     * terminal's column count.
+     *
+     * This is a deliberate simplification, not just a style choice: the
+     * previous boxed prompt computed a width once (queryTerminalColumns /
+     * boxWidth) and baked it into three printed lines (top rule, input
+     * line with side borders, bottom rule). If the terminal was resized
+     * while that box was on screen, the emulator would reflow those
+     * already-printed lines against the *new* column count while our
+     * cursor-position escape codes still assumed the *old* one — every
+     * resize made the misalignment worse, since each reflow started from
+     * an already-corrupted layout. Dropping the box removes every
+     * width-dependent character from the prompt entirely, so there is
+     * nothing left for a resize to desynchronize. Input now wraps exactly
+     * the way a normal shell prompt would.
      */
     private void printPrompt() {
-        int w = boxWidth();
-        lastBoxWidth = w;
-
-        out(rgb(BORDER));
-        out("╭" + "─".repeat(w) + "╮\n");
-
-        // Input line: "│ › " then padding then the right border.
-        out("│ ");
         out(rgb(ACCENT));
-        out("›");
-        out(" ");
-        out(rgb(BORDER));
-        int prefixLen = 4; // "│ › " is 4 visible columns
-        out(" ".repeat(Math.max(w - prefixLen, 0)) + "│\n");
-
-        out("╰" + "─".repeat(w) + "╯\n");
-
-        // Move cursor back up 2 lines and to column 5 (right after "│ › ")
-        // so the user types inside the already-complete box.
-        out("\033[2A\033[5G");
+        out("› ");
         out(rgb(FG));
     }
 
-    /** Moves the cursor below the already-complete box after Enter is pressed. */
+    /** Moves to a fresh line after Enter is pressed. */
     private void closeInputBox() {
-        out("\033[2B\r");
+        out("\n");
         out(reset());
     }
 
-    /** Starts the answer on its own line, labeled, in the neutral fg tone. */
+    /**
+     * Starts the answer, labeled, in the neutral fg tone. No leading
+     * newline here — stopSpinner() already moves the cursor to a fresh
+     * line after freezing the elapsed-time indicator, so this just prints
+     * the label directly on that new line.
+     */
     private void openAnswer() {
         out(rgb(ACCENT));
         out("\nBoris ");
@@ -323,11 +268,9 @@ public class BorisUI {
      * Characters are echoed manually. Returns null if ESC (bare) or Ctrl+C is pressed.
      * Supports arrow-key history navigation (↑ previous, ↓ next).
      *
-     * NOTE: this still echoes characters left-to-right without wrapping
-     * inside the box frame. If typed input exceeds {@code lastBoxWidth}
-     * columns it will overflow past the right border (a separate,
-     * unrelated limitation from the "cut in half" bug — true in-box
-     * line-wrapping would need to redraw the box on every keystroke).
+     * With no box, overflow is no longer a special case: a typed line that
+     * exceeds the terminal's width wraps exactly like normal shell input,
+     * because nothing here forces a fixed column count.
      */
     private String readLineFromTty() throws IOException {
         StringBuilder sb = new StringBuilder();
@@ -496,10 +439,16 @@ public class BorisUI {
         return t;
     }
 
-    /** Stops the spinner and clears its line; restores cursor visibility. */
+    /**
+     * Stops the spinner but leaves its last frame on screen — the elapsed
+     * "Ns" label freezes in place instead of being erased, so the user can
+     * see how long the request took. Restores cursor visibility and moves
+     * to a fresh line for whatever gets printed next (answer, "aborted",
+     * etc.), which no longer needs to add its own leading newline.
+     */
     private void stopSpinner(Thread spinnerThread) throws InterruptedException {
         spinnerThread.interrupt();
         spinnerThread.join(200);
-        out("\r\033[2K\033[?25h");
+        out("\033[?25h\n");
     }
 }
