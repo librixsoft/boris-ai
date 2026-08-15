@@ -2,6 +2,7 @@ package com.boris.tooling.tool;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -14,20 +15,29 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.tooling.ToolDefinition;
 
+/**
+ * Usa DuckDuckGo HTML (html.duckduckgo.com/html/) en vez de Google:
+ * no requiere API key, no muestra páginas de consentimiento/captcha
+ * agresivas, y su markup es mucho más estable (clases fijas
+ * result__a / result__snippet en vez de hashes que cambian).
+ *
+ * Sigue siendo scraping de HTML, no una API oficial: puede romperse
+ * si DuckDuckGo cambia su markup, y no está pensado para volumen alto.
+ */
 public class WebSearchTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final Pattern GOOGLE_TITLE = Pattern.compile("<h3[^>]*>(.*?)</h3>", Pattern.DOTALL);
-    private static final Pattern GOOGLE_LINK = Pattern.compile("<a[^>]*href\\s*=\\s*(?:\"([^\"]+)\"|'([^']+)'|([^\\s>]+))", Pattern.DOTALL);
-    private static final Pattern GOOGLE_SNIPPET = Pattern.compile("<span[^>]*>(.*?)</span>", Pattern.DOTALL);
-    private static final Pattern GOOGLE_RESULT_DIV = Pattern.compile("<div[^>]*class\\s*=\\s*\"([^\"]*G[^\"]*)\"[^>]*>(.*?)</div>", Pattern.DOTALL);
-    private static final Pattern HTML_TAG = Pattern.compile("<[^>]+>");
-    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
+    private static final Pattern UDDG_PARAM = Pattern.compile("[?&]uddg=([^&]+)");
 
     private final HttpFetcher httpFetcher;
 
@@ -48,7 +58,7 @@ public class WebSearchTool {
         schema.put("properties", properties);
         return ToolDefinition.of(
                 "web_search",
-                "Search Google for current information. Returns a JSON object with success, query, and results array. Each result has title, url, and content (extracted text from the first result page). Read the content field directly to answer the user.",
+                "Search DuckDuckGo for current information. Fetches the first result and returns a JSON with title, url, and summarized content.",
                 schema);
     }
 
@@ -58,7 +68,6 @@ public class WebSearchTool {
     }
 
     String search(Map<String, Object> args) {
-        @SuppressWarnings("unchecked")
         String query = (String) args.get("query");
 
         if (query == null || query.isBlank()) {
@@ -66,22 +75,23 @@ public class WebSearchTool {
         }
 
         try {
-            HttpResponse<String> response = fetchGoogleResults(query);
+            HttpResponse<String> response = fetchDuckDuckGoResults(query);
 
             if (response.statusCode() != 200) {
                 return formatError("HTTP " + response.statusCode());
             }
 
-            List<Map<String, String>> results = parseGoogleHtml(response.body());
+            List<Map<String, String>> results = parseDuckDuckGoHtml(response.body());
 
             if (results.isEmpty()) {
                 return formatSuccess(query, new ArrayList<>());
             }
 
             Map<String, String> first = results.get(0);
-            String content = fetchAndExtractContent(first.get("url"));
+            String rawContent = fetchAndExtractContent(first.get("url"));
+            String summary = summarize(rawContent);
 
-            first.put("content", content != null ? content : "");
+            first.put("content", summary != null ? summary : "");
 
             return formatSuccess(query, results);
         } catch (java.net.http.HttpTimeoutException e) {
@@ -94,79 +104,71 @@ public class WebSearchTool {
         }
     }
 
-    private HttpResponse<String> fetchGoogleResults(String query) throws IOException, InterruptedException {
+    private HttpResponse<String> fetchDuckDuckGoResults(String query) throws IOException, InterruptedException {
         String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
-        String url = "https://www.google.com/search?q=" + encoded + "&num=10&hl=es";
+        String url = "https://html.duckduckgo.com/html/?q=" + encoded + "&kl=mx-es";
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .GET()
                 .timeout(Duration.ofSeconds(5))
-                .header("User-Agent", "BorisCLI/1.0 (Linux; x64)")
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .header("Accept-Language", "es-MX,es;q=0.9")
                 .build();
 
         return httpFetcher.send(request, Duration.ofSeconds(5));
     }
 
-    private List<Map<String, String>> parseGoogleHtml(String html) {
+    private List<Map<String, String>> parseDuckDuckGoHtml(String html) {
         List<Map<String, String>> results = new ArrayList<>();
+        Document doc = Jsoup.parse(html);
 
-        Matcher divMatcher = GOOGLE_RESULT_DIV.matcher(html);
-        while (divMatcher.find()) {
-            String divContent = divMatcher.group(2);
-            if (divContent == null) continue;
+        Elements titleLinks = doc.select("a.result__a");
 
-            String title = extractTitle(divContent);
-            String url = extractUrl(divContent);
-            String snippet = extractSnippet(divContent);
+        for (Element link : titleLinks) {
+            String title = link.text().trim();
+            String url = cleanDuckDuckGoUrl(link.attr("href"));
+            if (title.isEmpty() || url == null || !url.startsWith("http")) continue;
 
-            if (title != null && url != null) {
-                Map<String, String> result = new LinkedHashMap<>();
-                result.put("title", title);
-                result.put("url", url);
-                result.put("snippet", snippet != null ? snippet : "");
-                results.add(result);
-
-                if (results.size() >= 10) break;
+            // El snippet vive en un hermano/contenedor cercano con la clase result__snippet
+            Element resultBlock = link.closest(".result, .web-result");
+            String snippet = null;
+            if (resultBlock != null) {
+                Element snippetEl = resultBlock.selectFirst(".result__snippet");
+                if (snippetEl != null) {
+                    snippet = snippetEl.text().trim();
+                }
             }
+
+            Map<String, String> result = new LinkedHashMap<>();
+            result.put("title", title);
+            result.put("url", url);
+            result.put("snippet", snippet != null ? snippet : "");
+            results.add(result);
+
+            if (results.size() >= 10) break;
         }
 
         return results;
     }
 
-    private String extractTitle(String html) {
-        Matcher m = GOOGLE_TITLE.matcher(html);
+    /**
+     * DuckDuckGo envuelve los links reales en un redirect propio:
+     * //duckduckgo.com/l/?uddg=<url-encoded-real-url>&rut=...
+     * Aquí lo desenvolvemos para regresar la URL real.
+     */
+    private String cleanDuckDuckGoUrl(String href) {
+        if (href == null) return null;
+
+        Matcher m = UDDG_PARAM.matcher(href);
         if (m.find()) {
-            return m.group(1).replaceAll("<[^>]+>", "").trim();
+            return URLDecoder.decode(m.group(1), StandardCharsets.UTF_8);
         }
-        return null;
-    }
 
-    private String extractUrl(String html) {
-        Matcher m = GOOGLE_LINK.matcher(html);
-        if (m.find()) {
-            String url = m.group(1) != null ? m.group(1) : (m.group(2) != null ? m.group(2) : m.group(3));
-            if (url != null && url.startsWith("http")) {
-                return cleanGoogleUrl(url);
-            }
+        if (href.startsWith("//")) {
+            href = "https:" + href;
         }
-        return null;
-    }
-
-    private String extractSnippet(String html) {
-        Matcher m = GOOGLE_SNIPPET.matcher(html);
-        while (m.find()) {
-            String text = m.group(1).replaceAll("<[^>]+>", "").trim();
-            if (text != null && text.length() > 50 && text.length() <= 300) {
-                return text;
-            }
-        }
-        return null;
-    }
-
-    private String cleanGoogleUrl(String url) {
-        return url.replaceAll("[?&](utm_[^&=]+|sa_|ved)=([^&]*)", "");
+        return href;
     }
 
     private String fetchAndExtractContent(String url) {
@@ -175,7 +177,7 @@ public class WebSearchTool {
                     .uri(URI.create(url))
                     .GET()
                     .timeout(Duration.ofSeconds(5))
-                    .header("User-Agent", "BorisCLI/1.0 (Linux; x64)")
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                     .header("Accept", "text/html,application/xhtml+xml")
                     .build();
 
@@ -185,25 +187,39 @@ public class WebSearchTool {
                 return null;
             }
 
-            String body = response.body();
+            Document doc = Jsoup.parse(response.body());
+            doc.select("script, style, nav, footer, header, noscript").remove();
+            String text = doc.body() != null ? doc.body().text() : doc.text();
 
-            body = body.replaceAll("<script[^>]*>.*?</script>", "");
-            body = body.replaceAll("<style[^>]*>.*?</style>", "");
-            body = body.replaceAll("<[^>]+>", " ");
-            body = WHITESPACE.matcher(body).replaceAll(" ");
-            body = body.trim();
-
-            if (body.length() > 3000) {
-                body = body.substring(0, 3000);
+            if (text.length() > 5000) {
+                text = text.substring(0, 5000);
             }
 
-            return body;
+            return text;
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
             return null;
         }
+    }
+
+    /**
+     * Resumen extractivo: se queda con las primeras oraciones completas
+     * hasta un límite de caracteres. Para un resumen semántico real habría
+     * que mandar rawContent a un modelo (p. ej. la API de Anthropic).
+     */
+    private String summarize(String rawContent) {
+        if (rawContent == null || rawContent.isBlank()) return "";
+
+        String[] sentences = rawContent.split("(?<=[.!?])\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String s : sentences) {
+            if (sb.length() + s.length() > 800) break;
+            sb.append(s).append(" ");
+        }
+        String result = sb.toString().trim();
+        return result.isEmpty() ? rawContent.substring(0, Math.min(800, rawContent.length())) : result;
     }
 
     private String formatSuccess(String query, List<Map<String, String>> results) {

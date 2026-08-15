@@ -41,7 +41,7 @@ class WebSearchToolTest {
     void web_search_definition_hasDescription() {
         var def = WebSearchTool.web_search();
         assertNotNull(def.description());
-        assertTrue(def.description().contains("Google") || def.description().contains("search"));
+        assertTrue(def.description().contains("DuckDuckGo") || def.description().contains("search"));
     }
 
     @Test
@@ -76,8 +76,8 @@ class WebSearchToolTest {
     }
 
     @Test
-    void execute_returnsResults_whenGoogleReturnsHtml() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockGoogleHtml());
+    void execute_returnsResults_whenDuckDuckGoReturnsHtml() throws Exception {
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
         FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
                 .thenReturn(mockResponse)
@@ -93,7 +93,7 @@ class WebSearchToolTest {
 
     @Test
     void execute_parsesTitleFromHtml() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockGoogleHtml());
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
         FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
                 .thenReturn(mockResponse)
@@ -106,8 +106,8 @@ class WebSearchToolTest {
     }
 
     @Test
-    void execute_parsesUrlFromHtml() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockGoogleHtml());
+    void execute_parsesAndDecodesRedirectUrlFromHtml() throws Exception {
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
         FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
                 .thenReturn(mockResponse)
@@ -116,12 +116,14 @@ class WebSearchToolTest {
         WebSearchTool tool = new WebSearchTool(mockFetcher);
         String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
 
+        // La URL real debe salir desenvuelta del redirect uddg=..., no la URL de duckduckgo.com/l/?...
         assertTrue(result.contains("https://example.com/result1"));
+        assertFalse(result.contains("\"url\":\"//duckduckgo.com"));
     }
 
     @Test
     void execute_parsesSnippetFromHtml() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockGoogleHtml());
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
         FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>This is a longer snippet text for the first result here and some more content to make it valid</p></body></html>");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
                 .thenReturn(mockResponse)
@@ -135,7 +137,7 @@ class WebSearchToolTest {
 
     @Test
     void execute_returnsEmptyResults_whenHtmlHasNoResults() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, "<html><body><h3>No results</h3></body></html>");
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, "<html><body><div id=\"no_results\">No results</div></body></html>");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
 
         WebSearchTool tool = new WebSearchTool(mockFetcher);
@@ -194,8 +196,8 @@ class WebSearchToolTest {
     }
 
     @Test
-    void execute_buildsCorrectGoogleUrl() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockGoogleHtml());
+    void execute_buildsCorrectDuckDuckGoUrl() throws Exception {
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
 
         WebSearchTool tool = new WebSearchTool(mockFetcher);
@@ -203,10 +205,9 @@ class WebSearchToolTest {
 
         verify(mockFetcher).send(argThat(request -> {
             String uri = request.uri().toString();
-            return uri.contains("www.google.com/search")
+            return uri.contains("html.duckduckgo.com/html")
                     && uri.contains("q=mi+consulta")
-                    && uri.contains("num=10")
-                    && uri.contains("hl=es");
+                    && uri.contains("kl=mx-es");
         }), any(Duration.class));
     }
 
@@ -224,7 +225,7 @@ class WebSearchToolTest {
 
     @Test
     void execute_returnsJsonWithContentField() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockGoogleHtml());
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
         FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
                 .thenReturn(mockResponse)
@@ -241,7 +242,7 @@ class WebSearchToolTest {
 
     @Test
     void execute_resultsHaveCorrectNumberOfResults() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockGoogleHtml());
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
         FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Some content from the first result page for testing purposes</p></body></html>");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
                 .thenReturn(mockResponse)
@@ -254,19 +255,22 @@ class WebSearchToolTest {
         assertTrue(result.contains("Second Result"));
     }
 
-    private String buildMockGoogleHtml() {
+    private String buildMockDuckDuckGoHtml() {
         return """
             <html>
             <body>
-            <div class="G">
-                <h3>First Result</h3>
-                <a href="https://example.com/result1">link</a>
-                <span>This is a longer snippet text for the first result here</span>
+            <div class="result results_links results_links_deep web-result">
+                <div class="result__body">
+                    <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fresult1&rut=abc">First Result</a>
+                    <a class="result__snippet">This is a longer snippet text for the first result here</a>
+                    <div class="result__snippet">This is a longer snippet text for the first result here</div>
+                </div>
             </div>
-            <div class="G">
-                <h3>Second Result</h3>
-                <a href="https://example.com/result2">link</a>
-                <span>This is a longer snippet text for the second result here</span>
+            <div class="result results_links results_links_deep web-result">
+                <div class="result__body">
+                    <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fresult2&rut=def">Second Result</a>
+                    <div class="result__snippet">This is a longer snippet text for the second result here</div>
+                </div>
             </div>
             </body>
             </html>
