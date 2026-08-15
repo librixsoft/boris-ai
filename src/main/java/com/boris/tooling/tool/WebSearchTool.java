@@ -35,6 +35,8 @@ public class WebSearchTool {
         DDG_SAFE_SEARCH_PARAM.put("off", "-2");
     }
 
+    private final java.net.http.HttpClient httpClient;
+
     public static ToolDefinition web_search() {
         var queryProp = Map.of("type", "string", "description", "Search query string");
         var properties = new LinkedHashMap<String, Object>();
@@ -57,6 +59,14 @@ public class WebSearchTool {
     public static String execute(Map<String, Object> args) {
         WebSearchTool tool = new WebSearchTool();
         return tool.search(args);
+    }
+
+    public WebSearchTool() {
+        this.httpClient = null;
+    }
+
+    WebSearchTool(java.net.http.HttpClient httpClient) {
+        this.httpClient = httpClient;
     }
 
     String search(Map<String, Object> args) {
@@ -96,7 +106,7 @@ public class WebSearchTool {
         }
         sb.append("&kp=").append(DDG_SAFE_SEARCH_PARAM.getOrDefault(safeSearch, "-1"));
 
-        java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+        java.net.http.HttpClient client = httpClient != null ? httpClient : java.net.http.HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .build();
         java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
