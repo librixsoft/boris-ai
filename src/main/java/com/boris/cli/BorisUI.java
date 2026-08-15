@@ -40,6 +40,11 @@ public class BorisUI {
     private final List<String> history = new ArrayList<>();
     private int historyIndex = -1;   // -1 = not navigating history
 
+    // Width used for the box currently on screen. Fixed once per prompt so
+    // the top/side/bottom borders always agree, even if the terminal is
+    // resized mid-input.
+    private int lastBoxWidth = 0;
+
     private final ChatService chatService;
     private final TaskAborter taskAborter;
     private final InputStream tty;
@@ -214,12 +219,22 @@ public class BorisUI {
     }
 
     /**
-     * Real terminal column count, queried directly via {@code stty size} on
-     * /dev/tty. JLine's {@code terminal.getWidth()} is unreliable once it
-     * falls back to a "dumb terminal" (see startup warning), which caused
-     * the input box to be drawn wider than the actual screen and wrap.
+     * Real terminal column count. Tries JLine's own {@code terminal.getWidth()}
+     * first — it works in the vast majority of real terminals and costs no
+     * subprocess spawn. Falls back to {@code stty size} on /dev/tty only if
+     * JLine reports something implausible (0, or a "dumb terminal" default),
+     * and finally to a conservative fixed value if both fail. This order
+     * matters: silently trusting a fixed 80-column fallback (the old
+     * behavior) is what caused the box to be drawn wider than the real
+     * terminal and get wrapped/cut by the emulator whenever `stty size`
+     * couldn't reach a real tty (common in IDE-integrated terminals,
+     * some containers, and other non-interactive-tty setups).
      */
     private int queryTerminalColumns() {
+        int jlineWidth = terminal.getWidth();
+        if (jlineWidth > 20) {
+            return jlineWidth;
+        }
         try {
             Process p = new ProcessBuilder("sh", "-c", "stty size </dev/tty")
                 .redirectErrorStream(true)
@@ -228,10 +243,11 @@ public class BorisUI {
             p.waitFor();
             String[] parts = out.split("\\s+");
             if (parts.length == 2) {
-                return Integer.parseInt(parts[1]);
+                int cols = Integer.parseInt(parts[1]);
+                if (cols > 20) return cols;
             }
         } catch (Exception ignored) {}
-        return 80; // sane fallback if stty is unavailable
+        return 60; // conservative fallback — better a smaller box than a cut one
     }
 
     /**
@@ -248,26 +264,41 @@ public class BorisUI {
     }
 
     /**
-     * Boxed input prompt, Claude Code / opencode style: a top rule, the
-     * "› " caret where typing happens, and a bottom rule closing the box
-     * once Enter is pressed (drawn in {@link #closeInputBox()}).
+     * Boxed input prompt, Claude Code / opencode style. Unlike the previous
+     * version — which only drew the top rule and left border up front, and
+     * only closed the box with a bottom rule after Enter — this draws the
+     * ENTIRE box (top, sides, bottom) immediately, then moves the cursor
+     * back up into the input line. That's what fixes the "cut in half"
+     * look: the box was never incomplete on screen, you were just typing
+     * into a box whose bottom (and right side) hadn't been drawn yet.
      */
     private void printPrompt() {
         int w = boxWidth();
+        lastBoxWidth = w;
+
         out(rgb(BORDER));
         out("╭" + "─".repeat(w) + "╮\n");
+
+        // Input line: "│ › " then padding then the right border.
         out("│ ");
         out(rgb(ACCENT));
         out("›");
         out(" ");
+        out(rgb(BORDER));
+        int prefixLen = 4; // "│ › " is 4 visible columns
+        out(" ".repeat(Math.max(w - prefixLen, 0)) + "│\n");
+
+        out("╰" + "─".repeat(w) + "╯\n");
+
+        // Move cursor back up 2 lines and to column 5 (right after "│ › ")
+        // so the user types inside the already-complete box.
+        out("\033[2A\033[5G");
         out(rgb(FG));
     }
 
-    /** Closes the input box with a bottom rule after the user presses Enter. */
+    /** Moves the cursor below the already-complete box after Enter is pressed. */
     private void closeInputBox() {
-        int w = boxWidth();
-        out(rgb(BORDER));
-        out("╰" + "─".repeat(w) + "╯\n");
+        out("\033[2B\r");
         out(reset());
     }
 
@@ -291,6 +322,12 @@ public class BorisUI {
      * Reads one line of input from /dev/tty in raw mode.
      * Characters are echoed manually. Returns null if ESC (bare) or Ctrl+C is pressed.
      * Supports arrow-key history navigation (↑ previous, ↓ next).
+     *
+     * NOTE: this still echoes characters left-to-right without wrapping
+     * inside the box frame. If typed input exceeds {@code lastBoxWidth}
+     * columns it will overflow past the right border (a separate,
+     * unrelated limitation from the "cut in half" bug — true in-box
+     * line-wrapping would need to redraw the box on every keystroke).
      */
     private String readLineFromTty() throws IOException {
         StringBuilder sb = new StringBuilder();
@@ -366,7 +403,6 @@ public class BorisUI {
                 out(String.valueOf((char) ch));
             }
         }
-        out("\n");
         return sb.toString();
     }
 
