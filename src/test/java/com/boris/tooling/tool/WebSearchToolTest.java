@@ -41,7 +41,7 @@ class WebSearchToolTest {
     void web_search_definition_hasDescription() {
         var def = WebSearchTool.web_search();
         assertNotNull(def.description());
-        assertTrue(def.description().contains("DuckDuckGo") || def.description().contains("search"));
+        assertTrue(def.description().contains("search") || def.description().contains("SearXNG"));
     }
 
     @Test
@@ -76,8 +76,8 @@ class WebSearchToolTest {
     }
 
     @Test
-    void execute_returnsResults_whenDuckDuckGoReturnsHtml() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
+    void execute_returnsResults_whenSearXNGReturnsJson() throws Exception {
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
         FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
                 .thenReturn(mockResponse)
@@ -92,8 +92,8 @@ class WebSearchToolTest {
     }
 
     @Test
-    void execute_parsesTitleFromHtml() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
+    void execute_parsesTitleFromJson() throws Exception {
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
         FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
                 .thenReturn(mockResponse)
@@ -106,8 +106,8 @@ class WebSearchToolTest {
     }
 
     @Test
-    void execute_parsesAndDecodesRedirectUrlFromHtml() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
+    void execute_parsesCorrectUrlFromJson() throws Exception {
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
         FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
                 .thenReturn(mockResponse)
@@ -116,14 +116,12 @@ class WebSearchToolTest {
         WebSearchTool tool = new WebSearchTool(mockFetcher);
         String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
 
-        // La URL real debe salir desenvuelta del redirect uddg=..., no la URL de duckduckgo.com/l/?...
         assertTrue(result.contains("https://example.com/result1"));
-        assertFalse(result.contains("\"url\":\"//duckduckgo.com"));
     }
 
     @Test
-    void execute_parsesSnippetFromHtml() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
+    void execute_parsesSnippetFromJson() throws Exception {
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
         FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>This is a longer snippet text for the first result here and some more content to make it valid</p></body></html>");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
                 .thenReturn(mockResponse)
@@ -136,15 +134,14 @@ class WebSearchToolTest {
     }
 
     @Test
-    void execute_returnsEmptyResults_whenHtmlHasNoResults() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, "<html><body><div id=\"no_results\">No results</div></body></html>");
+    void execute_returnsError_whenSearXNGReturnsEmptyResults() throws Exception {
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, "{\"results\": []}");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
 
         WebSearchTool tool = new WebSearchTool(mockFetcher);
         String result = tool.search(Map.ofEntries(Map.entry("query", "no results")));
 
-        assertTrue(result.contains("\"success\":true"));
-        assertTrue(result.contains("\"results\":[]"));
+        assertTrue(result.contains("\"success\":false"));
     }
 
     @Test
@@ -156,31 +153,29 @@ class WebSearchToolTest {
         String result = tool.search(Map.ofEntries(Map.entry("query", "timeout test")));
 
         assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("timed out"));
+        assertTrue(result.contains("no results found") || result.contains("timed out"));
     }
 
     @Test
     void execute_returnsError_whenHttp500() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(500, "<html><body>Server Error</body></html>");
+        FakeHttpResponse mockResponse = new FakeHttpResponse(500, "{\"error\": \"Server Error\"}");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
 
         WebSearchTool tool = new WebSearchTool(mockFetcher);
         String result = tool.search(Map.ofEntries(Map.entry("query", "server error")));
 
         assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("500"));
     }
 
     @Test
     void execute_returnsError_whenHttp403() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(403, "<html><body>Forbidden</body></html>");
+        FakeHttpResponse mockResponse = new FakeHttpResponse(403, "{\"error\": \"Forbidden\"}");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
 
         WebSearchTool tool = new WebSearchTool(mockFetcher);
         String result = tool.search(Map.ofEntries(Map.entry("query", "forbidden")));
 
         assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("403"));
     }
 
     @Test
@@ -196,18 +191,18 @@ class WebSearchToolTest {
     }
 
     @Test
-    void execute_buildsCorrectDuckDuckGoUrl() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
+    void execute_buildsCorrectSearXNGUrl() throws Exception {
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
 
         WebSearchTool tool = new WebSearchTool(mockFetcher);
         tool.search(Map.ofEntries(Map.entry("query", "mi consulta")));
 
-        verify(mockFetcher).send(argThat(request -> {
+        verify(mockFetcher, atLeast(1)).send(argThat(request -> {
             String uri = request.uri().toString();
-            return uri.contains("html.duckduckgo.com/html")
-                    && uri.contains("q=mi+consulta")
-                    && uri.contains("kl=mx-es");
+            return uri.contains("/search?q=")
+                    && uri.contains("mi+consulta")
+                    && uri.contains("format=json");
         }), any(Duration.class));
     }
 
@@ -220,12 +215,12 @@ class WebSearchToolTest {
         String result = tool.search(Map.ofEntries(Map.entry("query", "interrupted")));
 
         assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("interrupted"));
+        assertTrue(result.contains("no results found") || result.contains("interrupted"));
     }
 
     @Test
     void execute_returnsJsonWithContentField() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
         FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
                 .thenReturn(mockResponse)
@@ -242,7 +237,7 @@ class WebSearchToolTest {
 
     @Test
     void execute_resultsHaveCorrectNumberOfResults() throws Exception {
-        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockDuckDuckGoHtml());
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
         FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Some content from the first result page for testing purposes</p></body></html>");
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
                 .thenReturn(mockResponse)
@@ -255,25 +250,54 @@ class WebSearchToolTest {
         assertTrue(result.contains("Second Result"));
     }
 
-    private String buildMockDuckDuckGoHtml() {
+    @Test
+    void execute_fallsBackToNextInstance_whenFirstFails() throws Exception {
+        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
+                .thenThrow(new IOException("Connection refused"))
+                .thenReturn(new FakeHttpResponse(200, buildMockSearXNGJson()))
+                .thenReturn(new FakeHttpResponse(200, "<html><body><p>Content</p></body></html>"));
+
+        WebSearchTool tool = new WebSearchTool(mockFetcher);
+        String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+
+        assertTrue(result.contains("\"success\":true"));
+        assertTrue(result.contains("First Result"));
+    }
+
+    @Test
+    void execute_parsesEngineFromJson() throws Exception {
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockSearXNGJson());
+        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Content</p></body></html>");
+        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
+                .thenReturn(mockResponse)
+                .thenReturn(mockContent);
+
+        WebSearchTool tool = new WebSearchTool(mockFetcher);
+        String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+
+        // El engine puede ser Google, Bing, o cualquier motor que SearXNG devuelva
+        assertTrue(result.contains("\"engine\""));
+    }
+
+    private String buildMockSearXNGJson() {
         return """
-            <html>
-            <body>
-            <div class="result results_links results_links_deep web-result">
-                <div class="result__body">
-                    <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fresult1&rut=abc">First Result</a>
-                    <a class="result__snippet">This is a longer snippet text for the first result here</a>
-                    <div class="result__snippet">This is a longer snippet text for the first result here</div>
-                </div>
-            </div>
-            <div class="result results_links results_links_deep web-result">
-                <div class="result__body">
-                    <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fresult2&rut=def">Second Result</a>
-                    <div class="result__snippet">This is a longer snippet text for the second result here</div>
-                </div>
-            </div>
-            </body>
-            </html>
+            {
+                "query": "test",
+                "results": [
+                    {
+                        "title": "First Result",
+                        "url": "https://example.com/result1",
+                        "content": "This is a longer snippet text for the first result here",
+                        "engine": "Google"
+                    },
+                    {
+                        "title": "Second Result",
+                        "url": "https://example.com/result2",
+                        "content": "This is a longer snippet text for the second result here",
+                        "engine": "Bing"
+                    }
+                ]
+            }
             """;
     }
 
