@@ -22,6 +22,7 @@ import com.boris.tooling.tool.EditTool;
 import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.tool.ReadFileTool;
 import com.boris.tooling.tool.SystemInfoTool;
+import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
 
 public class ToolCallingConfig {
@@ -36,6 +37,7 @@ public class ToolCallingConfig {
     private final ListFilesTool listFilesTool;
     private final EditTool editTool;
     private final SystemInfoTool systemInfoTool;
+    private final WebSearchTool webSearchTool;
 
     public ToolCallingConfig() {
         this.readFileTool = new ReadFileTool();
@@ -44,6 +46,7 @@ public class ToolCallingConfig {
         this.listFilesTool = new ListFilesTool();
         this.editTool = new EditTool();
         this.systemInfoTool = new SystemInfoTool();
+        this.webSearchTool = new WebSearchTool();
     }
 
     public static String loadSystemPrompt(Settings settings) {
@@ -77,6 +80,7 @@ public class ToolCallingConfig {
             - multi_edit(path, edits): Apply multiple sequential edits to a file.
             - revert_edit(path, old_text, new_text): Revert a previous edit by restoring original content.
             - get_system_info(): Get OS, memory, CPU info.
+            - web_search(query): Search Google for current information. Returns structured JSON results.
 
             INSTRUCTIONS:
             1. Analyze the user's request carefully.
@@ -172,5 +176,12 @@ public class ToolCallingConfig {
             description = "Get system information including OS name, memory, CPU cores, and hostname.")
     public String get_system_info() {
         return systemInfoTool.get_system_info(Map.of());
+    }
+
+    @Tool(
+            name = "web_search",
+            description = "Search Google for current information. Returns structured JSON results with title, URL, and snippet.")
+    public String web_search(@ToolParam(description = "Search query string") String query) {
+        return WebSearchTool.execute(Map.ofEntries(Map.entry("query", query)));
     }
 }
