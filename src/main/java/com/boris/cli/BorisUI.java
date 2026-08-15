@@ -18,7 +18,19 @@ import org.jline.jansi.AnsiConsole;
 import com.boris.chat.ChatService;
 import com.boris.task.TaskAborter;
 
+/**
+ * BorisUI — minimal terminal front-end, in the spirit of modern coding-agent
+ * CLIs (Claude Code / opencode): a plain-text name + slogan on startup (no
+ * ASCII art), a boxed single-line input prompt, a "Boris ·" label on
+ * responses, and a quiet dot-spinner while working.
+ */
 public class BorisUI {
+
+    // ── Palette (single accent, everything else neutral) ───────────────────
+    private static final int[] ACCENT = { 209, 122, 92 };   // prompt glyph / brand dot
+    private static final int[] DIM    = { 118, 118, 124 };  // secondary / help text
+    private static final int[] FG     = { 225, 225, 228 };  // response text
+    private static final int[] WARN   = { 209, 160, 100 };  // aborted
 
     private static String savedTermSettings = null;
     private Terminal terminal;
@@ -53,15 +65,10 @@ public class BorisUI {
             AnsiConsole.systemUninstall();
         }));
         try {
-            System.out.println();
-            printGreen("boris");
-            printlnGray("I'm an invisible");
-            System.out.println();
+            printBanner();
 
             while (true) {
-                System.out.print(Ansi.ansi().fgGreen());
-                System.out.print("boris> ");
-                System.out.flush();
+                printPrompt();
 
                 historyIndex = -1;  // reset navigation before each new prompt
                 String input = readLineFromTty();
@@ -70,6 +77,7 @@ public class BorisUI {
                     System.out.println();
                     continue;
                 }
+                closeInputBox();
                 input = input.trim();
                 if (input.isEmpty()) continue;
 
@@ -99,14 +107,15 @@ public class BorisUI {
                                         if (sp != null) {
                                             try { stopSpinner(sp); } catch (Exception ignored) {}
                                         }
-                                        terminal.writer().print(Ansi.ansi().fgRgb(255, 255, 255).toString());
-                                        terminal.writer().println();
-                                        terminal.writer().flush();
+                                        openAnswer();
                                     }
                                     synchronized (fullResponse) {
                                         fullResponse.append(chunk);
                                     }
-                                    try { terminal.writer().print(chunk); terminal.writer().flush(); } catch (Exception ignored) {}
+                                    try {
+                                        terminal.writer().print(chunk);
+                                        terminal.writer().flush();
+                                    } catch (Exception ignored) {}
                                 }
                             },
                             () -> {
@@ -144,12 +153,16 @@ public class BorisUI {
                 }
 
                 if (aborted || taskAborter.isAborted()) {
-                    printlnGray("*Aborted*");
+                    Thread sp = spinnerRef.getAndSet(null);
+                    if (sp != null) { try { stopSpinner(sp); } catch (Exception ignored) {} }
+                    print(WARN, "aborted");
                     taskAborter.reset();
                     continue;
                 }
 
                 if (errorRef.get() != null) {
+                    Thread sp = spinnerRef.getAndSet(null);
+                    if (sp != null) { try { stopSpinner(sp); } catch (Exception ignored) {} }
                     throw errorRef.get();
                 }
 
@@ -158,7 +171,9 @@ public class BorisUI {
                     break;
                 }
                 if (response != null) {
-                    System.out.println(Ansi.ansi().reset());
+                    System.out.print(reset());
+                    System.out.println();
+                    System.out.println();
                 }
             }
 
@@ -167,6 +182,91 @@ public class BorisUI {
             sttyRestore();
             AnsiConsole.systemUninstall();
         }
+    }
+
+    // ── Chrome / framing (kept deliberately quiet) ─────────────────────────
+
+    /** Plain-text startup mark: name + slogan, no glyphs, no banner art. */
+    private void printBanner() {
+        System.out.println();
+        System.out.print(rgb(ACCENT));
+        System.out.print("Boris");
+        System.out.print(reset());
+        System.out.print(rgb(DIM));
+        System.out.println("  —  I am invincible");
+        System.out.println("esc abort  ·  ctrl+c quit");
+        System.out.print(reset());
+        System.out.println();
+    }
+
+    /**
+     * Real terminal column count, queried directly via {@code stty size} on
+     * /dev/tty. JLine's {@code terminal.getWidth()} is unreliable once it
+     * falls back to a "dumb terminal" (see startup warning), which caused
+     * the input box to be drawn wider than the actual screen and wrap.
+     */
+    private int queryTerminalColumns() {
+        try {
+            Process p = new ProcessBuilder("sh", "-c", "stty size </dev/tty")
+                .redirectErrorStream(true)
+                .start();
+            String out = new String(p.getInputStream().readAllBytes()).trim();
+            p.waitFor();
+            String[] parts = out.split("\\s+");
+            if (parts.length == 2) {
+                return Integer.parseInt(parts[1]);
+            }
+        } catch (Exception ignored) {}
+        return 80; // sane fallback if stty is unavailable
+    }
+
+    /** Width of the input box: real terminal columns minus the two border chars. */
+    private int boxWidth() {
+        int cols = queryTerminalColumns();
+        return Math.max(cols - 2, 20);
+    }
+
+    /**
+     * Boxed input prompt, Claude Code / opencode style: a top rule, the
+     * "› " caret where typing happens, and a bottom rule closing the box
+     * once Enter is pressed (drawn in {@link #closeInputBox()}).
+     */
+    private void printPrompt() {
+        int w = boxWidth();
+        System.out.print(rgb(DIM));
+        System.out.println("╭" + "─".repeat(w) + "╮");
+        System.out.print("│ ");
+        System.out.print(rgb(ACCENT));
+        System.out.print("›");
+        System.out.print(" ");
+        System.out.print(rgb(FG));
+        System.out.flush();
+    }
+
+    /** Closes the input box with a bottom rule after the user presses Enter. */
+    private void closeInputBox() {
+        int w = boxWidth();
+        System.out.print(rgb(DIM));
+        System.out.println("╰" + "─".repeat(w) + "╯");
+        System.out.print(reset());
+        System.out.flush();
+    }
+
+    /** Starts the answer on its own line, labeled, in the neutral fg tone. */
+    private void openAnswer() {
+        terminal.writer().print(rgb(ACCENT));
+        terminal.writer().print("\nBoris ");
+        terminal.writer().print(rgb(DIM));
+        terminal.writer().print("· ");
+        terminal.writer().print(rgb(FG));
+        terminal.writer().flush();
+    }
+
+    /** Short status line reusing the prompt glyph in a different tone (e.g. aborted). */
+    private void print(int[] color, String text) {
+        System.out.print(rgb(color));
+        System.out.println(text);
+        System.out.print(reset());
     }
 
     /**
@@ -273,14 +373,14 @@ public class BorisUI {
         System.out.flush();
     }
 
-    private void printGreen(String text) {
-        System.out.print(Ansi.ansi().fgRgb(74, 191, 85));
-        System.out.println(text + Ansi.ansi().reset());
+    // ── Color helpers ───────────────────────────────────────────────────
+
+    private static String rgb(int[] c) {
+        return Ansi.ansi().fgRgb(c[0], c[1], c[2]).toString();
     }
 
-    private void printlnGray(String text) {
-        System.out.print(Ansi.ansi().fgRgb(255, 255, 255));
-        System.out.println(text + Ansi.ansi().reset());
+    private static String reset() {
+        return Ansi.ansi().reset().toString();
     }
 
     /** Put terminal into raw mode: one char at a time, no echo. */
@@ -311,34 +411,29 @@ public class BorisUI {
     }
 
     /**
-     * Start a spinner on the thinking line using JLine's Terminal API.
-     * The spinner writes to terminal.output() using JLine's Ansi builder,
-     * so colors and cursor control go through JLine's ANSI bridge.
+     * Minimal spinner: a single braille dot cycling in the accent color,
+     * followed by a quiet elapsed-time label. No background block, no box —
+     * just one moving glyph on an otherwise empty line.
      */
     private Thread startSpinner() throws Exception {
-        // Write the initial thinking line with a trailing space for the spinner char
-        System.out.print(Ansi.ansi().fgRgb(120, 120, 120).bold().fgBlack().bgRgb(120, 120, 120).toString());
-        System.out.print(" thinking");
-        System.out.print(Ansi.ansi().fgGreen().reset().toString());
+        System.out.print("\033[?25l"); // hide cursor while spinning
         System.out.flush();
 
         Thread t = new Thread(() -> {
-            String[] frames = { "⠋", "⠙", "⠸", "⠴", "⠂", "⠒", "⠑", "⠘" };
+            String[] frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
             int frame = 0;
             long start = System.currentTimeMillis();
             try {
                 while (!Thread.currentThread().isInterrupted()) {
                     long elapsed = System.currentTimeMillis() - start;
-                    int minutes = (int) (elapsed / 60000);
-                    int seconds = (int) ((elapsed % 60000) / 1000);
-                    System.out.print("\r\033[?25l\033[2K");
-                    System.out.print(Ansi.ansi().fgRgb(120, 120, 120).bold().fgBlack().bgRgb(120, 120, 120).toString());
+                    int seconds = (int) (elapsed / 1000);
+                    System.out.print("\r\033[2K");
+                    System.out.print(rgb(ACCENT));
                     System.out.print(frames[frame % frames.length]);
-                    System.out.print(" ");
-                    System.out.print(Ansi.ansi().fgGreen().reset().toString());
-                    System.out.print(":: thinking");
-                    System.out.print(String.format("%dm %ds", minutes, seconds));
-                    System.out.print(Ansi.ansi().fgGreen().reset().toString());
+                    System.out.print(reset());
+                    System.out.print(rgb(DIM));
+                    System.out.print(" " + seconds + "s");
+                    System.out.print(reset());
                     System.out.flush();
                     frame++;
                     Thread.sleep(80);
@@ -352,14 +447,11 @@ public class BorisUI {
         return t;
     }
 
-    /**
-     * Stop the spinner thread. The spinner is left on the thinking line;
-     * the caller handles cursor repositioning.
-     */
+    /** Stops the spinner and clears its line; restores cursor visibility. */
     private void stopSpinner(Thread spinnerThread) throws InterruptedException {
         spinnerThread.interrupt();
         spinnerThread.join(200);
-        System.out.print("\033[2K\033[?25h");
+        System.out.print("\r\033[2K\033[?25h");
         System.out.flush();
     }
 }
