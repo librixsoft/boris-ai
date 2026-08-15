@@ -31,6 +31,7 @@ public class BorisUI {
     private static final int[] DIM    = { 118, 118, 124 };  // secondary / help text
     private static final int[] FG     = { 225, 225, 228 };  // response text
     private static final int[] WARN   = { 209, 160, 100 };  // aborted
+    private static final int[] BORDER = { 235, 235, 238 };  // near-white, used for the input box frame
 
     private static String savedTermSettings = null;
     private Terminal terminal;
@@ -74,7 +75,7 @@ public class BorisUI {
                 String input = readLineFromTty();
                 if (input == null) {
                     // ESC or Ctrl+C at the prompt — just redraw
-                    System.out.println();
+                    out("\n");
                     continue;
                 }
                 closeInputBox();
@@ -171,13 +172,12 @@ public class BorisUI {
                     break;
                 }
                 if (response != null) {
-                    System.out.print(reset());
-                    System.out.println();
-                    System.out.println();
+                    out(reset());
+                    out("\n\n");
                 }
             }
 
-            System.out.println();
+            out("\n");
         } finally {
             sttyRestore();
             AnsiConsole.systemUninstall();
@@ -186,17 +186,31 @@ public class BorisUI {
 
     // ── Chrome / framing (kept deliberately quiet) ─────────────────────────
 
+    /**
+     * Single output channel for all chrome (banner, box, prompts, status
+     * lines). Everything used to go through System.out while streamed
+     * responses went through terminal.writer(); Jansi's AnsiConsole and
+     * JLine's writer don't always agree on ANSI state until the writer has
+     * been used at least once, which is why the border color used to look
+     * "wrong" until the first message came back. Routing everything through
+     * terminal.writer() keeps colors consistent from the very first frame.
+     */
+    private void out(String s) {
+        terminal.writer().print(s);
+        terminal.writer().flush();
+    }
+
     /** Plain-text startup mark: name + slogan, no glyphs, no banner art. */
     private void printBanner() {
-        System.out.println();
-        System.out.print(rgb(ACCENT));
-        System.out.print("Boris");
-        System.out.print(reset());
-        System.out.print(rgb(DIM));
-        System.out.println("  —  I am invincible");
-        System.out.println("esc abort  ·  ctrl+c quit");
-        System.out.print(reset());
-        System.out.println();
+        out("\n");
+        out(rgb(ACCENT));
+        out("Boris");
+        out(reset());
+        out(rgb(DIM));
+        out("  —  I am invincible\n");
+        out("esc abort  ·  ctrl+c quit\n");
+        out(reset());
+        out("\n");
     }
 
     /**
@@ -220,10 +234,17 @@ public class BorisUI {
         return 80; // sane fallback if stty is unavailable
     }
 
-    /** Width of the input box: real terminal columns minus the two border chars. */
+    /**
+     * Width of the input box. A line that fills the terminal's full column
+     * count edge-to-edge causes some terminals to insert an implicit
+     * line-wrap before our own trailing newline, which is what made the box
+     * look "cut in half" / folded onto an extra line. Reserving 3 columns
+     * (2 border chars + 1 margin) instead of 2 avoids ever touching the
+     * last column.
+     */
     private int boxWidth() {
         int cols = queryTerminalColumns();
-        return Math.max(cols - 2, 20);
+        return Math.max(cols - 3, 20);
     }
 
     /**
@@ -233,40 +254,37 @@ public class BorisUI {
      */
     private void printPrompt() {
         int w = boxWidth();
-        System.out.print(rgb(DIM));
-        System.out.println("╭" + "─".repeat(w) + "╮");
-        System.out.print("│ ");
-        System.out.print(rgb(ACCENT));
-        System.out.print("›");
-        System.out.print(" ");
-        System.out.print(rgb(FG));
-        System.out.flush();
+        out(rgb(BORDER));
+        out("╭" + "─".repeat(w) + "╮\n");
+        out("│ ");
+        out(rgb(ACCENT));
+        out("›");
+        out(" ");
+        out(rgb(FG));
     }
 
     /** Closes the input box with a bottom rule after the user presses Enter. */
     private void closeInputBox() {
         int w = boxWidth();
-        System.out.print(rgb(DIM));
-        System.out.println("╰" + "─".repeat(w) + "╯");
-        System.out.print(reset());
-        System.out.flush();
+        out(rgb(BORDER));
+        out("╰" + "─".repeat(w) + "╯\n");
+        out(reset());
     }
 
     /** Starts the answer on its own line, labeled, in the neutral fg tone. */
     private void openAnswer() {
-        terminal.writer().print(rgb(ACCENT));
-        terminal.writer().print("\nBoris ");
-        terminal.writer().print(rgb(DIM));
-        terminal.writer().print("· ");
-        terminal.writer().print(rgb(FG));
-        terminal.writer().flush();
+        out(rgb(ACCENT));
+        out("\nBoris ");
+        out(rgb(DIM));
+        out("· ");
+        out(rgb(FG));
     }
 
     /** Short status line reusing the prompt glyph in a different tone (e.g. aborted). */
     private void print(int[] color, String text) {
-        System.out.print(rgb(color));
-        System.out.println(text);
-        System.out.print(reset());
+        out(rgb(color));
+        out(text + "\n");
+        out(reset());
     }
 
     /**
@@ -338,19 +356,17 @@ public class BorisUI {
             if (ch == 0x7F || ch == '\b') {         // Backspace / Del
                 if (sb.length() > 0) {
                     sb.deleteCharAt(sb.length() - 1);
-                    System.out.print("\b \b");
-                    System.out.flush();
+                    out("\b \b");
                 }
                 continue;
             }
 
             if (ch >= 32) {                         // Printable char — echo it
                 sb.append((char) ch);
-                System.out.print((char) ch);
-                System.out.flush();
+                out(String.valueOf((char) ch));
             }
         }
-        System.out.println();
+        out("\n");
         return sb.toString();
     }
 
@@ -364,13 +380,12 @@ public class BorisUI {
         if (currentLen > 0) {
             // Move cursor back to start of typed text, overwrite with spaces, move back again
             String blanks = " ".repeat(currentLen);
-            System.out.print("\b".repeat(currentLen) + blanks + "\b".repeat(currentLen));
+            out("\b".repeat(currentLen) + blanks + "\b".repeat(currentLen));
         }
         // Write the history entry
         sb.setLength(0);
         sb.append(newText);
-        System.out.print(newText);
-        System.out.flush();
+        out(newText);
     }
 
     // ── Color helpers ───────────────────────────────────────────────────
@@ -416,8 +431,7 @@ public class BorisUI {
      * just one moving glyph on an otherwise empty line.
      */
     private Thread startSpinner() throws Exception {
-        System.out.print("\033[?25l"); // hide cursor while spinning
-        System.out.flush();
+        out("\033[?25l"); // hide cursor while spinning
 
         Thread t = new Thread(() -> {
             String[] frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
@@ -427,14 +441,13 @@ public class BorisUI {
                 while (!Thread.currentThread().isInterrupted()) {
                     long elapsed = System.currentTimeMillis() - start;
                     int seconds = (int) (elapsed / 1000);
-                    System.out.print("\r\033[2K");
-                    System.out.print(rgb(ACCENT));
-                    System.out.print(frames[frame % frames.length]);
-                    System.out.print(reset());
-                    System.out.print(rgb(DIM));
-                    System.out.print(" " + seconds + "s");
-                    System.out.print(reset());
-                    System.out.flush();
+                    out("\r\033[2K");
+                    out(rgb(ACCENT));
+                    out(frames[frame % frames.length]);
+                    out(reset());
+                    out(rgb(DIM));
+                    out(" " + seconds + "s");
+                    out(reset());
                     frame++;
                     Thread.sleep(80);
                 }
@@ -451,7 +464,6 @@ public class BorisUI {
     private void stopSpinner(Thread spinnerThread) throws InterruptedException {
         spinnerThread.interrupt();
         spinnerThread.join(200);
-        System.out.print("\r\033[2K\033[?25h");
-        System.out.flush();
+        out("\r\033[2K\033[?25h");
     }
 }
