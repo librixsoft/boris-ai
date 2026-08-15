@@ -80,7 +80,7 @@ public class ToolCallingConfig {
             - multi_edit(path, edits): Apply multiple sequential edits to a file.
             - revert_edit(path, old_text, new_text): Revert a previous edit by restoring original content.
             - get_system_info(): Get OS, memory, CPU info.
-            - web_search(query): Search Google for current information. Returns structured JSON results.
+            - web_search(query): Search Google for current information. Returns a JSON object with `success`, `query`, and `results` array. Each result has `title`, `url`, and `content`. The `content` field contains the extracted text from the first search result page. Read the `content` field to answer the user's question directly — do not need to fetch the URL yourself.
 
             INSTRUCTIONS:
             1. Analyze the user's request carefully.

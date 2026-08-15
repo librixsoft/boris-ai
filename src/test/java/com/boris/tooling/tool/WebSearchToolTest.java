@@ -31,8 +31,6 @@ class WebSearchToolTest {
         MockitoAnnotations.openMocks(this);
     }
 
-    // --- Tests de ToolDefinition ---
-
     @Test
     void web_search_definition_hasCorrectName() {
         var def = WebSearchTool.web_search();
@@ -53,8 +51,6 @@ class WebSearchToolTest {
         assertNotNull(props);
         assertTrue(props.containsKey("query"));
     }
-
-    // --- Tests de validación ---
 
     @Test
     void execute_returnsError_whenQueryIsNull() {
@@ -79,25 +75,29 @@ class WebSearchToolTest {
         assertTrue(result.contains("query"));
     }
 
-    // --- Tests con Mockito: Google HTML exitoso ---
-
     @Test
     void execute_returnsResults_whenGoogleReturnsHtml() throws Exception {
         FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockGoogleHtml());
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
+        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
+        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
+                .thenReturn(mockResponse)
+                .thenReturn(mockContent);
 
         WebSearchTool tool = new WebSearchTool(mockFetcher);
         String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
 
         assertTrue(result.contains("\"success\":true"));
         assertTrue(result.contains("\"results\""));
-        verify(mockFetcher).send(any(HttpRequest.class), any(Duration.class));
+        verify(mockFetcher, times(2)).send(any(HttpRequest.class), any(Duration.class));
     }
 
     @Test
     void execute_parsesTitleFromHtml() throws Exception {
         FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockGoogleHtml());
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
+        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
+        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
+                .thenReturn(mockResponse)
+                .thenReturn(mockContent);
 
         WebSearchTool tool = new WebSearchTool(mockFetcher);
         String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
@@ -108,7 +108,10 @@ class WebSearchToolTest {
     @Test
     void execute_parsesUrlFromHtml() throws Exception {
         FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockGoogleHtml());
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
+        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
+        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
+                .thenReturn(mockResponse)
+                .thenReturn(mockContent);
 
         WebSearchTool tool = new WebSearchTool(mockFetcher);
         String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
@@ -119,15 +122,16 @@ class WebSearchToolTest {
     @Test
     void execute_parsesSnippetFromHtml() throws Exception {
         FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockGoogleHtml());
-        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class))).thenReturn(mockResponse);
+        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>This is a longer snippet text for the first result here and some more content to make it valid</p></body></html>");
+        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
+                .thenReturn(mockResponse)
+                .thenReturn(mockContent);
 
         WebSearchTool tool = new WebSearchTool(mockFetcher);
         String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
 
         assertTrue(result.contains("snippet text"));
     }
-
-    // --- Tests con Mockito: HTML sin resultados ---
 
     @Test
     void execute_returnsEmptyResults_whenHtmlHasNoResults() throws Exception {
@@ -141,8 +145,6 @@ class WebSearchToolTest {
         assertTrue(result.contains("\"results\":[]"));
     }
 
-    // --- Tests con Mockito: Timeout HTTP ---
-
     @Test
     void execute_returnsError_whenHttpTimeout() throws Exception {
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
@@ -154,8 +156,6 @@ class WebSearchToolTest {
         assertTrue(result.contains("\"success\":false"));
         assertTrue(result.contains("timed out"));
     }
-
-    // --- Tests con Mockito: HTTP 500 ---
 
     @Test
     void execute_returnsError_whenHttp500() throws Exception {
@@ -169,8 +169,6 @@ class WebSearchToolTest {
         assertTrue(result.contains("500"));
     }
 
-    // --- Tests con Mockito: HTTP 403 ---
-
     @Test
     void execute_returnsError_whenHttp403() throws Exception {
         FakeHttpResponse mockResponse = new FakeHttpResponse(403, "<html><body>Forbidden</body></html>");
@@ -183,8 +181,6 @@ class WebSearchToolTest {
         assertTrue(result.contains("403"));
     }
 
-    // --- Tests con Mockito: IOException ---
-
     @Test
     void execute_returnsError_whenIOException() throws Exception {
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
@@ -196,8 +192,6 @@ class WebSearchToolTest {
         assertTrue(result.contains("\"success\":false"));
         assertTrue(result.contains("error"));
     }
-
-    // --- Tests con Mockito: URL correcta ---
 
     @Test
     void execute_buildsCorrectGoogleUrl() throws Exception {
@@ -216,8 +210,6 @@ class WebSearchToolTest {
         }), any(Duration.class));
     }
 
-    // --- Tests con Mockito: Interrupción ---
-
     @Test
     void execute_returnsError_whenInterrupted() throws Exception {
         when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
@@ -230,7 +222,37 @@ class WebSearchToolTest {
         assertTrue(result.contains("interrupted"));
     }
 
-    // --- Helpers ---
+    @Test
+    void execute_returnsJsonWithContentField() throws Exception {
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockGoogleHtml());
+        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Test content for first result</p></body></html>");
+        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
+                .thenReturn(mockResponse)
+                .thenReturn(mockContent);
+
+        WebSearchTool tool = new WebSearchTool(mockFetcher);
+        String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+
+        assertTrue(result.contains("\"success\":true"));
+        assertTrue(result.contains("\"title\""));
+        assertTrue(result.contains("\"url\""));
+        assertTrue(result.contains("\"content\""));
+    }
+
+    @Test
+    void execute_resultsHaveCorrectNumberOfResults() throws Exception {
+        FakeHttpResponse mockResponse = new FakeHttpResponse(200, buildMockGoogleHtml());
+        FakeHttpResponse mockContent = new FakeHttpResponse(200, "<html><body><p>Some content from the first result page for testing purposes</p></body></html>");
+        when(mockFetcher.send(any(HttpRequest.class), any(Duration.class)))
+                .thenReturn(mockResponse)
+                .thenReturn(mockContent);
+
+        WebSearchTool tool = new WebSearchTool(mockFetcher);
+        String result = tool.search(Map.ofEntries(Map.entry("query", "test query")));
+
+        assertTrue(result.contains("First Result"));
+        assertTrue(result.contains("Second Result"));
+    }
 
     private String buildMockGoogleHtml() {
         return """
@@ -250,8 +272,6 @@ class WebSearchToolTest {
             </html>
             """;
     }
-
-    // --- Fake HttpResponse para tests con Mockito ---
 
     private static class FakeHttpResponse implements HttpResponse<String> {
         private final int statusCode;

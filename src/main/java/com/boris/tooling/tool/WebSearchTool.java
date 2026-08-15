@@ -26,6 +26,8 @@ public class WebSearchTool {
     private static final Pattern GOOGLE_LINK = Pattern.compile("<a[^>]*href\\s*=\\s*(?:\"([^\"]+)\"|'([^']+)'|([^\\s>]+))", Pattern.DOTALL);
     private static final Pattern GOOGLE_SNIPPET = Pattern.compile("<span[^>]*>(.*?)</span>", Pattern.DOTALL);
     private static final Pattern GOOGLE_RESULT_DIV = Pattern.compile("<div[^>]*class\\s*=\\s*\"([^\"]*G[^\"]*)\"[^>]*>(.*?)</div>", Pattern.DOTALL);
+    private static final Pattern HTML_TAG = Pattern.compile("<[^>]+>");
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
     private final HttpFetcher httpFetcher;
 
@@ -46,7 +48,7 @@ public class WebSearchTool {
         schema.put("properties", properties);
         return ToolDefinition.of(
                 "web_search",
-                "Search Google for current information. Returns structured JSON results with title, URL, and snippet.",
+                "Search Google for current information. Returns a JSON object with success, query, and results array. Each result has title, url, and content (extracted text from the first result page). Read the content field directly to answer the user.",
                 schema);
     }
 
@@ -60,26 +62,35 @@ public class WebSearchTool {
         String query = (String) args.get("query");
 
         if (query == null || query.isBlank()) {
-            return formatError("Error: query is required");
+            return formatError("query is required");
         }
 
         try {
             HttpResponse<String> response = fetchGoogleResults(query);
 
             if (response.statusCode() != 200) {
-                return formatError("Error: HTTP error: " + response.statusCode());
+                return formatError("HTTP " + response.statusCode());
             }
 
             List<Map<String, String>> results = parseGoogleHtml(response.body());
 
+            if (results.isEmpty()) {
+                return formatSuccess(query, new ArrayList<>());
+            }
+
+            Map<String, String> first = results.get(0);
+            String content = fetchAndExtractContent(first.get("url"));
+
+            first.put("content", content != null ? content : "");
+
             return formatSuccess(query, results);
         } catch (java.net.http.HttpTimeoutException e) {
-            return formatError("Error: search timed out after 5 seconds");
+            return formatError("search timed out after 10 seconds");
         } catch (IOException e) {
-            return formatError("Error: " + e.getMessage());
+            return formatError("IO error: " + e.getMessage());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return formatError("Error: search interrupted");
+            return formatError("search interrupted");
         }
     }
 
@@ -147,7 +158,7 @@ public class WebSearchTool {
         Matcher m = GOOGLE_SNIPPET.matcher(html);
         while (m.find()) {
             String text = m.group(1).replaceAll("<[^>]+>", "").trim();
-            if (text != null && text.length() > 50) {
+            if (text != null && text.length() > 50 && text.length() <= 300) {
                 return text;
             }
         }
@@ -156,6 +167,43 @@ public class WebSearchTool {
 
     private String cleanGoogleUrl(String url) {
         return url.replaceAll("[?&](utm_[^&=]+|sa_|ved)=([^&]*)", "");
+    }
+
+    private String fetchAndExtractContent(String url) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .GET()
+                    .timeout(Duration.ofSeconds(5))
+                    .header("User-Agent", "BorisCLI/1.0 (Linux; x64)")
+                    .header("Accept", "text/html,application/xhtml+xml")
+                    .build();
+
+            HttpResponse<String> response = httpFetcher.send(request, Duration.ofSeconds(5));
+
+            if (response.statusCode() != 200) {
+                return null;
+            }
+
+            String body = response.body();
+
+            body = body.replaceAll("<script[^>]*>.*?</script>", "");
+            body = body.replaceAll("<style[^>]*>.*?</style>", "");
+            body = body.replaceAll("<[^>]+>", " ");
+            body = WHITESPACE.matcher(body).replaceAll(" ");
+            body = body.trim();
+
+            if (body.length() > 3000) {
+                body = body.substring(0, 3000);
+            }
+
+            return body;
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
+        }
     }
 
     private String formatSuccess(String query, List<Map<String, String>> results) {
@@ -169,7 +217,7 @@ public class WebSearchTool {
                 ObjectNode obj = array.addObject();
                 obj.put("title", r.get("title"));
                 obj.put("url", r.get("url"));
-                obj.put("snippet", r.get("snippet"));
+                obj.put("content", r.getOrDefault("content", ""));
             }
             node.putNull("error");
 
