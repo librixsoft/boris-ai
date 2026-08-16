@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.boris.chat.ChatService;
-import com.boris.task.TaskAborter;
 
 /**
  * BorisUI — minimal terminal interface.
@@ -17,13 +16,11 @@ import com.boris.task.TaskAborter;
 public class BorisUI {
 
     private final ChatService chatService;
-    private final TaskAborter taskAborter;
     private final BufferedReader reader;
 
     public BorisUI(String settingsPath) throws Exception {
         this.reader = new BufferedReader(new InputStreamReader(System.in));
         this.chatService = ChatService.withTools(settingsPath, "boris");
-        this.taskAborter = this.chatService.getTaskAborter();
     }
 
     public void start() throws Exception {
@@ -91,8 +88,6 @@ public class BorisUI {
                 });
 
                 taskThread.setDaemon(true);
-                taskAborter.reset();
-                taskAborter.startTask(taskThread);
                 taskThread.start();
 
                 // Wait for completion
