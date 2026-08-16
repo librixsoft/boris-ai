@@ -201,6 +201,29 @@ public class ChatBuffer {
     }
 
     /**
+     * Print a user question block with label.
+     */
+    public void openQuestion(String text) {
+        // Finish any current line from previous answer
+        if (currentLine.length() > 0) {
+            messageLines.add(currentLine.toString());
+            totalContentHeight++;
+            currentLine = new StringBuilder();
+        }
+        
+        // Add the user label
+        String questionHeader = palette.user() + "You " + palette.dim() + "· " + palette.fg();
+        messageLines.add(questionHeader);
+        totalContentHeight++;
+        
+        // Add the user text
+        messageLines.add(text);
+        totalContentHeight++;
+        
+        scrollToBottom();
+    }
+
+    /**
      * Finish the current line (call when streaming completes).
      */
     public void finishCurrentLine() {

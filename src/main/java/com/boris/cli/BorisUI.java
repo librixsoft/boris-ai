@@ -94,6 +94,9 @@ public class BorisUI {
                 // Save to history (avoid duplicate consecutive entries)
                 commandHistory.addCommand(input);
 
+                // Display the user's message in the chat
+                conversationView.openQuestion(input);
+
                 // Use streaming to print chunks as they arrive from the model.
                 AtomicBoolean firstChunk = new AtomicBoolean(true);
                 AtomicReference<String> responseRef = new AtomicReference<>(null);

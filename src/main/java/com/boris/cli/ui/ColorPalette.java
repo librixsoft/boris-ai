@@ -10,12 +10,14 @@ public class ColorPalette {
     private final int[] dim;
     private final int[] fg;
     private final int[] warn;
+    private final int[] user;
     
-    public ColorPalette(int[] accent, int[] dim, int[] fg, int[] warn) {
+    public ColorPalette(int[] accent, int[] dim, int[] fg, int[] warn, int[] user) {
         this.accent = accent;
         this.dim = dim;
         this.fg = fg;
         this.warn = warn;
+        this.user = user;
     }
     
     /**
@@ -26,7 +28,8 @@ public class ColorPalette {
             new int[] { 209, 122, 92 },   // accent: prompt glyph / brand dot
             new int[] { 118, 118, 124 },  // dim: secondary / help text
             new int[] { 225, 225, 228 },  // fg: response text
-            new int[] { 209, 160, 100 }   // warn: aborted
+            new int[] { 209, 160, 100 },  // warn: aborted
+            new int[] { 140, 180, 220 }   // user: user question text
         );
     }
     
@@ -66,7 +69,11 @@ public class ColorPalette {
         return fg;
     }
     
-    public int[] getWarn() {
-        return warn;
+    public String user() {
+        return rgb(user);
+    }
+    
+    public int[] getUser() {
+        return user;
     }
 }

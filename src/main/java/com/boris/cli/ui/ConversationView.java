@@ -66,6 +66,21 @@ public class ConversationView {
     }
 
     /**
+     * Print a user question, labeled.
+     */
+    public void openQuestion(String text) {
+        if (chatBuffer != null) {
+            chatBuffer.openQuestion(text);
+        } else {
+            terminal.out(palette.user());
+            terminal.out("You " + palette.dim() + "· " + palette.fg());
+            terminal.out(text);
+            terminal.out(palette.reset());
+            terminal.out("\n");
+        }
+    }
+
+    /**
      * Print a short status line (e.g. "aborted").
      */
     public void printStatus(String text) {
