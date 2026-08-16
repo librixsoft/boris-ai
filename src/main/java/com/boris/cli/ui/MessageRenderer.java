@@ -17,7 +17,7 @@ public class MessageRenderer {
     /**
      * Single output channel for all chrome (banner, prompt, status lines).
      * Everything used to go through System.out while streamed responses
-     * went through terminal.writer(); Jansi's AnsiConsole and JLine's writer
+     * went through terminal.writer(); ANSI console and terminal writer
      * don't always agree on ANSI state until the writer has been used at
      * least once, which is why colors used to look "wrong" until the first
      * message came back. Routing everything through terminal.writer() keeps

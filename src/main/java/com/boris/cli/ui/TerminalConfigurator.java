@@ -24,14 +24,14 @@ public class TerminalConfigurator {
     }
     
     /**
-     * Install ANSI console support (no-op without JLine).
+     * Install ANSI console support.
      */
     public void installAnsiConsole() {
         // No-op: ANSI sequences work directly with System.out
     }
     
     /**
-     * Uninstall ANSI console support (no-op without JLine).
+     * Uninstall ANSI console support.
      */
     public void uninstallAnsiConsole() {
         // No-op

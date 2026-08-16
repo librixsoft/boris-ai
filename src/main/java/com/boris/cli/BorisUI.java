@@ -40,7 +40,6 @@ public class BorisUI {
     }
 
     public void start() throws Exception {
-        // Install JLine's AnsiConsole so Ansi output works correctly
         terminalConfigurator.installAnsiConsole();
         terminalConfigurator.sttyRaw();
         // Always restore terminal on JVM exit (covers Ctrl+C / SIGTERM)
