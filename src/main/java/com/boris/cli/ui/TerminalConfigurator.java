@@ -1,5 +1,6 @@
 package com.boris.cli.ui;
 
+import org.jline.terminal.Attributes;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.InfoCmp;
@@ -22,7 +23,9 @@ import java.io.InputStream;
 public class TerminalConfigurator {
     
     private static String savedTermSettings = null;
+    private volatile boolean closed = false;
     private Terminal terminal;
+    private Attributes originalAttributes;
     private final PrintStream output;
     
     public TerminalConfigurator() throws Exception {
@@ -33,26 +36,14 @@ public class TerminalConfigurator {
         this.output = System.out;
     }
     
-    /**
-     * Install ANSI console support.
-     */
-    public void installAnsiConsole() {
-        // No-op: JLine3 handles ANSI automatically
-    }
-    
-    /**
-     * Uninstall ANSI console support.
-     */
-    public void uninstallAnsiConsole() {
-        // No-op
-    }
+
     
     /**
      * Put terminal into raw mode: one char at a time, no echo.
      */
     public void sttyRaw() {
         try {
-            terminal.enterRawMode();
+            originalAttributes = terminal.enterRawMode();
         } catch (Exception e) {
             System.err.println("[boris] Warning: could not set raw terminal mode: " + e.getMessage());
         }
@@ -77,9 +68,20 @@ public class TerminalConfigurator {
     }
     
     /**
-     * Close the terminal.
+     * Close the terminal: reset scroll region, restore original attributes, then close.
+     * Idempotent.
      */
     public void close() {
+        if (closed) return;
+        closed = true;
+        try {
+            resetScrollRegion();
+        } catch (Exception ignored) {}
+        try {
+            if (terminal != null && originalAttributes != null) {
+                terminal.setAttributes(originalAttributes);
+            }
+        } catch (Exception ignored) {}
         try {
             if (terminal != null) {
                 terminal.close();
@@ -172,46 +174,5 @@ public class TerminalConfigurator {
         }
     }
 
-    /**
-     * Enable aggressive scroll lock using JLine3.
-     */
-    public void enableScrollLock() {
-        // JLine3 doesn't have direct alternate screen methods
-        // This is handled by the terminal configuration
-    }
 
-    /**
-     * Enable application mode using JLine3.
-     */
-    public void enableApplicationMode() {
-        // JLine3 handles this through terminal configuration
-    }
-
-    /**
-     * Disable terminal scroll using JLine3.
-     */
-    public void disableTerminalScroll() {
-        // JLine3 handles this through terminal configuration
-    }
-
-    /**
-     * Enable terminal scroll using JLine3.
-     */
-    public void enableTerminalScroll() {
-        // JLine3 handles this through terminal configuration
-    }
-
-    /**
-     * Disable scroll lock using JLine3.
-     */
-    public void disableScrollLock() {
-        // JLine3 handles this through terminal configuration
-    }
-
-    /**
-     * Disable application mode using JLine3.
-     */
-    public void disableApplicationMode() {
-        // JLine3 handles this through terminal configuration
-    }
 }

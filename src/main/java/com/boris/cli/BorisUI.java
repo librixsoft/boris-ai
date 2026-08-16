@@ -45,7 +45,6 @@ public class BorisUI {
     }
 
     public void start() throws Exception {
-        terminalConfigurator.installAnsiConsole();
         terminalConfigurator.sttyRaw();
 
         int[] size = terminalConfigurator.getTerminalSize();
@@ -70,18 +69,13 @@ public class BorisUI {
         }
         
         terminalConfigurator.setScrollRegion(scrollTop, scrollBottom);
-        terminalConfigurator.enableScrollLock();
         conversationView.initialize(inputBarHeight);
         conversationView.printBanner();
         inputBar.render("");
 
         // Always restore terminal on JVM exit (covers Ctrl+C / SIGTERM)
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try { terminalConfigurator.disableScrollLock(); } catch (Exception ignored) {}
-            try { terminalConfigurator.resetScrollRegion(); } catch (Exception ignored) {}
-            terminalConfigurator.sttyRestore();
             terminalConfigurator.close();
-            terminalConfigurator.uninstallAnsiConsole();
         }));
         try {
             while (true) {
@@ -145,6 +139,7 @@ public class BorisUI {
 
                 // Main thread polls /dev/tty for ESC while the task is running.
                 boolean aborted = false;
+                boolean quit = false;
                 while (true) {
                     boolean finished = streamDone.await(50, TimeUnit.MILLISECONDS);
                     if (userInputReader.available()) {
@@ -155,11 +150,17 @@ public class BorisUI {
                             break;
                         }
                         if (ch == 0x03) {
-                            terminalConfigurator.sttyRestore();
-                            System.exit(0);
+                            taskAborter.abort();
+                            quit = true;
+                            streamDone.await(200, TimeUnit.MILLISECONDS);
+                            break;
                         }
                     }
                     if (finished) break;
+                }
+
+                if (quit) {
+                    break;
                 }
 
                 if (aborted || taskAborter.isAborted()) {
@@ -185,10 +186,7 @@ public class BorisUI {
             inputBar.clear();
             terminalConfigurator.moveCursorTo(terminalConfigurator.getTerminalSize()[0], 1);
         } finally {
-            terminalConfigurator.disableScrollLock();
-            try { terminalConfigurator.resetScrollRegion(); } catch (Exception ignored) {}
-            terminalConfigurator.sttyRestore();
-            terminalConfigurator.uninstallAnsiConsole();
+            terminalConfigurator.close();
         }
     }
 }
