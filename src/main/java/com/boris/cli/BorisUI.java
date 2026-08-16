@@ -159,7 +159,6 @@ public class BorisUI {
                 if (response != null) {
                     conversationView.printNewline();
                 }
-                terminalConfigurator.moveCursorTo(rows() - 1, 2 + 2);
             }
 
             inputBar.clear();
