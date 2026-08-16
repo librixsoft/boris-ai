@@ -30,7 +30,7 @@ java -jar target/boris-cli-1.0.0.jar
 ## Stack
 
 - **Picocli** 4.7.6 — parsing de argumentos CLI
-- **Jansi** 2.4.1 — soporte de colores en terminal
+- ANSI sequences — soporte de colores en terminal
 
 ## Autor
 

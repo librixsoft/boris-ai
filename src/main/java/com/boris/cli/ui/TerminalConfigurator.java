@@ -1,11 +1,8 @@
 package com.boris.cli.ui;
 
-import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
-import org.jline.jansi.AnsiConsole;
-
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.io.PrintStream;
 
 /**
  * Manages terminal configuration and raw mode operations.
@@ -14,30 +11,30 @@ import java.io.InputStream;
 public class TerminalConfigurator {
     
     private static String savedTermSettings = null;
-    private final Terminal terminal;
     private final InputStream tty;
+    private final PrintStream output;
     
     public TerminalConfigurator() throws Exception {
-        this.terminal = TerminalBuilder.builder().system(true).build();
         // Open /dev/tty directly — works even when stdin/stdout are redirected
         InputStream t;
         try { t = new FileInputStream("/dev/tty"); }
         catch (Exception e) { t = System.in; }
         this.tty = t;
+        this.output = System.out;
     }
     
     /**
-     * Install JLine's AnsiConsole so Ansi output works correctly.
+     * Install ANSI console support (no-op without JLine).
      */
     public void installAnsiConsole() {
-        AnsiConsole.systemInstall();
+        // No-op: ANSI sequences work directly with System.out
     }
     
     /**
-     * Uninstall JLine's AnsiConsole.
+     * Uninstall ANSI console support (no-op without JLine).
      */
     public void uninstallAnsiConsole() {
-        AnsiConsole.systemUninstall();
+        // No-op
     }
     
     /**
@@ -72,13 +69,6 @@ public class TerminalConfigurator {
     }
     
     /**
-     * Get the terminal instance.
-     */
-    public Terminal getTerminal() {
-        return terminal;
-    }
-    
-    /**
      * Get the TTY input stream.
      */
     public InputStream getTty() {
@@ -89,16 +79,14 @@ public class TerminalConfigurator {
      * Close the terminal.
      */
     public void close() {
-        try {
-            terminal.close();
-        } catch (Exception ignored) {}
+        // No-op with System.out
     }
     
     /**
      * Output text to the terminal.
      */
     public void out(String s) {
-        terminal.writer().print(s);
-        terminal.writer().flush();
+        output.print(s);
+        output.flush();
     }
 }

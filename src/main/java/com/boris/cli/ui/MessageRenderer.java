@@ -75,10 +75,7 @@ public class MessageRenderer {
     }
     
     /**
-     * Starts the answer, labeled, in the neutral fg tone. No leading
-     * newline here — stopSpinner() already moves the cursor to a fresh
-     * line after freezing the elapsed-time indicator, so this just prints
-     * the label directly on that new line.
+     * Starts the answer, labeled, in the neutral fg tone.
      */
     public void openAnswer() {
         out(colorPalette.accent());

@@ -1,7 +1,5 @@
 package com.boris.cli.ui;
 
-import org.jline.jansi.Ansi;
-
 /**
  * Color palette for the Boris UI theme.
  * Provides a single accent color with neutral tones for all other elements.
@@ -49,11 +47,11 @@ public class ColorPalette {
     }
     
     public String reset() {
-        return Ansi.ansi().reset().toString();
+        return "\033[0m";
     }
     
     private static String rgb(int[] c) {
-        return Ansi.ansi().fgRgb(c[0], c[1], c[2]).toString();
+        return String.format("\033[38;2;%d;%d;%dm", c[0], c[1], c[2]);
     }
     
     public int[] getAccent() {
