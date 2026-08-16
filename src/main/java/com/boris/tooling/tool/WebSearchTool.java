@@ -1,11 +1,14 @@
 package com.boris.tooling.tool;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -24,10 +27,25 @@ import com.boris.tooling.ToolDefinition;
 public class WebSearchTool {
 
     private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
-    private static final String BING_URL = "https://www.bing.com/search";
-    private static final int DEFAULT_COUNT = 5;
-    private static final int MAX_COUNT = 10;
-    private static final int TIMEOUT_MS = 15000;
+    private static final Properties PROPERTIES = loadProperties();
+    private static final String BING_URL = PROPERTIES.getProperty("web.search.bing.url", "https://www.bing.com/search");
+    private static final boolean HEADLESS = Boolean.parseBoolean(PROPERTIES.getProperty("web.search.headless", "true"));
+    private static final int DEFAULT_COUNT = Integer.parseInt(PROPERTIES.getProperty("web.search.default.count", "5"));
+    private static final int MAX_COUNT = Integer.parseInt(PROPERTIES.getProperty("web.search.max.count", "10"));
+    private static final int TIMEOUT_MS = Integer.parseInt(PROPERTIES.getProperty("web.search.timeout.ms", "15000"));
+    private static final int WAIT_TIMEOUT_MS = Integer.parseInt(PROPERTIES.getProperty("web.search.wait.timeout.ms", "2000"));
+
+    private static Properties loadProperties() {
+        Properties props = new Properties();
+        try (InputStream input = WebSearchTool.class.getClassLoader().getResourceAsStream("test.properties")) {
+            if (input != null) {
+                props.load(input);
+            }
+        } catch (IOException e) {
+            // Use defaults if properties file not found
+        }
+        return props;
+    }
 
     public static ToolDefinition web_search() {
         var queryProp = Map.of("type", "string", "description", "Search query string");
@@ -58,7 +76,7 @@ public class WebSearchTool {
 
         try (Playwright playwright = Playwright.create()) {
             Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
-                .setHeadless(true)  // Back to headless now that it works
+                .setHeadless(HEADLESS)
                 .setArgs(java.util.List.of("--no-sandbox")));
             Page page = browser.newPage();
             
@@ -90,7 +108,7 @@ public class WebSearchTool {
         page.waitForSelector("li.b_algo", new Page.WaitForSelectorOptions().setTimeout(10000));
         
         // Wait a bit for dynamic content
-        page.waitForTimeout(2000);
+        page.waitForTimeout(WAIT_TIMEOUT_MS);
         
         Object resultObj = page.evaluate("""
             () => {
