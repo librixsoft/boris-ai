@@ -24,21 +24,15 @@ public class Spinner {
         terminalConfigurator.out("\033[?25l"); // hide cursor while spinning
 
         Thread t = new Thread(() -> {
-            String[] frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
-            int frame = 0;
             long start = System.currentTimeMillis();
             try {
                 while (!Thread.currentThread().isInterrupted()) {
                     long elapsed = System.currentTimeMillis() - start;
                     int seconds = (int) (elapsed / 1000);
                     terminalConfigurator.out("\r\033[2K");
-                    terminalConfigurator.out(colorPalette.accent());
-                    terminalConfigurator.out(frames[frame % frames.length]);
-                    terminalConfigurator.out(colorPalette.reset());
                     terminalConfigurator.out(colorPalette.dim());
-                    terminalConfigurator.out(" " + seconds + "s" + " - tokens: " + "131k"); // TODO: Calculate real tokens, ins, outs
+                    terminalConfigurator.out("thinking" + " - " + seconds + "s");
                     terminalConfigurator.out(colorPalette.reset());
-                    frame++;
                     Thread.sleep(80);
                 }
             } catch (InterruptedException e) {
