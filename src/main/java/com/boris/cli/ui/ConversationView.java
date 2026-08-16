@@ -153,11 +153,11 @@ public class ConversationView {
     }
 
     /**
-     * Flush any remaining content in the chunk buffer.
+     * Finish the current line (call when streaming completes).
      */
-    public void flushChunkBuffer() {
+    public void finishCurrentLine() {
         if (chatBuffer != null) {
-            chatBuffer.flushChunkBuffer();
+            chatBuffer.finishCurrentLine();
         }
     }
 }

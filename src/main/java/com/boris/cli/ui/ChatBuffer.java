@@ -20,7 +20,7 @@ public class ChatBuffer {
     private int totalContentHeight;
     private int maxScrollPosition;
     private int bufferHeight;
-    private StringBuilder currentChunkBuffer;
+    private StringBuilder currentLine;
 
     /**
      * Create a new ChatBuffer.
@@ -40,7 +40,7 @@ public class ChatBuffer {
         this.totalContentHeight = 0;
         this.maxScrollPosition = 0;
         this.bufferHeight = 0;
-        this.currentChunkBuffer = new StringBuilder();
+        this.currentLine = new StringBuilder();
     }
 
     /**
@@ -181,8 +181,12 @@ public class ChatBuffer {
      * Open a new answer block with Boris label.
      */
     public void openAnswer() {
-        // Flush any remaining content from previous answer
-        flushChunkBuffer();
+        // Finish any current line from previous answer
+        if (currentLine.length() > 0) {
+            messageLines.add(currentLine.toString());
+            totalContentHeight++;
+            currentLine = new StringBuilder();
+        }
         
         // Add a blank line for separation
         messageLines.add("");
@@ -197,80 +201,86 @@ public class ChatBuffer {
     }
 
     /**
-     * Append a chunk to the current answer with proper text wrapping.
+     * Finish the current line (call when streaming completes).
+     */
+    public void finishCurrentLine() {
+        if (currentLine.length() > 0) {
+            messageLines.add(currentLine.toString());
+            totalContentHeight++;
+            currentLine = new StringBuilder();
+            scrollToBottom();
+        }
+    }
+
+    /**
+     * Append a chunk to the current answer with immediate character-by-character display.
      */
     public void appendChunk(String chunk) {
         if (chunk == null || chunk.isEmpty()) {
             return;
         }
         
-        // Add chunk to buffer
-        currentChunkBuffer.append(chunk);
+        int terminalWidth = terminal.getTerminalSize()[1];
         
-        // Check if we have complete lines or enough text to wrap
-        String bufferContent = currentChunkBuffer.toString();
-        
-        // If buffer contains newlines, process complete lines
-        if (bufferContent.contains("\n")) {
-            String[] lines = bufferContent.split("\\n", -1);
+        // Process each character in the chunk for immediate display
+        for (int i = 0; i < chunk.length(); i++) {
+            char c = chunk.charAt(i);
             
-            // Process all complete lines (except the last one if it doesn't end with \n)
-            for (int i = 0; i < lines.length - 1; i++) {
-                String line = lines[i];
-                if (!line.isEmpty()) {
-                    List<String> wrappedLines = wrapText(line, getTerminalWidth());
-                    for (String wrappedLine : wrappedLines) {
-                        messageLines.add(wrappedLine);
-                        totalContentHeight++;
-                    }
+            if (c == '\n') {
+                // Newline - finish current line and start new one
+                if (currentLine.length() > 0) {
+                    messageLines.add(currentLine.toString());
+                    totalContentHeight++;
+                    currentLine = new StringBuilder();
                 } else {
-                    // Empty line - add as blank line
+                    // Empty line
                     messageLines.add("");
                     totalContentHeight++;
                 }
-            }
-            
-            // Keep the last (possibly incomplete) line in the buffer
-            currentChunkBuffer = new StringBuilder(lines[lines.length - 1]);
-            scrollToBottom();
-        } else {
-            // No newlines yet - check if buffer is long enough to wrap
-            String plainText = stripAnsiCodes(bufferContent);
-            int terminalWidth = getTerminalWidth();
-            
-            if (plainText.length() >= terminalWidth) {
-                // Buffer is long enough to wrap
-                List<String> wrappedLines = wrapText(bufferContent, terminalWidth);
-                
-                // Add all but the last wrapped line (keep it in buffer for more content)
-                for (int i = 0; i < wrappedLines.size() - 1; i++) {
-                    messageLines.add(wrappedLines.get(i));
-                    totalContentHeight++;
-                }
-                
-                // Keep the last wrapped line in buffer
-                currentChunkBuffer = new StringBuilder(wrappedLines.get(wrappedLines.size() - 1));
                 scrollToBottom();
+            } else {
+                // Regular character - add to current line
+                currentLine.append(c);
+                
+                // Check if current line needs wrapping
+                String plainLine = stripAnsiCodes(currentLine.toString());
+                if (plainLine.length() >= terminalWidth) {
+                    // Line is full - wrap it
+                    messageLines.add(currentLine.toString());
+                    totalContentHeight++;
+                    currentLine = new StringBuilder();
+                    scrollToBottom();
+                } else {
+                    // Display current partial line immediately for typewriter effect
+                    renderCurrentLine();
+                }
             }
         }
     }
-
+    
     /**
-     * Flush any remaining content in the chunk buffer.
-     * Call this when streaming is complete to ensure all content is displayed.
+     * Render the current partial line immediately for typewriter effect.
      */
-    public void flushChunkBuffer() {
-        if (currentChunkBuffer.length() > 0) {
-            String remaining = currentChunkBuffer.toString();
-            if (!remaining.isEmpty()) {
-                List<String> wrappedLines = wrapText(remaining, getTerminalWidth());
-                for (String wrappedLine : wrappedLines) {
-                    messageLines.add(wrappedLine);
-                    totalContentHeight++;
-                }
-            }
-            currentChunkBuffer = new StringBuilder();
-            scrollToBottom();
+    private void renderCurrentLine() {
+        if (currentLine.length() == 0) {
+            return;
+        }
+        
+        int[] size = terminal.getTerminalSize();
+        int rows = size[0];
+        int contentStartRow = bannerLines + 1;
+        int contentEndRow = rows - inputBarHeight;
+        
+        // Get the position where the current line should be displayed
+        int currentLineRow = contentStartRow + messageLines.size();
+        
+        // Only render if within visible area
+        if (currentLineRow <= contentEndRow) {
+            terminal.moveCursorTo(currentLineRow, 1);
+            terminal.clearCurrentLine();
+            terminal.out(currentLine.toString());
+            // Move cursor back to input area after rendering
+            terminal.moveCursorTo(rows - inputBarHeight + 1, 1);
         }
     }
 
@@ -425,7 +435,7 @@ public class ChatBuffer {
         messageLines.clear();
         totalContentHeight = bannerLines;
         scrollPosition = 0;
-        currentChunkBuffer = new StringBuilder();
+        currentLine = new StringBuilder();
         render();
     }
 }
