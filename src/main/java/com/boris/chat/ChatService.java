@@ -1,5 +1,7 @@
 package com.boris.chat;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -20,11 +22,15 @@ public class ChatService {
     private final Supplier<ChatClient> chatClientSupplier;
     private final String botName;
     private final TaskAborter taskAborter;
+    private final List<String> conversationHistory;
+    private final int maxHistorySize;
 
-    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter) {
+    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize) {
         this.chatClientSupplier = chatClientSupplier;
         this.botName = botName;
         this.taskAborter = taskAborter;
+        this.conversationHistory = new ArrayList<>();
+        this.maxHistorySize = maxHistorySize;
     }
 
     public String sendMessage(String userMessage) {
@@ -47,7 +53,18 @@ public class ChatService {
         }
 
         try {
+            // Agregar mensaje del usuario al historial
+            conversationHistory.add("User: " + userMessage);
+            trimHistory();
+            
             String response = client.prompt(userMessage).call().content();
+            
+            // Agregar respuesta al historial
+            if (response != null && !response.isEmpty()) {
+                conversationHistory.add(botName + ": " + response);
+                trimHistory();
+            }
+            
             return "*%s* %s".formatted(botName, response != null ? response : "");
         } catch (Exception e) {
             if (taskAborter.isAborted()) {
@@ -114,12 +131,29 @@ public class ChatService {
                 .build();
 
         TaskAborter aborter = new TaskAborter();
-        return new ChatService(() -> client, botName, aborter);
+        return new ChatService(() -> client, botName, aborter, 10); // 10 mensajes de historial
     }
 
     /** Expose the aborter so UI can wire ESC key to it. */
     public TaskAborter getTaskAborter() {
         return taskAborter;
+    }
+
+    /** Clear the chat history */
+    public void clearHistory() {
+        conversationHistory.clear();
+    }
+
+    /** Get the conversation history */
+    public List<String> getConversationHistory() {
+        return new ArrayList<>(conversationHistory);
+    }
+
+    /** Trim history to max size */
+    private void trimHistory() {
+        while (conversationHistory.size() > maxHistorySize) {
+            conversationHistory.remove(0);
+        }
     }
 
     private static org.springframework.ai.chat.model.ChatModel buildChatModel(Settings settings) throws Exception {
