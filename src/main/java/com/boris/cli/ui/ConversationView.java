@@ -151,4 +151,13 @@ public class ConversationView {
             chatBuffer.clear();
         }
     }
+
+    /**
+     * Flush any remaining content in the chunk buffer.
+     */
+    public void flushChunkBuffer() {
+        if (chatBuffer != null) {
+            chatBuffer.flushChunkBuffer();
+        }
+    }
 }

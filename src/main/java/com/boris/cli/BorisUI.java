@@ -122,6 +122,7 @@ public class BorisUI {
                                 synchronized (fullResponse) {
                                     responseRef.set(fullResponse.toString());
                                 }
+                                conversationView.flushChunkBuffer();
                                 streamDone.countDown();
                             }
                         );
@@ -155,6 +156,7 @@ public class BorisUI {
                 }
 
                 if (aborted || taskAborter.isAborted()) {
+                    conversationView.flushChunkBuffer();
                     conversationView.printStatus("aborted");
                     taskAborter.reset();
                     continue;

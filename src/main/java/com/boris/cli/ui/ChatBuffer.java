@@ -20,6 +20,7 @@ public class ChatBuffer {
     private int totalContentHeight;
     private int maxScrollPosition;
     private int bufferHeight;
+    private StringBuilder currentChunkBuffer;
 
     /**
      * Create a new ChatBuffer.
@@ -39,6 +40,7 @@ public class ChatBuffer {
         this.totalContentHeight = 0;
         this.maxScrollPosition = 0;
         this.bufferHeight = 0;
+        this.currentChunkBuffer = new StringBuilder();
     }
 
     /**
@@ -179,6 +181,9 @@ public class ChatBuffer {
      * Open a new answer block with Boris label.
      */
     public void openAnswer() {
+        // Flush any remaining content from previous answer
+        flushChunkBuffer();
+        
         // Add a blank line for separation
         messageLines.add("");
         totalContentHeight++;
@@ -195,20 +200,77 @@ public class ChatBuffer {
      * Append a chunk to the current answer with proper text wrapping.
      */
     public void appendChunk(String chunk) {
-        String[] lines = chunk.split("\\n");
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i];
-            if (i > 0 || !chunk.startsWith("\n")) {
-                if (!line.isEmpty() || i < lines.length - 1) {
-                    // Wrap the line to terminal width
+        if (chunk == null || chunk.isEmpty()) {
+            return;
+        }
+        
+        // Add chunk to buffer
+        currentChunkBuffer.append(chunk);
+        
+        // Check if we have complete lines or enough text to wrap
+        String bufferContent = currentChunkBuffer.toString();
+        
+        // If buffer contains newlines, process complete lines
+        if (bufferContent.contains("\n")) {
+            String[] lines = bufferContent.split("\\n", -1);
+            
+            // Process all complete lines (except the last one if it doesn't end with \n)
+            for (int i = 0; i < lines.length - 1; i++) {
+                String line = lines[i];
+                if (!line.isEmpty()) {
                     List<String> wrappedLines = wrapText(line, getTerminalWidth());
                     for (String wrappedLine : wrappedLines) {
                         messageLines.add(wrappedLine);
                         totalContentHeight++;
                     }
-                    scrollToBottom();
+                } else {
+                    // Empty line - add as blank line
+                    messageLines.add("");
+                    totalContentHeight++;
                 }
             }
+            
+            // Keep the last (possibly incomplete) line in the buffer
+            currentChunkBuffer = new StringBuilder(lines[lines.length - 1]);
+            scrollToBottom();
+        } else {
+            // No newlines yet - check if buffer is long enough to wrap
+            String plainText = stripAnsiCodes(bufferContent);
+            int terminalWidth = getTerminalWidth();
+            
+            if (plainText.length() >= terminalWidth) {
+                // Buffer is long enough to wrap
+                List<String> wrappedLines = wrapText(bufferContent, terminalWidth);
+                
+                // Add all but the last wrapped line (keep it in buffer for more content)
+                for (int i = 0; i < wrappedLines.size() - 1; i++) {
+                    messageLines.add(wrappedLines.get(i));
+                    totalContentHeight++;
+                }
+                
+                // Keep the last wrapped line in buffer
+                currentChunkBuffer = new StringBuilder(wrappedLines.get(wrappedLines.size() - 1));
+                scrollToBottom();
+            }
+        }
+    }
+
+    /**
+     * Flush any remaining content in the chunk buffer.
+     * Call this when streaming is complete to ensure all content is displayed.
+     */
+    public void flushChunkBuffer() {
+        if (currentChunkBuffer.length() > 0) {
+            String remaining = currentChunkBuffer.toString();
+            if (!remaining.isEmpty()) {
+                List<String> wrappedLines = wrapText(remaining, getTerminalWidth());
+                for (String wrappedLine : wrappedLines) {
+                    messageLines.add(wrappedLine);
+                    totalContentHeight++;
+                }
+            }
+            currentChunkBuffer = new StringBuilder();
+            scrollToBottom();
         }
     }
 
@@ -230,28 +292,38 @@ public class ChatBuffer {
             return result;
         }
 
-        // Word-aware wrapping
+        // Simple word-aware wrapping
+        String[] words = text.split("(?<=\\s)"); // Split at whitespace, keep the whitespace
+        
         StringBuilder currentLine = new StringBuilder();
         StringBuilder currentPlainLine = new StringBuilder();
-        String[] words = text.split("(?=[\\s])|(?<=[\\s])"); // Keep delimiters
         
         for (String word : words) {
             String plainWord = stripAnsiCodes(word);
             
+            // Skip empty words
+            if (plainWord.isEmpty()) {
+                continue;
+            }
+            
+            // Check if adding this word would exceed width
             if (currentPlainLine.length() + plainWord.length() <= width) {
                 currentLine.append(word);
                 currentPlainLine.append(plainWord);
             } else {
+                // Current line is full, add it to result
                 if (currentLine.length() > 0) {
-                    result.add(currentLine.toString());
+                    result.add(currentLine.toString().trim());
                 }
+                
+                // Start new line with this word
                 currentLine = new StringBuilder(word);
                 currentPlainLine = new StringBuilder(plainWord);
                 
                 // Handle single word longer than width
                 if (plainWord.length() > width) {
                     while (currentPlainLine.length() > width) {
-                        int splitPoint = findSplitPoint(currentPlainLine.toString(), width);
+                        int splitPoint = Math.min(width, currentPlainLine.length());
                         result.add(currentLine.substring(0, splitPoint));
                         currentLine.delete(0, splitPoint);
                         currentPlainLine.delete(0, splitPoint);
@@ -260,8 +332,9 @@ public class ChatBuffer {
             }
         }
         
+        // Add remaining content
         if (currentLine.length() > 0) {
-            result.add(currentLine.toString());
+            result.add(currentLine.toString().trim());
         }
         
         return result;
@@ -352,6 +425,7 @@ public class ChatBuffer {
         messageLines.clear();
         totalContentHeight = bannerLines;
         scrollPosition = 0;
+        currentChunkBuffer = new StringBuilder();
         render();
     }
 }
