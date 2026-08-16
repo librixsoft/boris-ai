@@ -80,7 +80,7 @@ public class ToolCallingConfig {
             - multi_edit(path, edits): Apply multiple sequential edits to a file.
             - revert_edit(path, old_text, new_text): Revert a previous edit by restoring original content.
             - get_system_info(): Get OS, memory, CPU info.
-            - web_search(query, count): Search the web using DuckDuckGo via Playwright. Returns titles, URLs, and snippets with no API key required. Parameters: query (required), count (1-10, default 5).
+            - web_search(query, count): Search the web using Bing via Playwright. Returns titles, URLs, and snippets with no API key required. Parameters: query (required), count (1-10, default 5).
 
             INSTRUCTIONS:
             1. Analyze the user's request carefully.
@@ -180,7 +180,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "web_search",
-            description = "Search the web using DuckDuckGo via Playwright. Returns titles, URLs, and snippets with no API key required.")
+            description = "Search the web using Bing via Playwright. Returns titles, URLs, and snippets with no API key required.")
     public String web_search(@ToolParam(description = "Search query string") String query,
                              @ToolParam(description = "Number of results to return (1-10, default 5)") Integer count) {
         Map<String, Object> args = new java.util.LinkedHashMap<>();

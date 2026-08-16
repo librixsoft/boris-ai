@@ -13,8 +13,8 @@ import com.microsoft.playwright.*;
 import com.boris.tooling.ToolDefinition;
 
 /**
- * Web search using Playwright and DuckDuckGo HTML interface.
- * Uses Playwright to navigate to DuckDuckGo and extract search results.
+ * Web search using Playwright and Bing HTML interface.
+ * Uses Playwright to navigate to Bing and extract search results.
  * 
  * Features:
  * - No API key required
@@ -24,7 +24,7 @@ import com.boris.tooling.ToolDefinition;
 public class WebSearchTool {
 
     private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
-    private static final String DUCKDUCKGO_URL = "https://html.duckduckgo.com/html/";
+    private static final String BING_URL = "https://www.bing.com/search";
     private static final int DEFAULT_COUNT = 5;
     private static final int MAX_COUNT = 10;
     private static final int TIMEOUT_MS = 15000;
@@ -40,7 +40,7 @@ public class WebSearchTool {
         schema.put("properties", properties);
         return ToolDefinition.of(
                 "web_search",
-                "Search the web using DuckDuckGo via Playwright. Returns titles, URLs, and snippets with no API key required.",
+                "Search the web using Bing via Playwright. Returns titles, URLs, and snippets with no API key required.",
                 schema);
     }
 
@@ -58,13 +58,13 @@ public class WebSearchTool {
 
         try (Playwright playwright = Playwright.create()) {
             Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
-                .setHeadless(false)  // Try non-headless first for debugging
+                .setHeadless(true)  // Back to headless now that it works
                 .setArgs(java.util.List.of("--no-sandbox")));
             Page page = browser.newPage();
             
             try {
                 int count = resolveCount(args);
-                List<Map<String, String>> results = searchViaDuckDuckGo(page, query, count);
+                List<Map<String, String>> results = searchViaBing(page, query, count);
 
                 if (results.isEmpty()) {
                     return formatError("no results found");
@@ -80,23 +80,26 @@ public class WebSearchTool {
         }
     }
 
-    private List<Map<String, String>> searchViaDuckDuckGo(Page page, String query, int count) {
+    private List<Map<String, String>> searchViaBing(Page page, String query, int count) {
         String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
-        String url = DUCKDUCKGO_URL + "?q=" + encoded;
+        String url = BING_URL + "?q=" + encoded + "&count=" + count;
         
         page.navigate(url, new Page.NavigateOptions().setTimeout(TIMEOUT_MS));
         
+        // Wait for results to load
+        page.waitForSelector("li.b_algo", new Page.WaitForSelectorOptions().setTimeout(10000));
+        
         // Wait a bit for dynamic content
-        page.waitForTimeout(3000);
+        page.waitForTimeout(2000);
         
         Object resultObj = page.evaluate("""
             () => {
-                const items = document.querySelectorAll('a.result__a');
-                return Array.from(items).map(item => {
-                    const title = item.textContent;
-                    const url = item.href;
-                    const parent = item.closest('.result');
-                    const snippetEl = parent ? parent.querySelector('.result__snippet') : null;
+                const items = document.querySelectorAll('li.b_algo');
+                return Array.from(items).slice(0, 10).map(item => {
+                    const link = item.querySelector('a');
+                    const title = link ? link.textContent : '';
+                    const url = link ? link.href : '';
+                    const snippetEl = item.querySelector('.b_caption');
                     const snippet = snippetEl ? snippetEl.textContent : '';
                     return { title, url, snippet };
                 });
