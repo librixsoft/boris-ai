@@ -13,7 +13,7 @@ import com.boris.cli.ui.*;
  * BorisUI — minimal terminal front-end, in the spirit of modern coding-agent
  * CLIs (Claude Code / opencode): a plain-text name + slogan on startup (no
  * ASCII art), a borderless single-line input prompt, a "Boris ·" label on
- * responses, and a quiet StatusUI with thinking indicator while working.
+ * responses, and proper scroll region isolation for a clean modern interface.
  */
 public class BorisUI {
 
@@ -23,7 +23,6 @@ public class BorisUI {
     private final UserInputReader userInputReader;
     private final ConversationView conversationView;
     private final InputBar inputBar;
-    private final StatusUI statusUI;
 
     private final ChatService chatService;
     private final TaskAborter taskAborter;
@@ -35,7 +34,6 @@ public class BorisUI {
         this.userInputReader = new UserInputReader(terminalConfigurator.getTty(), terminalConfigurator, commandHistory);
         this.inputBar = new InputBar(terminalConfigurator, colorPalette);
         this.conversationView = new ConversationView(terminalConfigurator, colorPalette);
-        this.statusUI = new StatusUI(terminalConfigurator, colorPalette);
         this.userInputReader.setOnBufferChanged(buffer -> inputBar.render(buffer));
 
         this.chatService = ChatService.withTools(settingsPath, "boris");
@@ -56,7 +54,18 @@ public class BorisUI {
             contentHeight = 1;
         }
         
-        terminalConfigurator.setScrollRegion(bannerLines + 1, rows - inputBarHeight);
+        // Set scroll region to exclude banner (top) and input bar (bottom)
+        // Scroll region is 1-based, so bannerLines + 1 is first scrollable line
+        // rows - inputBarHeight is the last scrollable line
+        int scrollTop = bannerLines + 1;
+        int scrollBottom = rows - inputBarHeight;
+        
+        // Validate scroll region boundaries
+        if (scrollTop >= scrollBottom) {
+            scrollBottom = Math.max(scrollTop + 1, rows);
+        }
+        
+        terminalConfigurator.setScrollRegion(scrollTop, scrollBottom);
         terminalConfigurator.enableScrollLock();
         conversationView.initialize(inputBarHeight);
         conversationView.printBanner();
@@ -85,11 +94,8 @@ public class BorisUI {
                 // Save to history (avoid duplicate consecutive entries)
                 commandHistory.addCommand(input);
 
-                // Print thinking indicator with counter
-                AtomicBoolean firstChunk = new AtomicBoolean(true);
-                statusUI.start();
-
                 // Use streaming to print chunks as they arrive from the model.
+                AtomicBoolean firstChunk = new AtomicBoolean(true);
                 AtomicReference<String> responseRef = new AtomicReference<>(null);
                 AtomicReference<Exception> errorRef = new AtomicReference<>(null);
                 StringBuilder fullResponse = new StringBuilder();
@@ -102,7 +108,6 @@ public class BorisUI {
                             chunk -> {
                                 if (chunk != null && !chunk.isEmpty()) {
                                     if (firstChunk.compareAndSet(true, false)) {
-                                        try { statusUI.stop(); } catch (Exception ignored) {}
                                         conversationView.openAnswer();
                                     }
                                     synchronized (fullResponse) {
@@ -150,14 +155,12 @@ public class BorisUI {
                 }
 
                 if (aborted || taskAborter.isAborted()) {
-                    try { statusUI.stop(); } catch (Exception ignored) {}
                     conversationView.printStatus("aborted");
                     taskAborter.reset();
                     continue;
                 }
 
                 if (errorRef.get() != null) {
-                    try { statusUI.stop(); } catch (Exception ignored) {}
                     throw errorRef.get();
                 }
 
@@ -171,16 +174,12 @@ public class BorisUI {
             }
 
             inputBar.clear();
-            terminalConfigurator.moveCursorTo(rows(), 1);
+            terminalConfigurator.moveCursorTo(terminalConfigurator.getTerminalSize()[0], 1);
         } finally {
             terminalConfigurator.disableScrollLock();
             try { terminalConfigurator.resetScrollRegion(); } catch (Exception ignored) {}
             terminalConfigurator.sttyRestore();
             terminalConfigurator.uninstallAnsiConsole();
         }
-    }
-
-    private int rows() {
-        return terminalConfigurator.getTerminalSize()[0];
     }
 }

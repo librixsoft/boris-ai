@@ -61,6 +61,7 @@ public class ConversationView {
             terminal.out(palette.dim());
             terminal.out("· ");
             terminal.out(palette.fg());
+            terminal.out("\n");
         }
     }
 
@@ -72,8 +73,9 @@ public class ConversationView {
             chatBuffer.printStatus(text);
         } else {
             terminal.out(palette.warn());
-            terminal.out(text + "\n");
+            terminal.out(text);
             terminal.out(palette.reset());
+            terminal.out("\n");
         }
     }
 

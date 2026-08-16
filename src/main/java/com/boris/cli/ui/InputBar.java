@@ -32,10 +32,13 @@ public class InputBar {
      *                       the prompt glyph moves to the right of it.
      */
     public void render(String currentBuffer, String spinnerFrame) {
-        int spinnerLineRow = rows() - ROW_HEIGHT;
-        int promptLineRow  = rows() - 1;
-        int hintLineRow    = rows();
-
+        int terminalRows = rows();
+        int terminalCols = cols();
+        
+        // Ensure we're always rendering within terminal bounds
+        int spinnerLineRow = Math.max(1, terminalRows - ROW_HEIGHT + 1);
+        int promptLineRow  = Math.max(1, terminalRows);
+        
         // --- Spinner line ---
         terminal.moveCursorTo(spinnerLineRow, 1);
         terminal.clearCurrentLine();
@@ -53,10 +56,17 @@ public class InputBar {
         terminal.out(palette.fg());
         int bufLen = currentBuffer == null ? 0 : currentBuffer.length();
         if (currentBuffer != null) {
-            terminal.out(currentBuffer);
+            // Truncate if buffer exceeds terminal width (minus prompt chars)
+            int maxBufferLen = Math.max(0, terminalCols - 3); // 2 for "› " + 1 for cursor
+            if (bufLen > maxBufferLen) {
+                terminal.out(currentBuffer.substring(0, maxBufferLen));
+                bufLen = maxBufferLen;
+            } else {
+                terminal.out(currentBuffer);
+            }
         }
         int cursorCol = 2 + bufLen;
-        terminal.moveCursorTo(promptLineRow, Math.min(cursorCol, cols()));
+        terminal.moveCursorTo(promptLineRow, Math.min(cursorCol, terminalCols));
         terminal.out(palette.reset());
     }
 
@@ -71,7 +81,8 @@ public class InputBar {
      * Clear both input bar lines (used before starting spinner or on exit).
      */
     public void clear() {
-        for (int i = rows() - ROW_HEIGHT; i <= rows(); i++) {
+        int terminalRows = rows();
+        for (int i = Math.max(1, terminalRows - ROW_HEIGHT + 1); i <= terminalRows; i++) {
             terminal.moveCursorTo(i, 1);
             terminal.clearCurrentLine();
         }

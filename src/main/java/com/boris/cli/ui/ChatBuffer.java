@@ -56,22 +56,14 @@ public class ChatBuffer {
     }
 
     /**
-     * Add a line to the chat buffer and scroll if necessary.
-     */
-    public void addLine(String line) {
-        messageLines.add(line);
-        totalContentHeight++;
-        ensureVisible();
-        render();
-    }
-
-    /**
      * Add multiple lines and scroll to bottom.
      */
     public void addLines(List<String> lines) {
         for (String line : lines) {
-            addLine(line);
+            messageLines.add(line);
+            totalContentHeight++;
         }
+        scrollToBottom();
     }
 
     /**
@@ -132,13 +124,14 @@ public class ChatBuffer {
             terminal.moveCursorTo(row, 1);
             terminal.clearCurrentLine();
             
-            if (lineIndex < totalContentHeight) {
+            if (lineIndex < messageLines.size()) {
                 String line = messageLines.get(lineIndex);
                 terminal.out(line);
             }
         }
         
-        terminal.moveCursorTo(rows, 1);
+        // Move cursor to input bar area (below scroll region)
+        terminal.moveCursorTo(rows - inputBarHeight + 1, 1);
     }
 
     /**
@@ -149,48 +142,57 @@ public class ChatBuffer {
     public void printBanner() {
         int[] size = terminal.getTerminalSize();
         int rows = size[0];
-        int contentStartRow = bannerLines + 1;
+        int bannerStartRow = 1;
 
-        terminal.moveCursorTo(contentStartRow, 1);
+        // Print banner in the non-scrolling area (top of terminal)
+        terminal.moveCursorTo(bannerStartRow, 1);
         terminal.clearCurrentLine();
         terminal.out(palette.accent());
         terminal.out("Boris");
         terminal.out(palette.reset());
         terminal.out(palette.dim());
-        terminal.out("  —  I am invincible\n");
-        terminal.out("esc abort  ·  ctrl+c quit\n");
+        terminal.out("  —  I am invincible");
         terminal.out(palette.reset());
-        terminal.out("\n");
+        
+        terminal.moveCursorTo(bannerStartRow + 1, 1);
+        terminal.clearCurrentLine();
+        terminal.out(palette.dim());
+        terminal.out("esc abort  ·  ctrl+c quit");
+        terminal.out(palette.reset());
+        
+        terminal.moveCursorTo(bannerStartRow + 2, 1);
+        terminal.clearCurrentLine();
+        
+        terminal.moveCursorTo(bannerStartRow + 3, 1);
+        terminal.clearCurrentLine();
 
         totalContentHeight = 0;
         messageLines.clear();
         scrollPosition = 0;
         maxScrollPosition = 0;
-        render();
+        
+        // Move cursor to start of scroll region
+        terminal.moveCursorTo(bannerLines + 1, 1);
     }
 
     /**
      * Open a new answer block with Boris label.
      */
     public void openAnswer() {
-        terminal.out(palette.accent());
-        terminal.out("\nBoris ");
-        terminal.out(palette.dim());
-        terminal.out("· ");
-        terminal.out(palette.fg());
+        // Add a blank line for separation
+        messageLines.add("");
+        totalContentHeight++;
         
-        String answerHeader = "\nBoris · ";
-        for (char c : answerHeader.toCharArray()) {
-            if (c == '\n') {
-                totalContentHeight++;
-            }
-        }
+        // Add the Boris label
+        String answerHeader = palette.accent() + "Boris " + palette.dim() + "· " + palette.fg();
         messageLines.add(answerHeader);
+        totalContentHeight++;
+        
         scrollToBottom();
     }
 
     /**
-     * Append a chunk to the current answer.
+     * Append a chunk to the current answer with proper text wrapping.
      */
     public void appendChunk(String chunk) {
         String[] lines = chunk.split("\\n");
@@ -198,25 +200,121 @@ public class ChatBuffer {
             String line = lines[i];
             if (i > 0 || !chunk.startsWith("\n")) {
                 if (!line.isEmpty() || i < lines.length - 1) {
-                    addLine(line);
+                    // Wrap the line to terminal width
+                    List<String> wrappedLines = wrapText(line, getTerminalWidth());
+                    for (String wrappedLine : wrappedLines) {
+                        messageLines.add(wrappedLine);
+                        totalContentHeight++;
+                    }
+                    scrollToBottom();
                 }
             }
         }
     }
 
     /**
+     * Wrap text to fit within the specified width, breaking at word boundaries when possible.
+     */
+    private List<String> wrapText(String text, int width) {
+        List<String> result = new ArrayList<>();
+        if (text == null || text.isEmpty()) {
+            result.add("");
+            return result;
+        }
+
+        // Remove ANSI color codes for width calculation
+        String plainText = stripAnsiCodes(text);
+        
+        if (plainText.length() <= width) {
+            result.add(text);
+            return result;
+        }
+
+        // Word-aware wrapping
+        StringBuilder currentLine = new StringBuilder();
+        StringBuilder currentPlainLine = new StringBuilder();
+        String[] words = text.split("(?=[\\s])|(?<=[\\s])"); // Keep delimiters
+        
+        for (String word : words) {
+            String plainWord = stripAnsiCodes(word);
+            
+            if (currentPlainLine.length() + plainWord.length() <= width) {
+                currentLine.append(word);
+                currentPlainLine.append(plainWord);
+            } else {
+                if (currentLine.length() > 0) {
+                    result.add(currentLine.toString());
+                }
+                currentLine = new StringBuilder(word);
+                currentPlainLine = new StringBuilder(plainWord);
+                
+                // Handle single word longer than width
+                if (plainWord.length() > width) {
+                    while (currentPlainLine.length() > width) {
+                        int splitPoint = findSplitPoint(currentPlainLine.toString(), width);
+                        result.add(currentLine.substring(0, splitPoint));
+                        currentLine.delete(0, splitPoint);
+                        currentPlainLine.delete(0, splitPoint);
+                    }
+                }
+            }
+        }
+        
+        if (currentLine.length() > 0) {
+            result.add(currentLine.toString());
+        }
+        
+        return result;
+    }
+
+    /**
+     * Remove ANSI escape codes from text for width calculation.
+     */
+    private String stripAnsiCodes(String text) {
+        return text.replaceAll("\\033\\[[0-9;]*m", "");
+    }
+
+    /**
+     * Find a safe split point in long text.
+     */
+    private int findSplitPoint(String text, int maxWidth) {
+        if (text.length() <= maxWidth) {
+            return text.length();
+        }
+        return maxWidth;
+    }
+
+    /**
+     * Get terminal width for text wrapping.
+     */
+    private int getTerminalWidth() {
+        int[] size = terminal.getTerminalSize();
+        return size[1];
+    }
+
+    /**
      * Print status message.
      */
     public void printStatus(String text) {
-        String statusLine = text + "\n";
-        addLine(statusLine);
+        // Add a blank line for separation
+        messageLines.add("");
+        totalContentHeight++;
+        
+        // Add the status message
+        String statusLine = palette.warn() + text + palette.reset();
+        messageLines.add(statusLine);
+        totalContentHeight++;
+        
+        scrollToBottom();
     }
 
     /**
      * Print a blank newline separator.
      */
     public void printNewline() {
-        addLine("\n");
+        messageLines.add("");
+        totalContentHeight++;
+        scrollToBottom();
     }
 
     /**
