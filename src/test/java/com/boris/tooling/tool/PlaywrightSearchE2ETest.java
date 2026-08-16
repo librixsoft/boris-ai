@@ -20,7 +20,9 @@ public class PlaywrightSearchE2ETest {
     @Test
     void playwrightBingSearch_retrievesResults() {
         try (Playwright playwright = Playwright.create()) {
-            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
+                .setHeadless(false)  // Try non-headless for debugging
+                .setArgs(java.util.List.of("--no-sandbox")));
             Page page = browser.newPage();
             
             try {
@@ -73,7 +75,9 @@ public class PlaywrightSearchE2ETest {
     @Test
     void playwrightDuckDuckGoSearch_retrievesResults() {
         try (Playwright playwright = Playwright.create()) {
-            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
+                .setHeadless(false)  // Try non-headless for debugging
+                .setArgs(java.util.List.of("--no-sandbox")));
             Page page = browser.newPage();
             
             try {

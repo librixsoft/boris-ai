@@ -57,7 +57,9 @@ public class WebSearchTool {
         }
 
         try (Playwright playwright = Playwright.create()) {
-            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
+                .setHeadless(false)  // Try non-headless first for debugging
+                .setArgs(java.util.List.of("--no-sandbox")));
             Page page = browser.newPage();
             
             try {
@@ -73,7 +75,8 @@ public class WebSearchTool {
                 browser.close();
             }
         } catch (Exception e) {
-            return formatError("search error: " + e.getMessage());
+            e.printStackTrace();
+            return formatError("search error: " + e.getMessage() + " (Type: " + e.getClass().getSimpleName() + ")");
         }
     }
 
@@ -84,7 +87,7 @@ public class WebSearchTool {
         page.navigate(url, new Page.NavigateOptions().setTimeout(TIMEOUT_MS));
         
         // Wait a bit for dynamic content
-        page.waitForTimeout(2000);
+        page.waitForTimeout(3000);
         
         Object resultObj = page.evaluate("""
             () => {
