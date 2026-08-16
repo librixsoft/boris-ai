@@ -155,4 +155,20 @@ public class TerminalConfigurator {
     public void restoreCursor() {
         out("\0338");
     }
+
+    /**
+     * Enable scroll lock (VT340): prevents the terminal window from
+     * scrolling physically. Content written inside the scroll region
+     * will not push the viewport beyond the scroll region boundaries.
+     */
+    public void enableScrollLock() {
+        out("\033[?1007h");
+    }
+
+    /**
+     * Disable scroll lock.
+     */
+    public void disableScrollLock() {
+        out("\033[?1007l");
+    }
 }

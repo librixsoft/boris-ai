@@ -49,11 +49,13 @@ public class BorisUI {
         int[] size = terminalConfigurator.getTerminalSize();
         int rows = size[0];
         terminalConfigurator.setScrollRegion(1, rows - inputBar.getHeight());
+        terminalConfigurator.enableScrollLock();
         conversationView.printBanner();
         inputBar.render("");
 
         // Always restore terminal on JVM exit (covers Ctrl+C / SIGTERM)
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try { terminalConfigurator.disableScrollLock(); } catch (Exception ignored) {}
             try { terminalConfigurator.resetScrollRegion(); } catch (Exception ignored) {}
             terminalConfigurator.sttyRestore();
             terminalConfigurator.close();
@@ -157,11 +159,13 @@ public class BorisUI {
                 if (response != null) {
                     conversationView.printNewline();
                 }
+                terminalConfigurator.moveCursorTo(rows() - 1, 2 + 2);
             }
 
             inputBar.clear();
             terminalConfigurator.moveCursorTo(rows(), 1);
         } finally {
+            terminalConfigurator.disableScrollLock();
             try { terminalConfigurator.resetScrollRegion(); } catch (Exception ignored) {}
             terminalConfigurator.sttyRestore();
             terminalConfigurator.uninstallAnsiConsole();

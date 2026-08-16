@@ -32,8 +32,6 @@ public class InputBar {
      *                       the prompt glyph moves to the right of it.
      */
     public void render(String currentBuffer, String spinnerFrame) {
-        terminal.saveCursor();
-
         int spinnerLineRow = rows() - ROW_HEIGHT;
         int promptLineRow  = rows() - 1;
         int hintLineRow    = rows();
@@ -60,17 +58,6 @@ public class InputBar {
         int cursorCol = 2 + bufLen;
         terminal.moveCursorTo(promptLineRow, Math.min(cursorCol, cols()));
         terminal.out(palette.reset());
-
-        // --- Hint line ---
-        if (cols() >= 30) {
-            terminal.moveCursorTo(hintLineRow, 1);
-            terminal.clearCurrentLine();
-            terminal.out(palette.dim());
-            terminal.out("esc abort  ·  ctrl+c quit");
-            terminal.out(palette.reset());
-        }
-
-        terminal.restoreCursor();
     }
 
     /**
