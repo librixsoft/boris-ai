@@ -9,14 +9,15 @@ import java.io.InputStream;
 
 /**
  * Manages terminal configuration and raw mode operations.
+ * Handles terminal setup, ANSI console installation, and stty mode switching.
  */
-public class TerminalManager {
+public class TerminalConfigurator {
     
     private static String savedTermSettings = null;
     private final Terminal terminal;
     private final InputStream tty;
     
-    public TerminalManager() throws Exception {
+    public TerminalConfigurator() throws Exception {
         this.terminal = TerminalBuilder.builder().system(true).build();
         // Open /dev/tty directly — works even when stdin/stdout are redirected
         InputStream t;

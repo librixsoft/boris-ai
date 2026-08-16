@@ -5,8 +5,9 @@ import java.util.List;
 
 /**
  * Manages command history navigation (like zsh/bash).
+ * Handles storing, retrieving, and navigating through command history.
  */
-public class HistoryManager {
+public class CommandHistory {
     
     private final List<String> history = new ArrayList<>();
     private int historyIndex = -1;   // -1 = not navigating history

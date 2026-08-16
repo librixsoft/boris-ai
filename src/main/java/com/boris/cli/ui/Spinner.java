@@ -7,12 +7,12 @@ package com.boris.cli.ui;
  */
 public class Spinner {
     
-    private final TerminalManager terminalManager;
+    private final TerminalConfigurator terminalConfigurator;
     private final ColorPalette colorPalette;
     private Thread spinnerThread;
     
-    public Spinner(TerminalManager terminalManager, ColorPalette colorPalette) {
-        this.terminalManager = terminalManager;
+    public Spinner(TerminalConfigurator terminalConfigurator, ColorPalette colorPalette) {
+        this.terminalConfigurator = terminalConfigurator;
         this.colorPalette = colorPalette;
     }
     
@@ -21,7 +21,7 @@ public class Spinner {
      * Returns the spinner thread.
      */
     public Thread start() {
-        terminalManager.out("\033[?25l"); // hide cursor while spinning
+        terminalConfigurator.out("\033[?25l"); // hide cursor while spinning
 
         Thread t = new Thread(() -> {
             String[] frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
@@ -31,13 +31,13 @@ public class Spinner {
                 while (!Thread.currentThread().isInterrupted()) {
                     long elapsed = System.currentTimeMillis() - start;
                     int seconds = (int) (elapsed / 1000);
-                    terminalManager.out("\r\033[2K");
-                    terminalManager.out(colorPalette.accent());
-                    terminalManager.out(frames[frame % frames.length]);
-                    terminalManager.out(colorPalette.reset());
-                    terminalManager.out(colorPalette.dim());
-                    terminalManager.out(" " + seconds + "s" + " - tokens: " + "131k"); // TODO: Calculate real tokens, ins, outs
-                    terminalManager.out(colorPalette.reset());
+                    terminalConfigurator.out("\r\033[2K");
+                    terminalConfigurator.out(colorPalette.accent());
+                    terminalConfigurator.out(frames[frame % frames.length]);
+                    terminalConfigurator.out(colorPalette.reset());
+                    terminalConfigurator.out(colorPalette.dim());
+                    terminalConfigurator.out(" " + seconds + "s" + " - tokens: " + "131k"); // TODO: Calculate real tokens, ins, outs
+                    terminalConfigurator.out(colorPalette.reset());
                     frame++;
                     Thread.sleep(80);
                 }
@@ -62,7 +62,7 @@ public class Spinner {
         if (spinnerThread != null) {
             spinnerThread.interrupt();
             spinnerThread.join(200);
-            terminalManager.out("\033[?25h\n");
+            terminalConfigurator.out("\033[?25h\n");
         }
     }
     

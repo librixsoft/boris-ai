@@ -17,23 +17,23 @@ import com.boris.cli.ui.*;
  */
 public class BorisUI {
 
-    private final TerminalManager terminalManager;
+    private final TerminalConfigurator terminalConfigurator;
     private final ColorPalette colorPalette;
-    private final HistoryManager historyManager;
-    private final InputHandler inputHandler;
-    private final ChromeUI chromeUI;
+    private final CommandHistory commandHistory;
+    private final UserInputReader userInputReader;
+    private final MessageRenderer messageRenderer;
     private final Spinner spinner;
 
     private final ChatService chatService;
     private final TaskAborter taskAborter;
 
     public BorisUI(String settingsPath) throws Exception {
-        this.terminalManager = new TerminalManager();
+        this.terminalConfigurator = new TerminalConfigurator();
         this.colorPalette = ColorPalette.defaultPalette();
-        this.historyManager = new HistoryManager();
-        this.inputHandler = new InputHandler(terminalManager.getTty(), terminalManager, historyManager);
-        this.chromeUI = new ChromeUI(terminalManager, colorPalette);
-        this.spinner = new Spinner(terminalManager, colorPalette);
+        this.commandHistory = new CommandHistory();
+        this.userInputReader = new UserInputReader(terminalConfigurator.getTty(), terminalConfigurator, commandHistory);
+        this.messageRenderer = new MessageRenderer(terminalConfigurator, colorPalette);
+        this.spinner = new Spinner(terminalConfigurator, colorPalette);
         
         this.chatService = ChatService.withTools(settingsPath, "boris");
         this.taskAborter = this.chatService.getTaskAborter();
@@ -41,33 +41,33 @@ public class BorisUI {
 
     public void start() throws Exception {
         // Install JLine's AnsiConsole so Ansi output works correctly
-        terminalManager.installAnsiConsole();
-        terminalManager.sttyRaw();
+        terminalConfigurator.installAnsiConsole();
+        terminalConfigurator.sttyRaw();
         // Always restore terminal on JVM exit (covers Ctrl+C / SIGTERM)
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            terminalManager.sttyRestore();
-            terminalManager.close();
-            terminalManager.uninstallAnsiConsole();
+            terminalConfigurator.sttyRestore();
+            terminalConfigurator.close();
+            terminalConfigurator.uninstallAnsiConsole();
         }));
         try {
-            chromeUI.printBanner();
+            messageRenderer.printBanner();
 
             while (true) {
-                chromeUI.printPrompt();
+                messageRenderer.printPrompt();
 
-                historyManager.resetNavigation();
-                String input = inputHandler.readLine();
+                commandHistory.resetNavigation();
+                String input = userInputReader.readLine();
                 if (input == null) {
                     // ESC or Ctrl+C at the prompt — just redraw
-                    chromeUI.out("\n");
+                    messageRenderer.out("\n");
                     continue;
                 }
-                chromeUI.closeInputBox();
+                messageRenderer.closeInputBox();
                 input = input.trim();
                 if (input.isEmpty()) continue;
 
                 // Save to history (avoid duplicate consecutive entries)
-                historyManager.addCommand(input);
+                commandHistory.addCommand(input);
 
                 // Print thinking indicator with spinner
                 AtomicReference<Thread> spinnerRef = new AtomicReference<>(spinner.start());
@@ -89,16 +89,16 @@ public class BorisUI {
                                         Thread sp = spinnerRef.getAndSet(null);
                                         if (sp != null) {
                                             try { sp.interrupt(); sp.join(200); } catch (Exception ignored) {}
-                                            terminalManager.out("\033[?25h\n");
+                                            terminalConfigurator.out("\033[?25h\n");
                                         }
-                                        chromeUI.openAnswer();
+                                        messageRenderer.openAnswer();
                                     }
                                     synchronized (fullResponse) {
                                         fullResponse.append(chunk);
                                     }
                                     try {
-                                        terminalManager.getTerminal().writer().print(chunk);
-                                        terminalManager.getTerminal().writer().flush();
+                                        terminalConfigurator.getTerminal().writer().print(chunk);
+                                        terminalConfigurator.getTerminal().writer().flush();
                                     } catch (Exception ignored) {}
                                 }
                             },
@@ -130,15 +130,15 @@ public class BorisUI {
                 boolean aborted = false;
                 while (true) {
                     boolean finished = streamDone.await(50, TimeUnit.MILLISECONDS);
-                    if (inputHandler.available()) {
-                        int ch = inputHandler.read();
+                    if (userInputReader.available()) {
+                        int ch = userInputReader.read();
                         if (ch == 0x1B) {           // ESC → abort task
                             taskAborter.abort();
                             aborted = true;
                             break;
                         }
                         if (ch == 0x03) {           // Ctrl+C → exit app
-                            terminalManager.sttyRestore();
+                            terminalConfigurator.sttyRestore();
                             System.exit(0);
                         }
                     }
@@ -148,7 +148,7 @@ public class BorisUI {
                 if (aborted || taskAborter.isAborted()) {
                     Thread sp = spinnerRef.getAndSet(null);
                     if (sp != null) { try { spinner.stop(); } catch (Exception ignored) {} }
-                    chromeUI.printStatus("aborted");
+                    messageRenderer.printStatus("aborted");
                     taskAborter.reset();
                     continue;
                 }
@@ -164,14 +164,14 @@ public class BorisUI {
                     break;
                 }
                 if (response != null) {
-                    chromeUI.printNewline();
+                    messageRenderer.printNewline();
                 }
             }
 
-            chromeUI.out("\n");
+            messageRenderer.out("\n");
         } finally {
-            terminalManager.sttyRestore();
-            terminalManager.uninstallAnsiConsole();
+            terminalConfigurator.sttyRestore();
+            terminalConfigurator.uninstallAnsiConsole();
         }
     }
 

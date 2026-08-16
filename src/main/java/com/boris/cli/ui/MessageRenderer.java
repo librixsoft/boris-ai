@@ -1,16 +1,16 @@
 package com.boris.cli.ui;
 
 /**
- * Chrome/UI elements: banner, prompt, status lines, and answer formatting.
+ * Message renderer for UI chrome elements: banner, prompt, status lines, and answer formatting.
  * Provides a single output channel for all chrome elements.
  */
-public class ChromeUI {
+public class MessageRenderer {
     
-    private final TerminalManager terminalManager;
+    private final TerminalConfigurator terminalConfigurator;
     private final ColorPalette colorPalette;
     
-    public ChromeUI(TerminalManager terminalManager, ColorPalette colorPalette) {
-        this.terminalManager = terminalManager;
+    public MessageRenderer(TerminalConfigurator terminalConfigurator, ColorPalette colorPalette) {
+        this.terminalConfigurator = terminalConfigurator;
         this.colorPalette = colorPalette;
     }
     
@@ -24,7 +24,7 @@ public class ChromeUI {
      * colors consistent from the very first frame.
      */
     public void out(String s) {
-        terminalManager.out(s);
+        terminalConfigurator.out(s);
     }
     
     /**

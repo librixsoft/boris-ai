@@ -3,8 +3,8 @@ package com.boris.cli.ui;
 import org.jline.jansi.Ansi;
 
 /**
- * Color palette for the Boris UI.
- * Single accent color with neutral tones for all other elements.
+ * Color palette for the Boris UI theme.
+ * Provides a single accent color with neutral tones for all other elements.
  */
 public class ColorPalette {
     

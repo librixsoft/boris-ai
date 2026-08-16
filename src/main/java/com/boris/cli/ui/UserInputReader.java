@@ -5,17 +5,18 @@ import java.io.InputStream;
 
 /**
  * Handles raw terminal input reading with history navigation support.
+ * Processes user input including escape sequences, arrow keys, and special characters.
  */
-public class InputHandler {
+public class UserInputReader {
     
     private final InputStream tty;
-    private final TerminalManager terminalManager;
-    private final HistoryManager historyManager;
+    private final TerminalConfigurator terminalConfigurator;
+    private final CommandHistory commandHistory;
     
-    public InputHandler(InputStream tty, TerminalManager terminalManager, HistoryManager historyManager) {
+    public UserInputReader(InputStream tty, TerminalConfigurator terminalConfigurator, CommandHistory commandHistory) {
         this.tty = tty;
-        this.terminalManager = terminalManager;
-        this.historyManager = historyManager;
+        this.terminalConfigurator = terminalConfigurator;
+        this.commandHistory = commandHistory;
     }
     
     /**
@@ -44,7 +45,7 @@ public class InputHandler {
             if (ch < 0) return null;                // EOF
 
             if (ch == 0x03) {                       // Ctrl+C → exit
-                terminalManager.sttyRestore();
+                terminalConfigurator.sttyRestore();
                 System.exit(0);
             }
 
@@ -64,14 +65,14 @@ public class InputHandler {
             if (ch == 0x7F || ch == '\b') {         // Backspace / Del
                 if (sb.length() > 0) {
                     sb.deleteCharAt(sb.length() - 1);
-                    terminalManager.out("\b \b");
+                    terminalConfigurator.out("\b \b");
                 }
                 continue;
             }
 
             if (ch >= 32) {                         // Printable char — echo it
                 sb.append((char) ch);
-                terminalManager.out(String.valueOf((char) ch));
+                terminalConfigurator.out(String.valueOf((char) ch));
             }
         }
         return sb.toString();
@@ -106,12 +107,12 @@ public class InputHandler {
         }
 
         if (arrow == 'A') {              // ↑ Arrow Up — go to previous command
-            String previous = historyManager.navigatePrevious();
+            String previous = commandHistory.navigatePrevious();
             if (previous != null) {
                 replaceCurrentLine(sb, previous);
             }
         } else if (arrow == 'B') {       // ↓ Arrow Down — go to next command
-            String nextCommand = historyManager.navigateNext();
+            String nextCommand = commandHistory.navigateNext();
             if (nextCommand != null) {
                 replaceCurrentLine(sb, nextCommand);
             }
@@ -130,11 +131,11 @@ public class InputHandler {
         if (currentLen > 0) {
             // Move cursor back to start of typed text, overwrite with spaces, move back again
             String blanks = " ".repeat(currentLen);
-            terminalManager.out("\b".repeat(currentLen) + blanks + "\b".repeat(currentLen));
+            terminalConfigurator.out("\b".repeat(currentLen) + blanks + "\b".repeat(currentLen));
         }
         // Write the history entry
         sb.setLength(0);
         sb.append(newText);
-        terminalManager.out(newText);
+        terminalConfigurator.out(newText);
     }
 }
