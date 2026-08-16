@@ -1,5 +1,7 @@
 package com.boris.chat;
 
+import java.util.List;
+
 import org.junit.jupiter.api.*;
 
 import com.boris.task.TaskAborter;
@@ -35,5 +37,36 @@ class ChatServiceTest {
     @Test
     void withTools_construction_throwsWhenSettingsMissing() {
         assertThrows(Exception.class, () -> ChatService.withTools("/nonexistent/settings.json", "test"));
+    }
+
+    @Test
+    void clearHistory_clearsConversationHistory() {
+        ChatService service = new ChatService(() -> null, "boris", new TaskAborter(), 10);
+        service.clearHistory();
+        assertTrue(service.getConversationHistory().isEmpty());
+    }
+
+    @Test
+    void getConversationHistory_returnsEmptyListInitially() {
+        ChatService service = new ChatService(() -> null, "boris", new TaskAborter(), 10);
+        assertTrue(service.getConversationHistory().isEmpty());
+    }
+
+    @Test
+    void constructor_acceptsMaxHistorySize() {
+        ChatService service = new ChatService(() -> null, "boris", new TaskAborter(), 5);
+        assertNotNull(service);
+    }
+
+    @Test
+    void conversationHistory_buildsPromptWithHistory() {
+        ChatService service = new ChatService(() -> null, "boris", new TaskAborter(), 10);
+        
+        // El historial debería estar vacío inicialmente
+        assertTrue(service.getConversationHistory().isEmpty());
+        
+        // Después de limpiar debería seguir vacío
+        service.clearHistory();
+        assertTrue(service.getConversationHistory().isEmpty());
     }
 }

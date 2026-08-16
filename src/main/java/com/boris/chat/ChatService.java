@@ -53,11 +53,14 @@ public class ChatService {
         }
 
         try {
+            // Construir prompt con historial incluido en el mensaje del usuario
+            String fullMessage = buildPromptWithHistory(userMessage);
+            
             // Agregar mensaje del usuario al historial
             conversationHistory.add("User: " + userMessage);
             trimHistory();
             
-            String response = client.prompt(userMessage).call().content();
+            String response = client.prompt(fullMessage).call().content();
             
             // Agregar respuesta al historial
             if (response != null && !response.isEmpty()) {
@@ -125,13 +128,19 @@ public class ChatService {
 
         String prompt = ToolCallingConfig.loadSystemPrompt(s);
         var chatModel = buildChatModel(s);
+        
+        // Crear ChatService con historial
+        TaskAborter aborter = new TaskAborter();
+        ChatService chatService = new ChatService(() -> null, botName, aborter, 10);
+        
+        // Crear ChatClient con el system prompt y tools
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultSystem(prompt)
                 .defaultTools(ToolCallingConfig.buildNativeToolCallbacks())
                 .build();
-
-        TaskAborter aborter = new TaskAborter();
-        return new ChatService(() -> client, botName, aborter, 10); // 10 mensajes de historial
+        
+        // Crear nuevo ChatService con el client real
+        return new ChatService(() -> client, botName, aborter, 10);
     }
 
     /** Expose the aborter so UI can wire ESC key to it. */
@@ -154,6 +163,25 @@ public class ChatService {
         while (conversationHistory.size() > maxHistorySize) {
             conversationHistory.remove(0);
         }
+    }
+
+    /** Build prompt with conversation history */
+    private String buildPromptWithHistory(String currentMessage) {
+        if (conversationHistory.isEmpty()) {
+            return currentMessage;
+        }
+        
+        StringBuilder promptBuilder = new StringBuilder();
+        promptBuilder.append("CONTEXTO DE LA CONVERSACIÓN ANTERIOR:\n");
+        promptBuilder.append("==============================\n");
+        
+        for (String message : conversationHistory) {
+            promptBuilder.append(message).append("\n");
+        }
+        
+        promptBuilder.append("==============================\n");
+        promptBuilder.append("MENSAJE ACTUAL: ").append(currentMessage);
+        return promptBuilder.toString();
     }
 
     private static org.springframework.ai.chat.model.ChatModel buildChatModel(Settings settings) throws Exception {
