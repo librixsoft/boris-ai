@@ -174,5 +174,8 @@ public class TerminalConfigurator {
         }
     }
 
-
+    // TODO: terminal still does not fully restore on Ctrl+C exit.
+    // enterRawMode() returns Attributes but setAttributes() may not be enough
+    // on macOS PTY. May need to fall back to `stty sane` or JLine3
+    // `terminal.enterRawMode()` + explicit `stty` restoration via ProcessBuilder.
 }
