@@ -11,4 +11,10 @@
   - [ ] Implementar compresión por cantidad de mensajes (threshold configurable)
   - [ ] Limitar maxTokens en opciones del modelo para reducir consumo de memoria
   - [ ] Agregar estadísticas de uso de tokens/memoria por sesión
-- [ ] Tool PdfGenerationTool para crear PDFs desde HTML, Markdown y texto plano
+- [x] @Tool PdfGenerationTool para crear PDFs desde HTML, Markdown y texto plano
+- [ ] Sistema de skills compatible con skills estándar (Claude, OpenClaw) en workspace
+  - [ ] Implementar estructura de directorios .boris/skills/
+  - [ ] Crear formato SKILL.md compatible con Claude/OpenClaw
+  - [ ] Agregar sistema de carga/descarga de skills
+  - [ ] Implementar detección automática de skills en workspace
+  - [ ] Crear comandos /skill list, /skill load, /skill unload

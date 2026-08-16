@@ -20,6 +20,7 @@ import com.boris.settings.SettingsManager;
 import com.boris.tooling.tool.DeleteTool;
 import com.boris.tooling.tool.EditTool;
 import com.boris.tooling.tool.ListFilesTool;
+import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.ReadFileTool;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
@@ -38,6 +39,7 @@ public class ToolCallingConfig {
     private final EditTool editTool;
     private final SystemInfoTool systemInfoTool;
     private final WebSearchTool webSearchTool;
+    private final PdfGenerationTool pdfGenerationTool;
 
     public ToolCallingConfig() {
         this.readFileTool = new ReadFileTool();
@@ -47,6 +49,7 @@ public class ToolCallingConfig {
         this.editTool = new EditTool();
         this.systemInfoTool = new SystemInfoTool();
         this.webSearchTool = new WebSearchTool();
+        this.pdfGenerationTool = new PdfGenerationTool();
     }
 
     public static String loadSystemPrompt(Settings settings) {
@@ -81,6 +84,7 @@ public class ToolCallingConfig {
             - revert_edit(path, old_text, new_text): Revert a previous edit by restoring original content.
             - get_system_info(): Get OS, memory, CPU info.
             - web_search(query, count): Search the web using Bing via Playwright. Returns titles, URLs, and snippets with no API key required. Parameters: query (required), count (1-10, default 5).
+            - generate_pdf(content, outputPath, contentType): Generate PDF from HTML, Markdown, or plain text. Parameters: content (required), outputPath (required), contentType (required: 'html', 'markdown', or 'text').
 
             INSTRUCTIONS:
             1. Analyze the user's request carefully.
@@ -187,5 +191,18 @@ public class ToolCallingConfig {
         args.put("query", query);
         if (count != null) args.put("count", count);
         return WebSearchTool.execute(args);
+    }
+
+    @Tool(
+            name = "generate_pdf",
+            description = "Generate a PDF file from HTML, Markdown, or plain text content.")
+    public String generate_pdf(@ToolParam(description = "Content to convert to PDF (HTML, Markdown, or plain text)") String content,
+                              @ToolParam(description = "Output file path for the PDF") String outputPath,
+                              @ToolParam(description = "Type of content: 'html', 'markdown', or 'text'") String contentType) {
+        Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("content", content);
+        args.put("outputPath", outputPath);
+        args.put("contentType", contentType);
+        return pdfGenerationTool.execute(args);
     }
 }
