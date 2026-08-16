@@ -33,8 +33,8 @@ public class BorisUI {
         this.colorPalette = ColorPalette.defaultPalette();
         this.commandHistory = new CommandHistory();
         this.userInputReader = new UserInputReader(terminalConfigurator.getTty(), terminalConfigurator, commandHistory);
-        this.conversationView = new ConversationView(terminalConfigurator, colorPalette);
         this.inputBar = new InputBar(terminalConfigurator, colorPalette);
+        this.conversationView = new ConversationView(terminalConfigurator, colorPalette);
         this.statusUI = new StatusUI(terminalConfigurator, colorPalette);
         this.userInputReader.setOnBufferChanged(buffer -> inputBar.render(buffer));
 
@@ -48,8 +48,17 @@ public class BorisUI {
 
         int[] size = terminalConfigurator.getTerminalSize();
         int rows = size[0];
-        terminalConfigurator.setScrollRegion(1, rows - inputBar.getHeight());
+        int inputBarHeight = inputBar.getHeight();
+        int bannerLines = 4;
+        int contentHeight = rows - bannerLines - inputBarHeight;
+        
+        if (contentHeight < 1) {
+            contentHeight = 1;
+        }
+        
+        terminalConfigurator.setScrollRegion(bannerLines + 1, rows - inputBarHeight);
         terminalConfigurator.enableScrollLock();
+        conversationView.initialize(inputBarHeight);
         conversationView.printBanner();
         inputBar.render("");
 
