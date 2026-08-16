@@ -22,6 +22,7 @@ public class BorisUI {
     private final CommandHistory commandHistory;
     private final UserInputReader userInputReader;
     private final MessageRenderer messageRenderer;
+    private final Spinner spinner;
 
     private final ChatService chatService;
     private final TaskAborter taskAborter;
@@ -32,6 +33,7 @@ public class BorisUI {
         this.commandHistory = new CommandHistory();
         this.userInputReader = new UserInputReader(terminalConfigurator.getTty(), terminalConfigurator, commandHistory);
         this.messageRenderer = new MessageRenderer(terminalConfigurator, colorPalette);
+        this.spinner = new Spinner(terminalConfigurator, colorPalette);
         
         this.chatService = ChatService.withTools(settingsPath, "boris");
         this.taskAborter = this.chatService.getTaskAborter();
@@ -67,8 +69,8 @@ public class BorisUI {
                 // Save to history (avoid duplicate consecutive entries)
                 commandHistory.addCommand(input);
 
-                // Print thinking indicator
-                messageRenderer.out("thinking...");
+                // Print thinking indicator with spinner
+                AtomicReference<Thread> spinnerRef = new AtomicReference<>(spinner.start());
                 AtomicBoolean firstChunk = new AtomicBoolean(true);
 
                 // Use streaming to print chunks as they arrive from the model.
@@ -84,8 +86,11 @@ public class BorisUI {
                             chunk -> {
                                 if (chunk != null && !chunk.isEmpty()) {
                                     if (firstChunk.compareAndSet(true, false)) {
-                                        // Clear "thinking..." text
-                                        terminalConfigurator.out("\r\033[K");
+                                        Thread sp = spinnerRef.getAndSet(null);
+                                        if (sp != null) {
+                                            try { sp.interrupt(); sp.join(200); } catch (Exception ignored) {}
+                                            terminalConfigurator.out("\033[?25h\n");
+                                        }
                                         messageRenderer.openAnswer();
                                     }
                                     synchronized (fullResponse) {
@@ -140,12 +145,16 @@ public class BorisUI {
                 }
 
                 if (aborted || taskAborter.isAborted()) {
+                    Thread sp = spinnerRef.getAndSet(null);
+                    if (sp != null) { try { spinner.stop(); } catch (Exception ignored) {} }
                     messageRenderer.printStatus("aborted");
                     taskAborter.reset();
                     continue;
                 }
 
                 if (errorRef.get() != null) {
+                    Thread sp = spinnerRef.getAndSet(null);
+                    if (sp != null) { try { spinner.stop(); } catch (Exception ignored) {} }
                     throw errorRef.get();
                 }
 
