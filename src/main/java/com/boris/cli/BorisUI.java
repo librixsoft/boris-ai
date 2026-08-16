@@ -13,7 +13,7 @@ import com.boris.cli.ui.*;
  * BorisUI — minimal terminal front-end, in the spirit of modern coding-agent
  * CLIs (Claude Code / opencode): a plain-text name + slogan on startup (no
  * ASCII art), a borderless single-line input prompt, a "Boris ·" label on
- * responses, and a quiet dot-spinner while working.
+ * responses, and a quiet StatusUI with thinking indicator while working.
  */
 public class BorisUI {
 
@@ -22,7 +22,7 @@ public class BorisUI {
     private final CommandHistory commandHistory;
     private final UserInputReader userInputReader;
     private final MessageRenderer messageRenderer;
-    private final Spinner spinner;
+    private final StatusUI statusUI;
 
     private final ChatService chatService;
     private final TaskAborter taskAborter;
@@ -33,7 +33,7 @@ public class BorisUI {
         this.commandHistory = new CommandHistory();
         this.userInputReader = new UserInputReader(terminalConfigurator.getTty(), terminalConfigurator, commandHistory);
         this.messageRenderer = new MessageRenderer(terminalConfigurator, colorPalette);
-        this.spinner = new Spinner(terminalConfigurator, colorPalette);
+        this.statusUI = new StatusUI(terminalConfigurator, colorPalette);
         
         this.chatService = ChatService.withTools(settingsPath, "boris");
         this.taskAborter = this.chatService.getTaskAborter();
@@ -69,9 +69,9 @@ public class BorisUI {
                 // Save to history (avoid duplicate consecutive entries)
                 commandHistory.addCommand(input);
 
-                // Print thinking indicator with spinner
-                AtomicReference<Thread> spinnerRef = new AtomicReference<>(spinner.start());
+                // Print thinking indicator with counter
                 AtomicBoolean firstChunk = new AtomicBoolean(true);
+                statusUI.start();
 
                 // Use streaming to print chunks as they arrive from the model.
                 AtomicReference<String> responseRef = new AtomicReference<>(null);
@@ -86,11 +86,7 @@ public class BorisUI {
                             chunk -> {
                                 if (chunk != null && !chunk.isEmpty()) {
                                     if (firstChunk.compareAndSet(true, false)) {
-                                        Thread sp = spinnerRef.getAndSet(null);
-                                        if (sp != null) {
-                                            try { sp.interrupt(); sp.join(200); } catch (Exception ignored) {}
-                                            terminalConfigurator.out("\033[?25h\n");
-                                        }
+                                        try { statusUI.stop(); } catch (Exception ignored) {}
                                         messageRenderer.openAnswer();
                                     }
                                     synchronized (fullResponse) {
@@ -145,16 +141,14 @@ public class BorisUI {
                 }
 
                 if (aborted || taskAborter.isAborted()) {
-                    Thread sp = spinnerRef.getAndSet(null);
-                    if (sp != null) { try { spinner.stop(); } catch (Exception ignored) {} }
+                    try { statusUI.stop(); } catch (Exception ignored) {}
                     messageRenderer.printStatus("aborted");
                     taskAborter.reset();
                     continue;
                 }
 
                 if (errorRef.get() != null) {
-                    Thread sp = spinnerRef.getAndSet(null);
-                    if (sp != null) { try { spinner.stop(); } catch (Exception ignored) {} }
+                    try { statusUI.stop(); } catch (Exception ignored) {}
                     throw errorRef.get();
                 }
 

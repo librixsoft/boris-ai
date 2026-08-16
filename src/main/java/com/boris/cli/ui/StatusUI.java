@@ -1,33 +1,33 @@
 package com.boris.cli.ui;
 
 /**
- * Minimal spinner animation: a single braille dot cycling in the accent color,
- * followed by a quiet elapsed-time label. No background block, no box —
- * just one moving glyph on an otherwise empty line.
+ * StatusUI — displays a thinking indicator with elapsed time counter.
+ * Shows "thinking - Xs" in dimmed colors while processing, and handles
+ * cleanup when done or aborted.
  */
-public class Spinner {
+public class StatusUI {
     
     private final TerminalConfigurator terminalConfigurator;
     private final ColorPalette colorPalette;
-    private Thread spinnerThread;
+    private Thread statusThread;
     
-    public Spinner(TerminalConfigurator terminalConfigurator, ColorPalette colorPalette) {
+    public StatusUI(TerminalConfigurator terminalConfigurator, ColorPalette colorPalette) {
         this.terminalConfigurator = terminalConfigurator;
         this.colorPalette = colorPalette;
     }
     
     /**
-     * Start the spinner animation.
-     * Returns the spinner thread.
+     * Start the thinking indicator with elapsed time counter.
+     * Returns the status thread.
      */
     public Thread start() {
-        terminalConfigurator.out("\033[?25l"); // hide cursor while spinning
-
+        long startTime = System.currentTimeMillis();
+        
         Thread t = new Thread(() -> {
-            long start = System.currentTimeMillis();
             try {
+                terminalConfigurator.out("\033[?25l"); // hide cursor
                 while (!Thread.currentThread().isInterrupted()) {
-                    long elapsed = System.currentTimeMillis() - start;
+                    long elapsed = System.currentTimeMillis() - startTime;
                     int seconds = (int) (elapsed / 1000);
                     terminalConfigurator.out("\r\033[2K");
                     terminalConfigurator.out(colorPalette.dim());
@@ -41,29 +41,25 @@ public class Spinner {
         });
         t.setDaemon(true);
         t.start();
-        this.spinnerThread = t;
+        this.statusThread = t;
         return t;
     }
     
     /**
-     * Stop the spinner but leave its last frame on screen — the elapsed
-     * "Ns" label freezes in place instead of being erased, so the user can
-     * see how long the request took. Restores cursor visibility and moves
-     * to a fresh line for whatever gets printed next (answer, "aborted",
-     * etc.), which no longer needs to add its own leading newline.
+     * Stop the thinking indicator and restore cursor visibility.
      */
     public void stop() throws InterruptedException {
-        if (spinnerThread != null) {
-            spinnerThread.interrupt();
-            spinnerThread.join(200);
+        if (statusThread != null) {
+            statusThread.interrupt();
+            statusThread.join(200);
             terminalConfigurator.out("\033[?25h\n");
         }
     }
     
     /**
-     * Get the spinner thread.
+     * Get the status thread.
      */
     public Thread getThread() {
-        return spinnerThread;
+        return statusThread;
     }
 }
