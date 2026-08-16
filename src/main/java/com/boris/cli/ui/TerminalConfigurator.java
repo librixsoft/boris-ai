@@ -89,4 +89,70 @@ public class TerminalConfigurator {
         output.print(s);
         output.flush();
     }
+
+    // ─── ANSI utilities ────────────────────────────────────────────────
+
+    /**
+     * Returns [rows, cols] of the terminal by running "stty size /dev/tty".
+     */
+    public int[] getTerminalSize() {
+        try {
+            Process p = new ProcessBuilder("sh", "-c", "stty size </dev/tty")
+                .redirectErrorStream(true)
+                .start();
+            String raw = new String(p.getInputStream().readAllBytes()).trim();
+            p.waitFor();
+            String[] parts = raw.split("\\s+");
+            if (parts.length >= 2) {
+                return new int[] { Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) };
+            }
+        } catch (Exception ignored) {
+            // fallback
+        }
+        // Safe default for environments where stty fails
+        return new int[] { 24, 80 };
+    }
+
+    /**
+     * Set scroll region: DECSTBM via ESC[<top>;<bottom>r.
+     * Rows are 1-based.
+     */
+    public void setScrollRegion(int top, int bottom) {
+        out("\033[" + top + ";" + bottom + "r");
+    }
+
+    /**
+     * Reset scroll region: ESC[r.
+     */
+    public void resetScrollRegion() {
+        out("\033[r");
+    }
+
+    /**
+     * Move cursor to absolute position: ESC[row;colH (1-based).
+     */
+    public void moveCursorTo(int row, int col) {
+        out("\033[" + row + ";" + col + "H");
+    }
+
+    /**
+     * Clear current line: ESC[2K.
+     */
+    public void clearCurrentLine() {
+        out("\033[2K");
+    }
+
+    /**
+     * Save cursor position: ESC7.
+     */
+    public void saveCursor() {
+        out("\0337");
+    }
+
+    /**
+     * Restore cursor position: ESC8.
+     */
+    public void restoreCursor() {
+        out("\0338");
+    }
 }

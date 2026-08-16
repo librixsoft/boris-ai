@@ -2,21 +2,33 @@ package com.boris.cli.ui;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.function.Consumer;
 
 /**
  * Handles raw terminal input reading with history navigation support.
  * Processes user input including escape sequences, arrow keys, and special characters.
+ * Notifies a BufferListener on buffer changes instead of writing directly.
  */
 public class UserInputReader {
-    
+
     private final InputStream tty;
     private final TerminalConfigurator terminalConfigurator;
     private final CommandHistory commandHistory;
-    
+    private Consumer<String> onBufferChanged;
+    // Temporal buffer (thread-local, set before each readLine)
+    private StringBuilder bufferRef;
+
     public UserInputReader(InputStream tty, TerminalConfigurator terminalConfigurator, CommandHistory commandHistory) {
         this.tty = tty;
         this.terminalConfigurator = terminalConfigurator;
         this.commandHistory = commandHistory;
+    }
+
+    /**
+     * Register a callback that receives the current buffer content on each keystroke.
+     */
+    public void setOnBufferChanged(Consumer<String> callback) {
+        this.onBufferChanged = callback;
     }
     
     /**
@@ -39,7 +51,7 @@ public class UserInputReader {
      * Supports arrow-key history navigation (↑ previous, ↓ next).
      */
     public String readLine() throws IOException {
-        StringBuilder sb = new StringBuilder();
+        bufferRef = new StringBuilder();
         while (true) {
             int ch = tty.read();
             if (ch < 0) return null;                // EOF
@@ -51,31 +63,35 @@ public class UserInputReader {
 
             // ── Escape sequence handling ───────────────────────────────────
             if (ch == 0x1B) {
-                String result = handleEscapeSequence(sb);
+                String result = handleEscapeSequence(bufferRef);
                 if (result == null) {
-                    // Bare ESC → cancel current line
                     return null;
                 }
-                // Continue reading after arrow key navigation
                 continue;
             }
 
             if (ch == '\r' || ch == '\n') break;    // Enter → submit
 
             if (ch == 0x7F || ch == '\b') {         // Backspace / Del
-                if (sb.length() > 0) {
-                    sb.deleteCharAt(sb.length() - 1);
-                    terminalConfigurator.out("\b \b");
+                if (bufferRef.length() > 0) {
+                    bufferRef.deleteCharAt(bufferRef.length() - 1);
+                    notifyBufferChanged();
                 }
                 continue;
             }
 
-            if (ch >= 32) {                         // Printable char — echo it
-                sb.append((char) ch);
-                terminalConfigurator.out(String.valueOf((char) ch));
+            if (ch >= 32) {                         // Printable char — add to buffer
+                bufferRef.append((char) ch);
+                notifyBufferChanged();
             }
         }
-        return sb.toString();
+        return bufferRef.toString();
+    }
+
+    private void notifyBufferChanged() {
+        if (onBufferChanged != null && bufferRef != null) {
+            onBufferChanged.accept(bufferRef.toString());
+        }
     }
     
     /**
@@ -126,16 +142,15 @@ public class UserInputReader {
      * Updates sb in-place to reflect the new content.
      */
     private void replaceCurrentLine(StringBuilder sb, String newText) {
-        // Erase what is currently displayed
         int currentLen = sb.length();
         if (currentLen > 0) {
-            // Move cursor back to start of typed text, overwrite with spaces, move back again
             String blanks = " ".repeat(currentLen);
             terminalConfigurator.out("\b".repeat(currentLen) + blanks + "\b".repeat(currentLen));
         }
-        // Write the history entry
         sb.setLength(0);
         sb.append(newText);
+        notifyBufferChanged();
+        // Also echo to terminal for arrow-key navigation compatibility
         terminalConfigurator.out(newText);
     }
 }

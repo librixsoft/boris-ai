@@ -21,7 +21,8 @@ public class BorisUI {
     private final ColorPalette colorPalette;
     private final CommandHistory commandHistory;
     private final UserInputReader userInputReader;
-    private final MessageRenderer messageRenderer;
+    private final ConversationView conversationView;
+    private final InputBar inputBar;
     private final StatusUI statusUI;
 
     private final ChatService chatService;
@@ -32,9 +33,11 @@ public class BorisUI {
         this.colorPalette = ColorPalette.defaultPalette();
         this.commandHistory = new CommandHistory();
         this.userInputReader = new UserInputReader(terminalConfigurator.getTty(), terminalConfigurator, commandHistory);
-        this.messageRenderer = new MessageRenderer(terminalConfigurator, colorPalette);
+        this.conversationView = new ConversationView(terminalConfigurator, colorPalette);
+        this.inputBar = new InputBar(terminalConfigurator, colorPalette);
         this.statusUI = new StatusUI(terminalConfigurator, colorPalette);
-        
+        this.userInputReader.setOnBufferChanged(buffer -> inputBar.render(buffer));
+
         this.chatService = ChatService.withTools(settingsPath, "boris");
         this.taskAborter = this.chatService.getTaskAborter();
     }
@@ -42,26 +45,29 @@ public class BorisUI {
     public void start() throws Exception {
         terminalConfigurator.installAnsiConsole();
         terminalConfigurator.sttyRaw();
+
+        int[] size = terminalConfigurator.getTerminalSize();
+        int rows = size[0];
+        terminalConfigurator.setScrollRegion(1, rows - inputBar.getHeight());
+        conversationView.printBanner();
+        inputBar.render("");
+
         // Always restore terminal on JVM exit (covers Ctrl+C / SIGTERM)
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try { terminalConfigurator.resetScrollRegion(); } catch (Exception ignored) {}
             terminalConfigurator.sttyRestore();
             terminalConfigurator.close();
             terminalConfigurator.uninstallAnsiConsole();
         }));
         try {
-            messageRenderer.printBanner();
-
             while (true) {
-                messageRenderer.printPrompt();
+                inputBar.render("");
 
                 commandHistory.resetNavigation();
                 String input = userInputReader.readLine();
                 if (input == null) {
-                    // ESC or Ctrl+C at the prompt — just redraw
-                    messageRenderer.out("\n");
                     continue;
                 }
-                messageRenderer.closeInputBox();
                 input = input.trim();
                 if (input.isEmpty()) continue;
 
@@ -86,13 +92,13 @@ public class BorisUI {
                                 if (chunk != null && !chunk.isEmpty()) {
                                     if (firstChunk.compareAndSet(true, false)) {
                                         try { statusUI.stop(); } catch (Exception ignored) {}
-                                        messageRenderer.openAnswer();
+                                        conversationView.openAnswer();
                                     }
                                     synchronized (fullResponse) {
                                         fullResponse.append(chunk);
                                     }
                                     try {
-                                        terminalConfigurator.out(chunk);
+                                        conversationView.appendChunk(chunk);
                                     } catch (Exception ignored) {}
                                 }
                             },
@@ -114,24 +120,17 @@ public class BorisUI {
                 taskThread.start();
 
                 // Main thread polls /dev/tty for ESC while the task is running.
-                // NOTE: streamDone.await(...) must be called unconditionally on every
-                // iteration — it's what paces this loop. The previous version used
-                // `taskThread.isAlive() || !streamDone.await(...)`, and because `||`
-                // short-circuits, await() was never invoked while the thread was
-                // alive, turning this into an unthrottled busy-spin for the entire
-                // duration of the task (100% CPU on one core, and no fixed cadence
-                // for polling /dev/tty).
                 boolean aborted = false;
                 while (true) {
                     boolean finished = streamDone.await(50, TimeUnit.MILLISECONDS);
                     if (userInputReader.available()) {
                         int ch = userInputReader.read();
-                        if (ch == 0x1B) {           // ESC → abort task
+                        if (ch == 0x1B) {
                             taskAborter.abort();
                             aborted = true;
                             break;
                         }
-                        if (ch == 0x03) {           // Ctrl+C → exit app
+                        if (ch == 0x03) {
                             terminalConfigurator.sttyRestore();
                             System.exit(0);
                         }
@@ -141,7 +140,7 @@ public class BorisUI {
 
                 if (aborted || taskAborter.isAborted()) {
                     try { statusUI.stop(); } catch (Exception ignored) {}
-                    messageRenderer.printStatus("aborted");
+                    conversationView.printStatus("aborted");
                     taskAborter.reset();
                     continue;
                 }
@@ -156,15 +155,20 @@ public class BorisUI {
                     break;
                 }
                 if (response != null) {
-                    messageRenderer.printNewline();
+                    conversationView.printNewline();
                 }
             }
 
-            messageRenderer.out("\n");
+            inputBar.clear();
+            terminalConfigurator.moveCursorTo(rows(), 1);
         } finally {
+            try { terminalConfigurator.resetScrollRegion(); } catch (Exception ignored) {}
             terminalConfigurator.sttyRestore();
             terminalConfigurator.uninstallAnsiConsole();
         }
     }
 
+    private int rows() {
+        return terminalConfigurator.getTerminalSize()[0];
+    }
 }
