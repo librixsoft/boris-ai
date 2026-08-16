@@ -1,7 +1,11 @@
 package com.boris.cli.ui;
 
 /**
- * StatusUI — displays a simple thinking indicator.
+ * StatusUI — handles status display for the Boris UI.
+ * 
+ * IMPORTANT: STRICT PROHIBITION - Manual ANSI escape sequences are NOT ALLOWED.
+ * All terminal operations MUST use JLine3 APIs through TerminalConfigurator.
+ * Manual ANSI sequences interfere with JLine3's internal state management and break UI rendering.
  * Shows minimal status while processing without interfering with scroll region.
  */
 public class StatusUI {
@@ -30,9 +34,9 @@ public class StatusUI {
                     // Just output thinking status once, don't keep refreshing
                     // to avoid scroll region interference
                     if (running) {
-                        terminalConfigurator.out(colorPalette.dim());
+                        terminalConfigurator.out(colorPalette.dimStr());
                         terminalConfigurator.out("thinking");
-                        terminalConfigurator.out(colorPalette.reset());
+                        terminalConfigurator.out(colorPalette.accentStr());
                     }
                     Thread.sleep(100);
                 }

@@ -6,6 +6,10 @@ import java.util.List;
 /**
  * Manages command history navigation (like zsh/bash).
  * Handles storing, retrieving, and navigating through command history.
+ * 
+ * IMPORTANT: STRICT PROHIBITION - Manual ANSI escape sequences are NOT ALLOWED.
+ * All terminal operations MUST use JLine3 APIs through TerminalConfigurator.
+ * Manual ANSI sequences interfere with JLine3's internal state management and break UI rendering.
  */
 public class CommandHistory {
     

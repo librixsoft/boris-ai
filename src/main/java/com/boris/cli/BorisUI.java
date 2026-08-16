@@ -14,6 +14,10 @@ import com.boris.cli.ui.*;
  * CLIs (Claude Code / opencode): a plain-text name + slogan on startup (no
  * ASCII art), a borderless single-line input prompt, a "Boris ·" label on
  * responses, and proper scroll region isolation for a clean modern interface.
+ * 
+ * IMPORTANT: STRICT PROHIBITION - Manual ANSI escape sequences are NOT ALLOWED.
+ * All terminal operations MUST use JLine3 APIs through TerminalConfigurator.
+ * Manual ANSI sequences interfere with JLine3's internal state management and break UI rendering.
  */
 public class BorisUI {
 

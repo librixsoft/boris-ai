@@ -3,6 +3,10 @@ package com.boris.cli.ui;
 /**
  * Renders the conversation history in the scroll region above the fixed input bar.
  * All output from ConversationView is confined to the scroll region.
+ * 
+ * IMPORTANT: STRICT PROHIBITION - Manual ANSI escape sequences are NOT ALLOWED.
+ * All terminal operations MUST use JLine3 APIs through TerminalConfigurator.
+ * Manual ANSI sequences interfere with JLine3's internal state management and break UI rendering.
  */
 public class ConversationView {
 
@@ -39,13 +43,13 @@ public class ConversationView {
 
     private void fallbackPrintBanner() {
         terminal.out("\n");
-        terminal.out(palette.accent());
+        terminal.out(palette.accentStr());
         terminal.out("Boris");
-        terminal.out(palette.reset());
-        terminal.out(palette.dim());
+        terminal.out(palette.resetStr());
+        terminal.out(palette.dimStr());
         terminal.out("  —  I am invincible\n");
         terminal.out("esc abort  ·  ctrl+c quit\n");
-        terminal.out(palette.reset());
+        terminal.out(palette.resetStr());
         terminal.out("\n");
     }
 
@@ -56,11 +60,11 @@ public class ConversationView {
         if (chatBuffer != null) {
             chatBuffer.openAnswer();
         } else {
-            terminal.out(palette.accent());
+            terminal.out(palette.accentStr());
             terminal.out("\nBoris ");
-            terminal.out(palette.dim());
+            terminal.out(palette.dimStr());
             terminal.out("· ");
-            terminal.out(palette.fg());
+            terminal.out(palette.fgStr());
             terminal.out("\n");
         }
     }
@@ -72,10 +76,10 @@ public class ConversationView {
         if (chatBuffer != null) {
             chatBuffer.openQuestion(text);
         } else {
-            terminal.out(palette.user());
-            terminal.out("You " + palette.dim() + "· " + palette.fg());
+            terminal.out(palette.userStr());
+            terminal.out("You " + palette.dimStr() + "· " + palette.fgStr());
             terminal.out(text);
-            terminal.out(palette.reset());
+            terminal.out(palette.resetStr());
             terminal.out("\n");
         }
     }
@@ -87,9 +91,9 @@ public class ConversationView {
         if (chatBuffer != null) {
             chatBuffer.printStatus(text);
         } else {
-            terminal.out(palette.warn());
+            terminal.out(palette.warnStr());
             terminal.out(text);
-            terminal.out(palette.reset());
+            terminal.out(palette.resetStr());
             terminal.out("\n");
         }
     }
@@ -101,7 +105,7 @@ public class ConversationView {
         if (chatBuffer != null) {
             chatBuffer.printNewline();
         } else {
-            terminal.out(palette.reset());
+            terminal.out(palette.resetStr());
             terminal.out("\n\n");
         }
     }

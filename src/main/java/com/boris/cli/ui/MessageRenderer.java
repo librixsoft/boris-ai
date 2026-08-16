@@ -1,6 +1,12 @@
 package com.boris.cli.ui;
 
 /**
+ * MessageRenderer — handles message rendering for the Boris UI.
+ * 
+ * IMPORTANT: STRICT PROHIBITION - Manual ANSI escape sequences are NOT ALLOWED.
+ * All terminal operations MUST use JLine3 APIs through TerminalConfigurator.
+ * Manual ANSI sequences interfere with JLine3's internal state management and break UI rendering.
+ * 
  * Message renderer for UI chrome elements: banner, prompt, status lines, and answer formatting.
  * Provides a single output channel for all chrome elements.
  */
@@ -32,13 +38,13 @@ public class MessageRenderer {
      */
     public void printBanner() {
         out("\n");
-        out(colorPalette.accent());
+        out(colorPalette.accentStr());
         out("Boris");
-        out(colorPalette.reset());
-        out(colorPalette.dim());
+        out(colorPalette.userStr());
+        out(colorPalette.dimStr());
         out("  —  I am invincible\n");
         out("esc abort  ·  ctrl+c quit\n");
-        out(colorPalette.reset());
+        out(colorPalette.userStr());
         out("\n");
     }
     
@@ -61,9 +67,9 @@ public class MessageRenderer {
      * the way a normal shell prompt would.
      */
     public void printPrompt() {
-        out(colorPalette.accent());
+        out(colorPalette.accentStr());
         out("› ");
-        out(colorPalette.fg());
+        out(colorPalette.fgStr());
     }
     
     /**
@@ -71,34 +77,34 @@ public class MessageRenderer {
      */
     public void closeInputBox() {
         out("\n");
-        out(colorPalette.reset());
+        out(colorPalette.userStr());
     }
     
     /**
      * Starts the answer, labeled, in the neutral fg tone.
      */
     public void openAnswer() {
-        out(colorPalette.accent());
+        out(colorPalette.accentStr());
         out("\nBoris ");
-        out(colorPalette.dim());
+        out(colorPalette.dimStr());
         out("· ");
-        out(colorPalette.fg());
+        out(colorPalette.fgStr());
     }
     
     /**
      * Short status line reusing the prompt glyph in a different tone (e.g. aborted).
      */
     public void printStatus(String text) {
-        out(colorPalette.warn());
+        out(colorPalette.warnStr());
         out(text + "\n");
-        out(colorPalette.reset());
+        out(colorPalette.userStr());
     }
     
     /**
      * Print a newline with reset.
      */
     public void printNewline() {
-        out(colorPalette.reset());
+        out(colorPalette.userStr());
         out("\n\n");
     }
 }

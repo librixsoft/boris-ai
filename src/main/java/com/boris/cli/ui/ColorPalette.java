@@ -1,8 +1,14 @@
 package com.boris.cli.ui;
 
+import org.jline.utils.AttributedStyle;
+
 /**
- * Color palette for the Boris UI theme.
+ * Color palette for the Boris UI theme using JLine3 AttributedStyle.
  * Provides a single accent color with neutral tones for all other elements.
+ * 
+ * IMPORTANT: STRICT PROHIBITION - Manual ANSI escape sequences are NOT ALLOWED.
+ * All color operations MUST use JLine3 AttributedStyle or the provided String methods.
+ * Manual ANSI sequences interfere with JLine3's internal state management and break UI rendering.
  */
 public class ColorPalette {
     
@@ -33,28 +39,44 @@ public class ColorPalette {
         );
     }
     
-    public String accent() {
+    public AttributedStyle accent() {
+        return AttributedStyle.DEFAULT.foreground(accent[0], accent[1], accent[2]);
+    }
+    
+    public String accentStr() {
         return rgb(accent);
     }
     
-    public String dim() {
+    public AttributedStyle dim() {
+        return AttributedStyle.DEFAULT.foreground(dim[0], dim[1], dim[2]);
+    }
+    
+    public String dimStr() {
         return rgb(dim);
     }
     
-    public String fg() {
+    public AttributedStyle fg() {
+        return AttributedStyle.DEFAULT.foreground(fg[0], fg[1], fg[2]);
+    }
+    
+    public String fgStr() {
         return rgb(fg);
     }
     
-    public String warn() {
+    public AttributedStyle warn() {
+        return AttributedStyle.DEFAULT.foreground(warn[0], warn[1], warn[2]);
+    }
+    
+    public String warnStr() {
         return rgb(warn);
     }
     
-    public String reset() {
-        return "\033[0m";
+    public AttributedStyle reset() {
+        return AttributedStyle.DEFAULT;
     }
     
-    private static String rgb(int[] c) {
-        return String.format("\033[38;2;%d;%d;%dm", c[0], c[1], c[2]);
+    public String resetStr() {
+        return "\033[0m";
     }
     
     public int[] getAccent() {
@@ -69,11 +91,19 @@ public class ColorPalette {
         return fg;
     }
     
-    public String user() {
+    public AttributedStyle user() {
+        return AttributedStyle.DEFAULT.foreground(user[0], user[1], user[2]);
+    }
+    
+    public String userStr() {
         return rgb(user);
     }
     
     public int[] getUser() {
         return user;
+    }
+    
+    private static String rgb(int[] c) {
+        return String.format("\033[38;2;%d;%d;%dm", c[0], c[1], c[2]);
     }
 }

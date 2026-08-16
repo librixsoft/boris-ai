@@ -101,6 +101,12 @@
             <artifactId>commonmark</artifactId>
             <version>0.21.0</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline</artifactId>
+            <version>3.26.1</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -3,6 +3,10 @@ package com.boris.cli.ui;
 /**
  * Renders the fixed input bar at the bottom of the terminal.
  * Always paints on the last 2 rows, independent of scroll region.
+ * 
+ * IMPORTANT: STRICT PROHIBITION - Manual ANSI escape sequences are NOT ALLOWED.
+ * All terminal operations MUST use JLine3 APIs through TerminalConfigurator.
+ * Manual ANSI sequences interfere with JLine3's internal state management and break UI rendering.
  */
 public class InputBar {
 
@@ -43,17 +47,17 @@ public class InputBar {
         terminal.moveCursorTo(spinnerLineRow, 1);
         terminal.clearCurrentLine();
         if (spinnerFrame != null && !spinnerFrame.isEmpty()) {
-            terminal.out(palette.dim());
+            terminal.out(palette.dimStr());
             terminal.out(spinnerFrame);
-            terminal.out(palette.reset());
+            terminal.out(palette.resetStr());
         }
 
         // --- Prompt line ---
         terminal.moveCursorTo(promptLineRow, 1);
         terminal.clearCurrentLine();
-        terminal.out(palette.accent());
+        terminal.out(palette.accentStr());
         terminal.out("› ");
-        terminal.out(palette.fg());
+        terminal.out(palette.fgStr());
         int bufLen = currentBuffer == null ? 0 : currentBuffer.length();
         if (currentBuffer != null) {
             // Truncate if buffer exceeds terminal width (minus prompt chars)
@@ -67,7 +71,7 @@ public class InputBar {
         }
         int cursorCol = 2 + bufLen;
         terminal.moveCursorTo(promptLineRow, Math.min(cursorCol, terminalCols));
-        terminal.out(palette.reset());
+        terminal.out(palette.resetStr());
     }
 
     /**

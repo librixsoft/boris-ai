@@ -7,6 +7,10 @@ import java.util.List;
  * ChatBuffer — manages scrollable chat content between banner and input bar.
  * Keeps the banner fixed at the top and maintains a scrollable buffer for
  * messages below it.
+ * 
+ * IMPORTANT: STRICT PROHIBITION - Manual ANSI escape sequences are NOT ALLOWED.
+ * All terminal operations MUST use JLine3 APIs through TerminalConfigurator.
+ * Manual ANSI sequences interfere with JLine3's internal state management and break UI rendering.
  */
 public class ChatBuffer {
 
@@ -149,18 +153,18 @@ public class ChatBuffer {
         // Print banner in the non-scrolling area (top of terminal)
         terminal.moveCursorTo(bannerStartRow, 1);
         terminal.clearCurrentLine();
-        terminal.out(palette.accent());
+        terminal.out(palette.accentStr());
         terminal.out("Boris");
-        terminal.out(palette.reset());
-        terminal.out(palette.dim());
+        terminal.out(palette.resetStr());
+        terminal.out(palette.dimStr());
         terminal.out("  —  I am invincible");
-        terminal.out(palette.reset());
+        terminal.out(palette.resetStr());
         
         terminal.moveCursorTo(bannerStartRow + 1, 1);
         terminal.clearCurrentLine();
-        terminal.out(palette.dim());
+        terminal.out(palette.dimStr());
         terminal.out("esc abort  ·  ctrl+c quit");
-        terminal.out(palette.reset());
+        terminal.out(palette.resetStr());
         
         terminal.moveCursorTo(bannerStartRow + 2, 1);
         terminal.clearCurrentLine();
@@ -193,7 +197,7 @@ public class ChatBuffer {
         totalContentHeight++;
         
         // Add the Boris label
-        String answerHeader = palette.accent() + "Boris " + palette.dim() + "· " + palette.fg();
+        String answerHeader = palette.accentStr() + "Boris " + palette.dimStr() + "· " + palette.fgStr();
         messageLines.add(answerHeader);
         totalContentHeight++;
         
@@ -212,7 +216,7 @@ public class ChatBuffer {
         }
         
         // Add the user label
-        String questionHeader = palette.user() + "You " + palette.dim() + "· " + palette.fg();
+        String questionHeader = palette.userStr() + "You " + palette.dimStr() + "· " + palette.fgStr();
         messageLines.add(questionHeader);
         totalContentHeight++;
         
@@ -407,7 +411,7 @@ public class ChatBuffer {
         totalContentHeight++;
         
         // Add the status message
-        String statusLine = palette.warn() + text + palette.reset();
+        String statusLine = palette.warnStr() + text + palette.resetStr();
         messageLines.add(statusLine);
         totalContentHeight++;
         

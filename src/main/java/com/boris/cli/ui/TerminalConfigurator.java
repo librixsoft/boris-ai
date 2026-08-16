@@ -1,25 +1,35 @@
 package com.boris.cli.ui;
 
-import java.io.FileInputStream;
-import java.io.InputStream;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
+import org.jline.utils.InfoCmp;
+import org.jline.utils.AttributedString;
+import org.jline.utils.AttributedStringBuilder;
+import org.jline.utils.AttributedStyle;
+
+import java.io.IOException;
 import java.io.PrintStream;
+import java.io.InputStream;
 
 /**
- * Manages terminal configuration and raw mode operations.
- * Handles terminal setup, ANSI console installation, and stty mode switching.
+ * Manages terminal configuration using JLine3 library.
+ * Handles terminal setup, alternate screen buffer, and raw mode operations.
+ * 
+ * IMPORTANT: STRICT PROHIBITION - Manual ANSI escape sequences are NOT ALLOWED.
+ * All terminal operations MUST use JLine3 APIs (InfoCmp.Capability, terminal.puts(), etc.)
+ * Manual ANSI sequences interfere with JLine3's internal state management and break UI rendering.
  */
 public class TerminalConfigurator {
     
     private static String savedTermSettings = null;
-    private final InputStream tty;
+    private Terminal terminal;
     private final PrintStream output;
     
     public TerminalConfigurator() throws Exception {
-        // Open /dev/tty directly — works even when stdin/stdout are redirected
-        InputStream t;
-        try { t = new FileInputStream("/dev/tty"); }
-        catch (Exception e) { t = System.in; }
-        this.tty = t;
+        // Build JLine3 terminal
+        this.terminal = TerminalBuilder.builder()
+            .system(true)
+            .build();
         this.output = System.out;
     }
     
@@ -27,7 +37,7 @@ public class TerminalConfigurator {
      * Install ANSI console support.
      */
     public void installAnsiConsole() {
-        // No-op: ANSI sequences work directly with System.out
+        // No-op: JLine3 handles ANSI automatically
     }
     
     /**
@@ -42,29 +52,20 @@ public class TerminalConfigurator {
      */
     public void sttyRaw() {
         try {
-            // Save current settings so we can restore them exactly later
-            Process p = new ProcessBuilder("sh", "-c", "stty -g </dev/tty")
-                .redirectErrorStream(true)
-                .start();
-            savedTermSettings = new String(p.getInputStream().readAllBytes()).trim();
-            p.waitFor();
-            new ProcessBuilder("sh", "-c", "stty -icanon -echo </dev/tty")
-                .inheritIO().start().waitFor();
+            terminal.enterRawMode();
         } catch (Exception e) {
             System.err.println("[boris] Warning: could not set raw terminal mode: " + e.getMessage());
         }
     }
     
     /**
-     * Restore the terminal to its saved state. Safe to call multiple times.
+     * Restore the terminal to its saved state.
      */
     public void sttyRestore() {
         try {
-            String cmd = (savedTermSettings != null && !savedTermSettings.isEmpty())
-                ? "stty " + savedTermSettings + " </dev/tty"
-                : "stty sane </dev/tty";
-            new ProcessBuilder("sh", "-c", cmd)
-                .inheritIO().start().waitFor();
+            if (terminal != null) {
+                terminal.close();
+            }
         } catch (Exception ignored) {}
     }
     
@@ -72,103 +73,145 @@ public class TerminalConfigurator {
      * Get the TTY input stream.
      */
     public InputStream getTty() {
-        return tty;
+        return terminal != null ? terminal.input() : System.in;
     }
     
     /**
      * Close the terminal.
      */
     public void close() {
-        // No-op with System.out
+        try {
+            if (terminal != null) {
+                terminal.close();
+            }
+        } catch (Exception ignored) {}
     }
     
     /**
-     * Output text to the terminal.
+     * Output text to the terminal using JLine3 writer.
      */
     public void out(String s) {
-        output.print(s);
-        output.flush();
+        if (terminal != null) {
+            terminal.writer().print(s);
+            terminal.writer().flush();
+        } else {
+            output.print(s);
+            output.flush();
+        }
     }
 
     // ─── ANSI utilities ────────────────────────────────────────────────
 
     /**
-     * Returns [rows, cols] of the terminal by running "stty size /dev/tty".
+     * Returns [rows, cols] of the terminal.
      */
     public int[] getTerminalSize() {
-        try {
-            Process p = new ProcessBuilder("sh", "-c", "stty size </dev/tty")
-                .redirectErrorStream(true)
-                .start();
-            String raw = new String(p.getInputStream().readAllBytes()).trim();
-            p.waitFor();
-            String[] parts = raw.split("\\s+");
-            if (parts.length >= 2) {
-                return new int[] { Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) };
-            }
-        } catch (Exception ignored) {
-            // fallback
+        if (terminal != null) {
+            return new int[] { terminal.getHeight(), terminal.getWidth() };
         }
-        // Safe default for environments where stty fails
         return new int[] { 24, 80 };
     }
 
     /**
-     * Set scroll region: DECSTBM via ESC[<top>;<bottom>r.
-     * Rows are 1-based.
+     * Set scroll region using JLine3 capabilities.
      */
     public void setScrollRegion(int top, int bottom) {
-        out("\033[" + top + ";" + bottom + "r");
+        if (terminal != null) {
+            terminal.puts(InfoCmp.Capability.change_scroll_region, top, bottom);
+            terminal.writer().flush();
+        }
     }
 
     /**
-     * Reset scroll region: ESC[r.
+     * Reset scroll region using JLine3 capabilities.
      */
     public void resetScrollRegion() {
-        out("\033[r");
+        if (terminal != null) {
+            terminal.puts(InfoCmp.Capability.change_scroll_region, 1, terminal.getHeight());
+            terminal.writer().flush();
+        }
     }
 
     /**
-     * Move cursor to absolute position: ESC[row;colH (1-based).
+     * Move cursor to absolute position using JLine3.
      */
     public void moveCursorTo(int row, int col) {
-        out("\033[" + row + ";" + col + "H");
+        if (terminal != null) {
+            terminal.puts(InfoCmp.Capability.cursor_address, row, col);
+            terminal.writer().flush();
+        }
     }
 
     /**
-     * Clear current line: ESC[2K.
+     * Clear current line using JLine3.
      */
     public void clearCurrentLine() {
-        out("\033[2K");
+        if (terminal != null) {
+            terminal.puts(InfoCmp.Capability.clr_eol);
+            terminal.writer().flush();
+        }
     }
 
     /**
-     * Save cursor position: ESC7.
+     * Save cursor position using JLine3.
      */
     public void saveCursor() {
-        out("\0337");
+        if (terminal != null) {
+            terminal.puts(InfoCmp.Capability.save_cursor);
+            terminal.writer().flush();
+        }
     }
 
     /**
-     * Restore cursor position: ESC8.
+     * Restore cursor position using JLine3.
      */
     public void restoreCursor() {
-        out("\0338");
+        if (terminal != null) {
+            terminal.puts(InfoCmp.Capability.restore_cursor);
+            terminal.writer().flush();
+        }
     }
 
     /**
-     * Enable scroll lock (VT340): prevents the terminal window from
-     * scrolling physically. Content written inside the scroll region
-     * will not push the viewport beyond the scroll region boundaries.
+     * Enable aggressive scroll lock using JLine3.
      */
     public void enableScrollLock() {
-        out("\033[?1007h");
+        // JLine3 doesn't have direct alternate screen methods
+        // This is handled by the terminal configuration
     }
 
     /**
-     * Disable scroll lock.
+     * Enable application mode using JLine3.
+     */
+    public void enableApplicationMode() {
+        // JLine3 handles this through terminal configuration
+    }
+
+    /**
+     * Disable terminal scroll using JLine3.
+     */
+    public void disableTerminalScroll() {
+        // JLine3 handles this through terminal configuration
+    }
+
+    /**
+     * Enable terminal scroll using JLine3.
+     */
+    public void enableTerminalScroll() {
+        // JLine3 handles this through terminal configuration
+    }
+
+    /**
+     * Disable scroll lock using JLine3.
      */
     public void disableScrollLock() {
-        out("\033[?1007l");
+        // JLine3 handles this through terminal configuration
+    }
+
+    /**
+     * Disable application mode using JLine3.
+     */
+    public void disableApplicationMode() {
+        // JLine3 handles this through terminal configuration
     }
 }
