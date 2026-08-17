@@ -1,6 +1,8 @@
 package com.boris.cli;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.googlecode.lanterna.TerminalSize;
@@ -8,6 +10,7 @@ import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.graphics.SimpleTheme;
 import com.googlecode.lanterna.gui2.BasicWindow;
 import com.googlecode.lanterna.gui2.BorderLayout;
+import com.googlecode.lanterna.gui2.Border;
 import com.googlecode.lanterna.gui2.Borders;
 import com.googlecode.lanterna.gui2.Direction;
 import com.googlecode.lanterna.gui2.Label;
@@ -18,6 +21,7 @@ import com.googlecode.lanterna.gui2.SeparateTextGUIThread;
 import com.googlecode.lanterna.gui2.Separator;
 import com.googlecode.lanterna.gui2.TextBox;
 import com.googlecode.lanterna.gui2.Window;
+import com.googlecode.lanterna.gui2.WindowListenerAdapter;
 import com.googlecode.lanterna.input.KeyType;
 import com.googlecode.lanterna.screen.Screen;
 import com.googlecode.lanterna.screen.TerminalScreen;
@@ -32,38 +36,37 @@ import com.boris.chat.ChatService;
  *
  * Layout (BorderLayout):
  *   TOP    -> header fijo
- *   CENTER -> panel de chat (TextBox multilínea, solo lectura) con scroll
- *             y scrollbar propios, ocupa todo el espacio sobrante
+ *   CENTER -> panel de chat (TextBox multilínea, solo lectura), con wrap
+ *             manual de texto (nunca hay scroll horizontal) y scroll
+ *             vertical automático
  *   BOTTOM -> footer fijo: separador, línea de estado/spinner, caja de
- *             input con borde, línea de ayuda
+ *             input a todo el ancho, línea de ayuda
  *
- * Lanterna se encarga de: alt-screen (bloquea el scrollback nativo de la
- * terminal), resize, doble buffer/redibujado y foco (Tab alterna entre el
- * chat y el input; con foco en el chat, flechas/PgUp/PgDn/rueda del mouse
- * scrollean).
- *
- * NOTA sobre el alt-screen: screen.startScreen() ya activa el buffer
- * alternativo (\e[?1049h), que en Terminal.app/iTerm2 debería bloquear el
- * scrollback nativo por sí solo. Si en tu máquina seguís pudiendo scrollear
- * la terminal "de fondo", casi siempre es porque el proceso se lanza sin un
- * TTY real de por medio (ej. `mvn exec:java`). Ejecutá el jar empaquetado
- * directo: `java -jar target/boris-cli-1.0.0.jar`.
+ * Scroll: funciona con Tab + flechas/PgUp/PgDn sobre el chat, con la rueda
+ * del mouse si el terminal la reporta, y ADEMÁS interceptamos
+ * flecha arriba/abajo/PgUp/PgDn mientras el foco está en el input — esto es
+ * necesario porque muchos terminales (iTerm2 con "scroll wheel sends arrow
+ * keys in alternate screen") traducen el gesto de trackpad en pulsaciones
+ * de flecha en vez de eventos de mouse reales, y esas flechas se perderían
+ * en el input si no las reenviamos manualmente al chat.
  */
 public class BorisUI {
 
-    // Paleta oscura moderna (truecolor). Si tu terminal no soporta RGB de 24
-    // bits vas a ver un fallback más feo; Terminal.app moderno e iTerm2 sí
-    // lo soportan.
-    private static final TextColor BG            = new TextColor.RGB(18, 18, 22);   // fondo casi negro
-    private static final TextColor BG_ELEVATED   = new TextColor.RGB(26, 26, 32);   // paneles/input
-    private static final TextColor FG            = new TextColor.RGB(226, 226, 230); // texto principal
-    private static final TextColor MUTED         = new TextColor.RGB(120, 120, 130); // texto secundario
-    private static final TextColor ACCENT        = new TextColor.RGB(255, 149, 90);  // naranja suave
-    private static final TextColor USERC         = new TextColor.RGB(96, 205, 255);  // cyan suave
-    private static final TextColor SELECTED_BG   = new TextColor.RGB(40, 40, 48);
+    // Paleta oscura, sin grises neutros: los bordes usan un tono cálido muy
+    // oscuro en vez de gris plano.
+    private static final TextColor BG           = new TextColor.RGB(2, 2, 3);     // fondo negro casi absoluto
+    private static final TextColor BG_ELEVATED  = new TextColor.RGB(9, 8, 10);    // input / paneles elevados
+    private static final TextColor FG           = new TextColor.RGB(235, 235, 238); // texto principal, casi blanco
+    private static final TextColor MUTED        = new TextColor.RGB(90, 78, 70);   // detalles tenues (cálido, no gris)
+    private static final TextColor ACCENT       = new TextColor.RGB(255, 138, 76);  // naranja
+    private static final TextColor USERC        = new TextColor.RGB(96, 205, 255);  // cyan
+    private static final TextColor SELECTED_BG  = new TextColor.RGB(28, 22, 20);
 
     private static final String[] SPINNER_FRAMES =
             {"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"};
+
+    // Líneas que mueve cada pulsación de flecha (antes 1, se sentía muy corto)
+    private static final int ARROW_SCROLL_STEP = 3;
 
     private final ChatService chatService;
 
@@ -74,7 +77,10 @@ public class BorisUI {
     private TextBox inputBox;
     private Label statusLabel;
 
-    private final StringBuilder transcript = new StringBuilder();
+    // Guardamos el texto "crudo" (sin wrap) por separado del texto ya
+    // envuelto que se muestra, para poder re-envolver en cada resize sin
+    // perder información.
+    private final StringBuilder rawTranscript = new StringBuilder();
     private final AtomicBoolean waiting = new AtomicBoolean(false);
 
     public BorisUI(String settingsPath) throws Exception {
@@ -83,13 +89,21 @@ public class BorisUI {
 
     public void start() throws Exception {
         DefaultTerminalFactory factory = new DefaultTerminalFactory();
-        // Habilita captura de eventos de mouse (incluida la rueda), sin la
-        // cual TextBox nunca recibe SCROLL_UP/SCROLL_DOWN aunque tenga foco.
         factory.setMouseCaptureMode(MouseCaptureMode.CLICK_RELEASE_DRAG_MOVE);
 
         Terminal terminal = factory.createTerminal();
+
+        // Refuerzo: además de configurarlo en el factory, lo seteamos
+        // directo sobre el terminal ya creado. En algunas builds el valor
+        // del factory no queda aplicado si se llega acá por createTerminal()
+        // en vez de createScreen().
+        if (terminal instanceof com.googlecode.lanterna.terminal.ExtendedTerminal) {
+            ((com.googlecode.lanterna.terminal.ExtendedTerminal) terminal)
+                    .setMouseCaptureMode(MouseCaptureMode.CLICK_RELEASE_DRAG_MOVE);
+        }
+
         screen = new TerminalScreen(terminal);
-        screen.startScreen(); // entra en alt-screen: bloquea el scrollback nativo
+        screen.startScreen();
 
         gui = new MultiWindowTextGUI(new SeparateTextGUIThread.Factory(), screen);
         gui.setTheme(buildDarkTheme());
@@ -105,22 +119,21 @@ public class BorisUI {
         try {
             window.waitUntilClosed();
         } finally {
-            screen.stopScreen(); // restaura la terminal (vuelve el scrollback normal)
+            screen.stopScreen();
         }
     }
 
     private SimpleTheme buildDarkTheme() {
         SimpleTheme theme = SimpleTheme.makeTheme(
-                false,        // activeIsBold
-                FG,           // baseForeground
-                BG,           // baseBackground
-                FG,           // editableForeground (texto dentro del input)
-                BG_ELEVATED,  // editableBackground (fondo del input)
-                ACCENT,       // selectedForeground
-                SELECTED_BG,  // selectedBackground
-                BG            // guiBackground (fondo detrás de todo)
+                false,
+                FG,
+                BG,
+                FG,
+                BG_ELEVATED,
+                ACCENT,
+                SELECTED_BG,
+                BG
         );
-        // Bordes con un gris tenue en vez del blanco/verde por defecto
         theme.addOverride(Separator.class, MUTED, BG);
         return theme;
     }
@@ -144,22 +157,32 @@ public class BorisUI {
         footer.addComponent(new Separator(Direction.HORIZONTAL));
 
         statusLabel = new Label("");
-        statusLabel.setForegroundColor(MUTED);
+        statusLabel.setForegroundColor(ACCENT);
         footer.addComponent(statusLabel);
 
-        Panel inputRow = new Panel(new LinearLayout(Direction.HORIZONTAL));
+        // BorderLayout en vez de LinearLayout: LEFT para el prompt fijo,
+        // CENTER para el input, que así ocupa TODO el ancho restante real
+        // (con LinearLayout + Fill el input no crecía en el eje horizontal).
+        Panel inputRow = new Panel(new BorderLayout());
         Label promptLabel = new Label("❯ ");
         promptLabel.setForegroundColor(USERC);
-        inputRow.addComponent(promptLabel);
+        inputRow.addComponent(promptLabel, BorderLayout.Location.LEFT);
 
-        inputBox = new TextBox(new TerminalSize(20, 1), TextBox.Style.SINGLE_LINE);
-        inputBox.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Fill));
-        inputRow.addComponent(inputBox);
+        inputBox = new TextBox(new TerminalSize(1, 1), TextBox.Style.SINGLE_LINE);
+        inputRow.addComponent(inputBox, BorderLayout.Location.CENTER);
 
-        footer.addComponent(inputRow.withBorder(Borders.singleLine()));
+        // BUG FIX: footer usa LinearLayout(VERTICAL), que por defecto NO
+        // estira sus hijos al ancho completo, solo les da su tamaño
+        // preferido — por eso el input quedaba como una cajita chiquita.
+        // Con Alignment.Fill forzamos que ocupe todo el ancho disponible.
+        // OJO: withBorder(...) devuelve un Border (no un Panel), pero
+        // Border también implementa Component y tiene setLayoutData.
+        Border inputRowBordered = inputRow.withBorder(Borders.singleLine());
+        inputRowBordered.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Fill));
+        footer.addComponent(inputRowBordered);
 
-        Label hint = new Label(" /exit salir   /clear limpiar   Tab: cambiar foco   ↑↓ PgUp/PgDn / rueda: scroll del chat");
-        hint.setForegroundColor(MUTED);
+        Label hint = new Label(" /exit salir   /clear limpiar   Tab: cambiar foco   ↑↓ PgUp/PgDn: scroll del chat");
+        hint.setForegroundColor(ACCENT);
         footer.addComponent(hint);
 
         root.addComponent(footer, BorderLayout.Location.BOTTOM);
@@ -167,11 +190,22 @@ public class BorisUI {
         window.setComponent(root);
         window.setFocusedInteractable(inputBox);
 
-        // Enter envía el mensaje en vez de insertar salto de línea.
-        // Usamos el campo inputBox directamente porque el parámetro del
-        // callback está tipado como Interactable, no como TextBox.
+        // Si la terminal se redimensiona, re-envolvemos el texto ya
+        // acumulado al nuevo ancho para que nunca aparezca scroll horizontal.
+        window.addWindowListener(new WindowListenerAdapter() {
+            @Override
+            public void onResized(Window w, TerminalSize oldSize, TerminalSize newSize) {
+                gui.getGUIThread().invokeLater(() -> {
+                    renderTranscript();
+                    scrollToBottom();
+                });
+            }
+        });
+
         inputBox.setInputFilter((textBox, keyStroke) -> {
-            if (keyStroke.getKeyType() == KeyType.Enter) {
+            KeyType type = keyStroke.getKeyType();
+
+            if (type == KeyType.Enter) {
                 if (!waiting.get()) {
                     String text = inputBox.getText().trim();
                     if (!text.isEmpty()) {
@@ -179,9 +213,46 @@ public class BorisUI {
                         handleSubmit(text);
                     }
                 }
-                return false; // no insertar el salto de línea
+                return false;
             }
+
+            // Reenvía scroll al chat aunque el foco esté en el input —
+            // necesario para trackpads que se traducen en flechas.
+            if (type == KeyType.ArrowUp) {
+                scrollChatBy(-ARROW_SCROLL_STEP);
+                return false;
+            }
+            if (type == KeyType.ArrowDown) {
+                scrollChatBy(ARROW_SCROLL_STEP);
+                return false;
+            }
+            if (type == KeyType.PageUp) {
+                scrollChatBy(-visibleChatRows());
+                return false;
+            }
+            if (type == KeyType.PageDown) {
+                scrollChatBy(visibleChatRows());
+                return false;
+            }
+
             return true;
+        });
+    }
+
+    private int visibleChatRows() {
+        TerminalSize size = chatBox.getSize();
+        return size == null ? 10 : Math.max(1, size.getRows() - 1);
+    }
+
+    private void scrollChatBy(int deltaLines) {
+        gui.getGUIThread().invokeLater(() -> {
+            int lineCount = chatBox.getLineCount();
+            if (lineCount == 0) {
+                return;
+            }
+            int currentRow = chatBox.getCaretPosition().getRow();
+            int newRow = Math.max(0, Math.min(lineCount - 1, currentRow + deltaLines));
+            chatBox.setCaretPosition(newRow, 0);
         });
     }
 
@@ -191,7 +262,7 @@ public class BorisUI {
             return;
         }
         if (text.equals("/clear")) {
-            transcript.setLength(0);
+            rawTranscript.setLength(0);
             gui.getGUIThread().invokeLater(() -> chatBox.setText(""));
             return;
         }
@@ -239,21 +310,88 @@ public class BorisUI {
 
     private void appendLine(String text) {
         gui.getGUIThread().invokeLater(() -> {
-            if (transcript.length() > 0) transcript.append("\n");
-            transcript.append(text);
-            chatBox.setText(transcript.toString());
+            if (rawTranscript.length() > 0) rawTranscript.append("\n");
+            rawTranscript.append(text);
+            renderTranscript();
             scrollToBottom();
         });
     }
 
     private void replaceLastLine(String newText) {
         gui.getGUIThread().invokeLater(() -> {
-            int lastNewline = transcript.lastIndexOf("\n");
-            transcript.setLength(lastNewline >= 0 ? lastNewline + 1 : 0);
-            transcript.append(newText);
-            chatBox.setText(transcript.toString());
+            int lastNewline = rawTranscript.lastIndexOf("\n");
+            rawTranscript.setLength(lastNewline >= 0 ? lastNewline + 1 : 0);
+            rawTranscript.append(newText);
+            renderTranscript();
             scrollToBottom();
         });
+    }
+
+    /**
+     * Re-envuelve rawTranscript según el ancho actual del chatBox y lo
+     * vuelca al componente. Esto es lo que elimina el scroll horizontal:
+     * ninguna línea visible es más larga que el ancho disponible.
+     */
+    private void renderTranscript() {
+        int width = usableChatWidth();
+        chatBox.setText(wrap(rawTranscript.toString(), width));
+    }
+
+    private int usableChatWidth() {
+        TerminalSize size = chatBox.getSize();
+        // -1 para dejar lugar a la barra de scroll vertical cuando aparece.
+        int cols = (size == null ? 80 : size.getColumns()) - 1;
+        return Math.max(10, cols);
+    }
+
+    private String wrap(String text, int width) {
+        StringBuilder out = new StringBuilder(text.length() + 16);
+        for (String rawLine : text.split("\n", -1)) {
+            if (rawLine.isEmpty()) {
+                out.append('\n');
+                continue;
+            }
+            List<String> pieces = wrapLine(rawLine, width);
+            for (String piece : pieces) {
+                out.append(piece).append('\n');
+            }
+        }
+        if (out.length() > 0) {
+            out.setLength(out.length() - 1); // saca el último \n de más
+        }
+        return out.toString();
+    }
+
+    private List<String> wrapLine(String line, int width) {
+        List<String> result = new ArrayList<>();
+        if (line.length() <= width) {
+            result.add(line);
+            return result;
+        }
+        String[] words = line.split(" ", -1);
+        StringBuilder current = new StringBuilder();
+        for (String word : words) {
+            // Palabra más larga que el ancho: se corta a la fuerza.
+            while (word.length() > width) {
+                if (current.length() > 0) {
+                    result.add(current.toString());
+                    current.setLength(0);
+                }
+                result.add(word.substring(0, width));
+                word = word.substring(width);
+            }
+            int extra = current.length() == 0 ? 0 : 1;
+            if (current.length() + extra + word.length() > width) {
+                result.add(current.toString());
+                current.setLength(0);
+                current.append(word);
+            } else {
+                if (current.length() > 0) current.append(' ');
+                current.append(word);
+            }
+        }
+        result.add(current.toString());
+        return result;
     }
 
     private void scrollToBottom() {
