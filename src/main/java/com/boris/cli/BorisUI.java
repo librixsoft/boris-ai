@@ -150,6 +150,13 @@ public class BorisUI {
 
         chatBox = new TextBox(new TerminalSize(1, 1), TextBox.Style.MULTI_LINE);
         chatBox.setReadOnly(true);
+        chatBox.setInputFilter((textBox, keyStroke) -> {
+            KeyType type = keyStroke.getKeyType();
+            if (type == KeyType.ArrowLeft || type == KeyType.ArrowRight) {
+                return false;
+            }
+            return true;
+        });
         root.addComponent(chatBox.withBorder(Borders.singleLine()), BorderLayout.Location.CENTER);
 
         Panel footer = new Panel(new LinearLayout(Direction.VERTICAL));
@@ -334,14 +341,14 @@ public class BorisUI {
      */
     private void renderTranscript() {
         int width = usableChatWidth();
-        chatBox.setText(wrap(rawTranscript.toString(), width));
+        String wrapped = wrap(rawTranscript.toString(), width);
+        chatBox.setText(wrapped);
+        chatBox.setCaretPosition(0, 0);
     }
 
     private int usableChatWidth() {
         TerminalSize size = chatBox.getSize();
-        // -1 para dejar lugar a la barra de scroll vertical cuando aparece.
-        int cols = (size == null ? 80 : size.getColumns()) - 1;
-        return Math.max(10, cols);
+        return Math.max(10, size.getColumns() - 3);
     }
 
     private String wrap(String text, int width) {
