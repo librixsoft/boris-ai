@@ -91,6 +91,11 @@ public class BorisUI {
     private final StringBuilder rawTranscript = new StringBuilder();
     private final AtomicBoolean waiting = new AtomicBoolean(false);
 
+    // Historial de comandos estilo terminal
+    private final List<String> commandHistory = new ArrayList<>();
+    private int historyIndex = -1;
+    private String currentInputBeforeHistory = "";
+
     public BorisUI(String settingsPath) throws Exception {
         this.chatService = ChatService.withTools(settingsPath, "boris");
     }
@@ -190,7 +195,7 @@ public class BorisUI {
         inputRowBordered.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Fill));
         footer.addComponent(inputRowBordered);
 
-        Label hint = new Label(" /exit salir   /clear limpiar   ESC: abortar tarea   Tab: cambiar foco   ↑↓ PgUp/PgDn: scroll del chat");
+        Label hint = new Label(" /exit salir   /clear limpiar   ESC: abortar tarea   Tab: cambiar foco   ↑↓: historial (input) / scroll (chat)   PgUp/PgDn: scroll del chat");
         hint.setForegroundColor(ACCENT);
         footer.addComponent(hint);
 
@@ -247,16 +252,42 @@ public class BorisUI {
                 return false;
             }
 
-            // Reenvía scroll al chat aunque el foco esté en el input —
-            // necesario para trackpads que se traducen en flechas.
+            // Historial de comandos: flecha arriba
             if (type == KeyType.ArrowUp) {
-                scrollChatBy(-ARROW_SCROLL_STEP);
+                if (!commandHistory.isEmpty()) {
+                    // Guardar el input actual si estamos empezando a navegar
+                    if (historyIndex == -1) {
+                        currentInputBeforeHistory = inputBox.getText();
+                    }
+                    // Navegar hacia atrás en el historial
+                    if (historyIndex < commandHistory.size() - 1) {
+                        historyIndex++;
+                        inputBox.setText(commandHistory.get(commandHistory.size() - 1 - historyIndex));
+                    }
+                } else {
+                    // Si no hay historial, reenviar scroll al chat
+                    scrollChatBy(-ARROW_SCROLL_STEP);
+                }
                 return false;
             }
+
+            // Historial de comandos: flecha abajo
             if (type == KeyType.ArrowDown) {
-                scrollChatBy(ARROW_SCROLL_STEP);
+                if (historyIndex > 0) {
+                    // Navegar hacia adelante en el historial
+                    historyIndex--;
+                    inputBox.setText(commandHistory.get(commandHistory.size() - 1 - historyIndex));
+                } else if (historyIndex == 0) {
+                    // Volver al input original
+                    historyIndex = -1;
+                    inputBox.setText(currentInputBeforeHistory);
+                } else {
+                    // Si no estamos navegando el historial, reenviar scroll al chat
+                    scrollChatBy(ARROW_SCROLL_STEP);
+                }
                 return false;
             }
+
             if (type == KeyType.PageUp) {
                 scrollChatBy(-visibleChatRows());
                 return false;
@@ -264,6 +295,12 @@ public class BorisUI {
             if (type == KeyType.PageDown) {
                 scrollChatBy(visibleChatRows());
                 return false;
+            }
+
+            // Resetear el índice del historial cuando el usuario edita el input
+            if (historyIndex != -1 && type != KeyType.ArrowUp && type != KeyType.ArrowDown) {
+                historyIndex = -1;
+                currentInputBeforeHistory = "";
             }
 
             return true;
@@ -292,6 +329,13 @@ public class BorisUI {
             gui.getGUIThread().invokeLater(() -> chatBox.setText(""));
             return;
         }
+
+        // Agregar comando al historial (evitando duplicados consecutivos)
+        if (!text.isEmpty() && (commandHistory.isEmpty() || !commandHistory.get(commandHistory.size() - 1).equals(text))) {
+            commandHistory.add(text);
+        }
+        historyIndex = -1;
+        currentInputBeforeHistory = "";
 
         appendLine("❯ " + text);
 
