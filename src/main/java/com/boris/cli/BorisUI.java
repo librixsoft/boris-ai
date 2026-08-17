@@ -58,15 +58,14 @@ import com.boris.chat.ChatService;
  */
 public class BorisUI {
 
-    // Paleta oscura, sin grises neutros: los bordes usan un tono cálido muy
-    // oscuro en vez de gris plano.
-    private static final TextColor BG           = new TextColor.RGB(2, 2, 3);     // fondo negro casi absoluto
-    private static final TextColor BG_ELEVATED  = new TextColor.RGB(9, 8, 10);    // input / paneles elevados
-    private static final TextColor FG           = new TextColor.RGB(140, 200, 255); // texto principal, azul claro
-    private static final TextColor MUTED        = new TextColor.RGB(60, 55, 70);   // detalles tenues (púrpura oscuro)
-    private static final TextColor ACCENT       = new TextColor.RGB(180, 160, 255); // púrpura claro
-    private static final TextColor USERC        = new TextColor.RGB(140, 200, 255); // azul claro
-    private static final TextColor SELECTED_BG  = new TextColor.RGB(22, 18, 30);
+    // Dracula-inspired palette: fondo oscuro, morados, naranja y gris cálido.
+    private static final TextColor BG           = new TextColor.RGB(28, 30, 38);    // fondo principal: más oscuro, pero sin llegar a negro puro
+    private static final TextColor BG_ELEVATED  = new TextColor.RGB(39, 42, 54);    // paneles / input
+    private static final TextColor FG           = new TextColor.RGB(248, 248, 242); // texto principal: blanco crema
+    private static final TextColor MUTED        = new TextColor.RGB(98, 114, 164); // gris azulado suave
+    private static final TextColor ACCENT       = new TextColor.RGB(189, 147, 249); // púrpura principal
+    private static final TextColor USERC        = new TextColor.RGB(255, 184, 108); // naranja cálido
+    private static final TextColor SELECTED_BG  = new TextColor.RGB(58, 61, 79);    // selección / resalte gris-violeta
 
     private static final String[] SPINNER_FRAMES =
             {"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"};
@@ -480,6 +479,20 @@ public class BorisUI {
             return size == null ? 10 : Math.max(1, size.getRows());
         }
 
+        private int scrollbarWidth() {
+            return 2;
+        }
+
+        private int scrollbarX() {
+            TerminalSize size = getSize();
+            return size == null ? 0 : Math.max(0, size.getColumns() - scrollbarWidth());
+        }
+
+        private int scrollbarTrackHeight() {
+            TerminalSize size = getSize();
+            return size == null ? 1 : Math.max(1, size.getRows());
+        }
+
         @Override
         protected ComponentRenderer<ChatPanel> createDefaultRenderer() {
             return new ComponentRenderer<ChatPanel>() {
@@ -491,27 +504,52 @@ public class BorisUI {
                 @Override
                 public void drawComponent(TextGUIGraphics graphics, ChatPanel component) {
                     TerminalSize size = graphics.getSize();
-                    if (size == null || lines.isEmpty()) {
+                    if (size == null) {
                         return;
                     }
 
                     int visibleRows = size.getRows();
+                    int contentHeight = Math.max(1, lines.size());
+                    int maxOffset = Math.max(0, contentHeight - visibleRows);
+
                     graphics.setBackgroundColor(BG);
 
-                    // Dibujar líneas desde scrollOffset hasta el final visible
                     for (int i = 0; i < visibleRows && scrollOffset + i < lines.size(); i++) {
                         String line = lines.get(scrollOffset + i);
-                        String displayLine = padOrTruncate(line, size.getColumns());
+                        String displayLine = padOrTruncate(line, size.getColumns() - scrollbarWidth());
                         graphics.putString(0, i, displayLine);
                     }
 
-                    // Llenar el resto con líneas vacías
                     for (int i = (lines.size() - scrollOffset); i < visibleRows; i++) {
-                        graphics.putString(0, i, padOrTruncate("", size.getColumns()));
+                        graphics.putString(0, i, padOrTruncate("", size.getColumns() - scrollbarWidth()));
+                    }
+
+                    drawScrollbar(graphics, size.getColumns(), visibleRows, maxOffset, scrollOffset);
+                }
+
+                private void drawScrollbar(TextGUIGraphics graphics, int totalWidth, int visibleRows, int maxOffset, int currentOffset) {
+                    if (maxOffset <= 0) {
+                        return;
+                    }
+
+                    int barX = Math.max(0, totalWidth - scrollbarWidth());
+                    int barHeight = Math.max(1, visibleRows - 2);
+                    int thumbHeight = Math.max(1, (visibleRows * visibleRows) / Math.max(1, visibleRows + maxOffset));
+                    int thumbTop = (currentOffset * (barHeight - thumbHeight)) / Math.max(1, maxOffset);
+
+                    for (int row = 0; row < visibleRows; row++) {
+                        graphics.putString(barX, row, "│");
+                    }
+
+                    for (int row = thumbTop; row < thumbTop + thumbHeight && row < visibleRows; row++) {
+                        graphics.putString(barX, row, "█");
                     }
                 }
 
                 private String padOrTruncate(String line, int width) {
+                    if (width <= 0) {
+                        return "";
+                    }
                     if (line.length() >= width) {
                         return line.substring(0, width);
                     }
