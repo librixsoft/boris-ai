@@ -36,6 +36,7 @@ import com.googlecode.lanterna.terminal.MouseCaptureMode;
 import com.googlecode.lanterna.terminal.Terminal;
 
 import com.boris.chat.ChatService;
+import com.boris.task.TaskAborter;
 
 /**
  * BorisUI — TUI fullscreen estilo Claude Code / Qwen CLI, sobre Lanterna.
@@ -74,6 +75,8 @@ public class BorisUI {
     private static final int ARROW_SCROLL_STEP = 3;
 
     private final ChatService chatService;
+    private final TaskAborter taskAborter = new TaskAborter();
+    private volatile boolean wasAborted = false;
 
     private Screen screen;
     private MultiWindowTextGUI gui;
@@ -121,7 +124,7 @@ public class BorisUI {
         ((SeparateTextGUIThread) gui.getGUIThread()).start();
 
         appendLine("boris listo. Escribí un mensaje y Enter. "
-                + "/exit para salir, /clear para limpiar, Tab para mover el foco entre chat e input.");
+                + "/exit para salir, /clear para limpiar, ESC para abortar tarea, Tab para mover el foco entre chat e input.");
 
         try {
             window.waitUntilClosed();
@@ -187,7 +190,7 @@ public class BorisUI {
         inputRowBordered.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Fill));
         footer.addComponent(inputRowBordered);
 
-        Label hint = new Label(" /exit salir   /clear limpiar   Tab: cambiar foco   ↑↓ PgUp/PgDn: scroll del chat");
+        Label hint = new Label(" /exit salir   /clear limpiar   ESC: abortar tarea   Tab: cambiar foco   ↑↓ PgUp/PgDn: scroll del chat");
         hint.setForegroundColor(ACCENT);
         footer.addComponent(hint);
 
@@ -217,6 +220,29 @@ public class BorisUI {
                         inputBox.setText("");
                         handleSubmit(text);
                     }
+                }
+                return false;
+            }
+
+            // ESC: abortar tarea actual
+            if (type == KeyType.Escape) {
+                if (waiting.get()) {
+                    taskAborter.abort();
+                    wasAborted = true;
+                    waiting.set(false);
+                    gui.getGUIThread().invokeLater(() -> {
+                        statusLabel.setText(" aborted");
+                        // Resetear el TaskAborter después de un pequeño delay
+                        // para asegurar que el callback detecte el aborto primero
+                        new Thread(() -> {
+                            try {
+                                Thread.sleep(100);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                            taskAborter.reset();
+                        }).start();
+                    });
                 }
                 return false;
             }
@@ -269,6 +295,8 @@ public class BorisUI {
 
         appendLine("❯ " + text);
 
+        wasAborted = false;
+        taskAborter.reset();
         waiting.set(true);
         startSpinner();
 
@@ -277,12 +305,17 @@ public class BorisUI {
 
         Thread task = new Thread(() -> {
             try {
+                taskAborter.startTask(Thread.currentThread());
+                
                 chatService.sendMessageStream(
                         text,
                         chunk -> {
+                            // Chequeo de aborto en el callback
+                            if (taskAborter.isAborted()) {
+                                return;
+                            }
                             if (chunk != null && !chunk.isEmpty()) {
                                 if (firstChunk.compareAndSet(true, false)) {
-                                    waiting.set(false);
                                     // Agregar salto de línea y el prefijo del asistente
                                     gui.getGUIThread().invokeLater(() -> {
                                         if (rawTranscript.length() > 0) rawTranscript.append("\n");
@@ -311,11 +344,13 @@ public class BorisUI {
                             if (ChatService.EXIT_COMMAND.equals(finalText)) {
                                 gui.getGUIThread().invokeLater(() -> window.close());
                             }
+                            taskAborter.reset();
                         }
                 );
             } catch (Exception e) {
                 waiting.set(false);
                 appendLine("✗ error: " + e.getMessage());
+                taskAborter.reset();
             }
         });
         task.setDaemon(true);
@@ -409,7 +444,7 @@ public class BorisUI {
     private void startSpinner() {
         Thread t = new Thread(() -> {
             int i = 0;
-            while (waiting.get()) {
+            while (waiting.get() && !taskAborter.isAborted()) {
                 String frame = SPINNER_FRAMES[i % SPINNER_FRAMES.length];
                 gui.getGUIThread().invokeLater(() -> statusLabel.setText(" " + frame + " pensando..."));
                 i++;
@@ -419,7 +454,10 @@ public class BorisUI {
                     break;
                 }
             }
-            gui.getGUIThread().invokeLater(() -> statusLabel.setText(""));
+            // Solo limpiar el label si no fue abortado manualmente
+            if (!wasAborted) {
+                gui.getGUIThread().invokeLater(() -> statusLabel.setText(""));
+            }
         });
         t.setDaemon(true);
         t.start();
