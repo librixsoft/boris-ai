@@ -22,7 +22,13 @@ import com.googlecode.lanterna.gui2.Separator;
 import com.googlecode.lanterna.gui2.TextBox;
 import com.googlecode.lanterna.gui2.Window;
 import com.googlecode.lanterna.gui2.WindowListenerAdapter;
+import com.googlecode.lanterna.gui2.AbstractComponent;
+import com.googlecode.lanterna.gui2.ComponentRenderer;
+import com.googlecode.lanterna.gui2.TextGUIGraphics;
 import com.googlecode.lanterna.input.KeyType;
+import com.googlecode.lanterna.input.KeyStroke;
+import com.googlecode.lanterna.input.MouseAction;
+import com.googlecode.lanterna.input.MouseActionType;
 import com.googlecode.lanterna.screen.Screen;
 import com.googlecode.lanterna.screen.TerminalScreen;
 import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
@@ -73,7 +79,7 @@ public class BorisUI {
     private Screen screen;
     private MultiWindowTextGUI gui;
     private Window window;
-    private TextBox chatBox;
+    private ChatPanel chatBox;
     private TextBox inputBox;
     private Label statusLabel;
 
@@ -89,6 +95,8 @@ public class BorisUI {
 
     public void start() throws Exception {
         DefaultTerminalFactory factory = new DefaultTerminalFactory();
+        // Deja habilitado el mouse en la TUI, pero con el scroll global del terminal
+        // consumido por la ventana para que el usuario no salga del fullscreen.
         factory.setMouseCaptureMode(MouseCaptureMode.CLICK_RELEASE_DRAG_MOVE);
 
         Terminal terminal = factory.createTerminal();
@@ -139,7 +147,7 @@ public class BorisUI {
     }
 
     private void buildWindow() {
-        window = new BasicWindow();
+        window = new BorisWindow();
         window.setHints(Arrays.asList(Window.Hint.FULL_SCREEN, Window.Hint.NO_DECORATIONS));
 
         Panel root = new Panel(new BorderLayout());
@@ -148,15 +156,7 @@ public class BorisUI {
         header.setForegroundColor(ACCENT);
         root.addComponent(header, BorderLayout.Location.TOP);
 
-        chatBox = new TextBox(new TerminalSize(1, 1), TextBox.Style.MULTI_LINE);
-        chatBox.setReadOnly(true);
-        chatBox.setInputFilter((textBox, keyStroke) -> {
-            KeyType type = keyStroke.getKeyType();
-            if (type == KeyType.ArrowLeft || type == KeyType.ArrowRight) {
-                return false;
-            }
-            return true;
-        });
+        chatBox = new ChatPanel();
         root.addComponent(chatBox.withBorder(Borders.singleLine()), BorderLayout.Location.CENTER);
 
         Panel footer = new Panel(new LinearLayout(Direction.VERTICAL));
@@ -204,7 +204,6 @@ public class BorisUI {
             public void onResized(Window w, TerminalSize oldSize, TerminalSize newSize) {
                 gui.getGUIThread().invokeLater(() -> {
                     renderTranscript();
-                    scrollToBottom();
                 });
             }
         });
@@ -253,13 +252,7 @@ public class BorisUI {
 
     private void scrollChatBy(int deltaLines) {
         gui.getGUIThread().invokeLater(() -> {
-            int lineCount = chatBox.getLineCount();
-            if (lineCount == 0) {
-                return;
-            }
-            int currentRow = chatBox.getCaretPosition().getRow();
-            int newRow = Math.max(0, Math.min(lineCount - 1, currentRow + deltaLines));
-            chatBox.setCaretPosition(newRow, 0);
+            chatBox.scroll(deltaLines);
         });
     }
 
@@ -334,16 +327,20 @@ public class BorisUI {
         });
     }
 
-    /**
-     * Re-envuelve rawTranscript según el ancho actual del chatBox y lo
-     * vuelca al componente. Esto es lo que elimina el scroll horizontal:
-     * ninguna línea visible es más larga que el ancho disponible.
-     */
+    private void scrollToBottom() {
+        if (chatBox != null) {
+            chatBox.scrollToBottom();
+        }
+    }
+
     private void renderTranscript() {
         int width = usableChatWidth();
         String wrapped = wrap(rawTranscript.toString(), width);
+        boolean wasAtBottom = chatBox != null && chatBox.isAtBottom();
         chatBox.setText(wrapped);
-        chatBox.setCaretPosition(0, 0);
+        if (wasAtBottom) {
+            chatBox.scrollToBottom();
+        }
     }
 
     private int usableChatWidth() {
@@ -401,11 +398,6 @@ public class BorisUI {
         return result;
     }
 
-    private void scrollToBottom() {
-        int lastLine = Math.max(0, chatBox.getLineCount() - 1);
-        chatBox.setCaretPosition(lastLine, 0);
-    }
-
     // ---- spinner ----
 
     private void startSpinner() {
@@ -425,5 +417,111 @@ public class BorisUI {
         });
         t.setDaemon(true);
         t.start();
+    }
+
+    /**
+     * ChatPanel: Componente flexible para mostrar texto con scrolling vertical.
+     * Interactable: puede recibir el foco y manejar input (mouse y teclado).
+     */
+    private class BorisWindow extends BasicWindow {
+        @Override
+        public boolean handleInput(KeyStroke key) {
+            if (key instanceof MouseAction) {
+                MouseAction mouse = (MouseAction) key;
+                MouseActionType type = mouse.getActionType();
+                if (type == MouseActionType.SCROLL_UP) {
+                    scrollChatBy(-ARROW_SCROLL_STEP);
+                    return true;
+                }
+                if (type == MouseActionType.SCROLL_DOWN) {
+                    scrollChatBy(ARROW_SCROLL_STEP);
+                    return true;
+                }
+            }
+            return super.handleInput(key);
+        }
+    }
+
+    private class ChatPanel extends AbstractComponent<ChatPanel> {
+        private List<String> lines = new ArrayList<>();
+        private int scrollOffset = 0; // Primera línea visible
+
+        public ChatPanel() {
+            super();
+            setPreferredSize(new TerminalSize(80, 20));
+        }
+
+        public boolean isAtBottom() {
+            int maxOffset = Math.max(0, lines.size() - visibleLines());
+            return scrollOffset >= maxOffset;
+        }
+
+        public void setText(String text) {
+            this.lines = Arrays.asList(text.split("\n", -1));
+            int maxOffset = Math.max(0, lines.size() - visibleLines());
+            this.scrollOffset = Math.min(this.scrollOffset, maxOffset);
+            invalidate();
+        }
+
+        public void scroll(int deltaLines) {
+            int maxOffset = Math.max(0, lines.size() - visibleLines());
+            scrollOffset = Math.max(0, Math.min(maxOffset, scrollOffset + deltaLines));
+            invalidate();
+        }
+
+        public void scrollToBottom() {
+            int visible = visibleLines();
+            scrollOffset = Math.max(0, lines.size() - visible);
+            invalidate();
+        }
+
+        private int visibleLines() {
+            TerminalSize size = getSize();
+            return size == null ? 10 : Math.max(1, size.getRows());
+        }
+
+        @Override
+        protected ComponentRenderer<ChatPanel> createDefaultRenderer() {
+            return new ComponentRenderer<ChatPanel>() {
+                @Override
+                public TerminalSize getPreferredSize(ChatPanel component) {
+                    return component.getPreferredSize();
+                }
+
+                @Override
+                public void drawComponent(TextGUIGraphics graphics, ChatPanel component) {
+                    TerminalSize size = graphics.getSize();
+                    if (size == null || lines.isEmpty()) {
+                        return;
+                    }
+
+                    int visibleRows = size.getRows();
+                    graphics.setBackgroundColor(BG);
+
+                    // Dibujar líneas desde scrollOffset hasta el final visible
+                    for (int i = 0; i < visibleRows && scrollOffset + i < lines.size(); i++) {
+                        String line = lines.get(scrollOffset + i);
+                        String displayLine = padOrTruncate(line, size.getColumns());
+                        graphics.putString(0, i, displayLine);
+                    }
+
+                    // Llenar el resto con líneas vacías
+                    for (int i = (lines.size() - scrollOffset); i < visibleRows; i++) {
+                        graphics.putString(0, i, padOrTruncate("", size.getColumns()));
+                    }
+                }
+
+                private String padOrTruncate(String line, int width) {
+                    if (line.length() >= width) {
+                        return line.substring(0, width);
+                    }
+                    StringBuilder sb = new StringBuilder(line);
+                    while (sb.length() < width) {
+                        sb.append(' ');
+                    }
+                    return sb.toString();
+                }
+            };
+        }
     }
 }
