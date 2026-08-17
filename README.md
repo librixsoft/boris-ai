@@ -27,10 +27,18 @@ mvn clean package
 java -jar target/boris-cli-1.0.0.jar
 ```
 
-## Stack
+## Tests
 
-- **Picocli** 4.7.6 — parsing de argumentos CLI
-- ANSI sequences — soporte de colores en terminal
+```bash
+# Ejecutar tests unitarios
+mvn test
+
+# Ejecutar tests e2e
+mvn test -Pe2e
+
+# O alternativamente
+mvn integration-test
+```
 
 ## Autor
 

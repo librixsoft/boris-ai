@@ -1,4 +1,4 @@
-package com.boris.tooling.tool;
+package com.boris.e2e;
 
 import com.microsoft.playwright.*;
 import org.junit.jupiter.api.Test;
