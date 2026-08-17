@@ -534,7 +534,7 @@ public class BorisUI {
 
                     int barX = Math.max(0, totalWidth - scrollbarWidth());
                     int barHeight = Math.max(1, visibleRows - 2);
-                    int thumbHeight = Math.max(1, (visibleRows * visibleRows) / Math.max(1, visibleRows + maxOffset));
+                    int thumbHeight = Math.max(5, (visibleRows * visibleRows) / Math.max(1, visibleRows + maxOffset));
                     int thumbTop = (currentOffset * (barHeight - thumbHeight)) / Math.max(1, maxOffset);
 
                     for (int row = 0; row < visibleRows; row++) {
