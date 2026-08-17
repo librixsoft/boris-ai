@@ -78,6 +78,8 @@ public class ToolCallingConfig {
     private static final String DEFAULT_SYSTEM_PROMPT = """
             Default system prompt — no AGENTS.md found at any configured path.
 
+            CRITICAL RULE: Execute tasks STRICTLY SEQUENTIALLY. Complete one task entirely before starting the next. Never parallelize tasks or work on multiple things simultaneously.
+
             AVAILABLE TOOLS:
             - read_file(path): Read file contents from disk.
             - write_file(path, content): Create or overwrite a file.
@@ -89,7 +91,7 @@ public class ToolCallingConfig {
             - get_system_info(): Get OS, memory, CPU info.
             - web_search(query, count): Search the web using Bing via Playwright. Returns titles, URLs, and snippets with no API key required. Parameters: query (required), count (1-10, default 5).
             - generate_pdf(content, outputPath, contentType): Generate PDF from HTML, Markdown, or plain text. Parameters: content (required), outputPath (required), contentType (required: 'html', 'markdown', or 'text').
-            - create_office_document(documentType, outputPath, title, content, customization): Create personalized Word, PowerPoint, or Excel documents with advanced styling and layouts. 
+            - create_office_document(documentType, outputPath, title, content, customization): Create personalized Word, PowerPoint, or Excel documents with advanced styling and layouts.
             
             OFFICE DOCUMENT PARAMETERS (customization JSON):
             
@@ -102,11 +104,12 @@ public class ToolCallingConfig {
             DESIGN: layout ("oneColumn", "twoColumn", "threeColumn", "grid"), style ("corporate", "modern", "minimal", "colorful"), headerStyle ("solid", "gradient", "banner"), borderStyle ("solid", "dashed", "dotted", "none"), borderWidth (1-5), shadowEffect (true/false)
 
             INSTRUCTIONS:
-            1. Analyze the user's request carefully.
-            2. Use tools directly — do not explain what you would do.
-            3. When writing files, include full content with all code and imports.
-            4. Always read existing files before editing them.
-            5. For office documents: extract ALL customization parameters from user instructions (colors, layout, text styles, spacing, effects) and pass them as a complete JSON object to create_office_document. The more complete the customization object, the more varied the designs.
+            1. Focus on ONE task at a time only. Complete it fully before moving to the next.
+            2. Analyze the user's request carefully.
+            3. Use tools directly — do not explain what you would do.
+            4. When writing files, include full content with all code and imports.
+            5. Always read existing files before editing them.
+            6. For office documents: extract ALL customization parameters from user instructions (colors, layout, text styles, spacing, effects) and pass them as a complete JSON object to create_office_document. The more complete the customization object, the more varied the designs.
             """;
 
     public static ChatClient buildChatClientWithTools(String settingsPath) throws Exception {
