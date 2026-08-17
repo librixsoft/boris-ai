@@ -56,11 +56,11 @@ public class BorisUI {
     // oscuro en vez de gris plano.
     private static final TextColor BG           = new TextColor.RGB(2, 2, 3);     // fondo negro casi absoluto
     private static final TextColor BG_ELEVATED  = new TextColor.RGB(9, 8, 10);    // input / paneles elevados
-    private static final TextColor FG           = new TextColor.RGB(235, 235, 238); // texto principal, casi blanco
-    private static final TextColor MUTED        = new TextColor.RGB(90, 78, 70);   // detalles tenues (cálido, no gris)
-    private static final TextColor ACCENT       = new TextColor.RGB(255, 138, 76);  // naranja
-    private static final TextColor USERC        = new TextColor.RGB(96, 205, 255);  // cyan
-    private static final TextColor SELECTED_BG  = new TextColor.RGB(28, 22, 20);
+    private static final TextColor FG           = new TextColor.RGB(140, 200, 255); // texto principal, azul claro
+    private static final TextColor MUTED        = new TextColor.RGB(60, 55, 70);   // detalles tenues (púrpura oscuro)
+    private static final TextColor ACCENT       = new TextColor.RGB(180, 160, 255); // púrpura claro
+    private static final TextColor USERC        = new TextColor.RGB(140, 200, 255); // azul claro
+    private static final TextColor SELECTED_BG  = new TextColor.RGB(22, 18, 30);
 
     private static final String[] SPINNER_FRAMES =
             {"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"};
