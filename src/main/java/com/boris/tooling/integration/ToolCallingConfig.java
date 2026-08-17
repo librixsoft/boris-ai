@@ -3,6 +3,7 @@ package com.boris.tooling.integration;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.ai.chat.client.ChatClient;
@@ -20,6 +21,7 @@ import com.boris.settings.SettingsManager;
 import com.boris.tooling.tool.DeleteTool;
 import com.boris.tooling.tool.EditTool;
 import com.boris.tooling.tool.ListFilesTool;
+import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.ReadFileTool;
 import com.boris.tooling.tool.SystemInfoTool;
@@ -40,6 +42,7 @@ public class ToolCallingConfig {
     private final SystemInfoTool systemInfoTool;
     private final WebSearchTool webSearchTool;
     private final PdfGenerationTool pdfGenerationTool;
+    private final OfficeDocumentTool officeDocumentTool;
 
     public ToolCallingConfig() {
         this.readFileTool = new ReadFileTool();
@@ -50,6 +53,7 @@ public class ToolCallingConfig {
         this.systemInfoTool = new SystemInfoTool();
         this.webSearchTool = new WebSearchTool();
         this.pdfGenerationTool = new PdfGenerationTool();
+        this.officeDocumentTool = new OfficeDocumentTool();
     }
 
     public static String loadSystemPrompt(Settings settings) {
@@ -85,12 +89,24 @@ public class ToolCallingConfig {
             - get_system_info(): Get OS, memory, CPU info.
             - web_search(query, count): Search the web using Bing via Playwright. Returns titles, URLs, and snippets with no API key required. Parameters: query (required), count (1-10, default 5).
             - generate_pdf(content, outputPath, contentType): Generate PDF from HTML, Markdown, or plain text. Parameters: content (required), outputPath (required), contentType (required: 'html', 'markdown', or 'text').
+            - create_office_document(documentType, outputPath, title, content, customization): Create personalized Word, PowerPoint, or Excel documents with advanced styling and layouts. 
+            
+            OFFICE DOCUMENT PARAMETERS (customization JSON):
+            
+            COLORS: primaryColor, secondaryColor, accentColor, textColor, backgroundColor, headerBgColor, footerBgColor, borderColor, tableBorderColor, tableHeaderBg, tableRowBg, tableAlternateRowBg (all hex: RRGGBB)
+            
+            TEXT STYLES: fontFamily, headerFontSize, bodyFontSize, footerFontSize (integers), boldTitle, italicBody, underlineHeaders (boolean)
+            
+            SPACING: marginTop, marginBottom, marginLeft, marginRight, paddingHeader, paddingContent, paddingFooter (pixels), lineSpacing (1.0, 1.5, 2.0)
+            
+            DESIGN: layout ("oneColumn", "twoColumn", "threeColumn", "grid"), style ("corporate", "modern", "minimal", "colorful"), headerStyle ("solid", "gradient", "banner"), borderStyle ("solid", "dashed", "dotted", "none"), borderWidth (1-5), shadowEffect (true/false)
 
             INSTRUCTIONS:
             1. Analyze the user's request carefully.
             2. Use tools directly — do not explain what you would do.
             3. When writing files, include full content with all code and imports.
             4. Always read existing files before editing them.
+            5. For office documents: extract ALL customization parameters from user instructions (colors, layout, text styles, spacing, effects) and pass them as a complete JSON object to create_office_document. The more complete the customization object, the more varied the designs.
             """;
 
     public static ChatClient buildChatClientWithTools(String settingsPath) throws Exception {
@@ -204,5 +220,23 @@ public class ToolCallingConfig {
         args.put("outputPath", outputPath);
         args.put("contentType", contentType);
         return pdfGenerationTool.execute(args);
+    }
+
+    @Tool(
+            name = "create_office_document",
+            description = "Create personalized Word (.docx), PowerPoint (.pptx), or Excel (.xlsx) documents with advanced styling, multiple layouts, text effects, and corporate design templates.")
+    public String create_office_document(
+            @ToolParam(description = "Document type: 'word', 'powerpoint', or 'excel'") String documentType,
+            @ToolParam(description = "Absolute or relative output file path") String outputPath,
+            @ToolParam(description = "Document title") String title,
+            @ToolParam(description = "Document content (plain text; for tables use pipe-separated: col1|col2|col3; separate columns with ---)") String content,
+            @ToolParam(description = "JSON object with complete styling: {primaryColor, secondaryColor, accentColor, textColor, backgroundColor, fontFamily, headerFontSize, bodyFontSize, boldTitle, italicBody, underlineHeaders, marginTop, marginBottom, marginLeft, marginRight, lineSpacing, layout (oneColumn|twoColumn|threeColumn|grid), style (corporate|modern|minimal|colorful), headerStyle, borderStyle, borderWidth, shadowEffect, and table styling colors}") java.util.Map<String, Object> customization) {
+        Map<String, Object> params = new java.util.LinkedHashMap<>();
+        params.put("documentType", documentType);
+        params.put("outputPath", outputPath);
+        params.put("title", title);
+        params.put("content", content);
+        params.put("customization", customization != null ? customization : new HashMap<>());
+        return OfficeDocumentTool.execute(params);
     }
 }
