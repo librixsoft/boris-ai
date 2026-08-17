@@ -6,19 +6,15 @@ public class Settings {
     private ModelConfig model;
     private Map<String, String> env;
     private String systemPrompt;
+    private Integer maxHistorySize;
+    private Boolean enforceSequentialExecution;
+    private Double temperature;
 
     public Settings() {}
 
     public Settings(ModelConfig model, Map<String, String> env) {
         this.model = model;
         this.env = env;
-    }
-
-    public static Settings defaultSettings() {
-        return new Settings(
-            new ModelConfig("http://localhost:11434", "qwen3.6-35b-64k"),
-            Map.of("OLLAMA_API_KEY", "ollama")
-        );
     }
 
     public ModelConfig getModel() { return model; }
@@ -28,4 +24,13 @@ public class Settings {
 
     public String getSystemPrompt() { return systemPrompt; }
     public void setSystemPrompt(String systemPrompt) { this.systemPrompt = systemPrompt; }
+    
+    public Integer getMaxHistorySize() { return maxHistorySize; }
+    public void setMaxHistorySize(Integer maxHistorySize) { this.maxHistorySize = maxHistorySize; }
+    
+    public Boolean getEnforceSequentialExecution() { return enforceSequentialExecution; }
+    public void setEnforceSequentialExecution(Boolean enforceSequentialExecution) { this.enforceSequentialExecution = enforceSequentialExecution; }
+    
+    public Double getTemperature() { return temperature; }
+    public void setTemperature(Double temperature) { this.temperature = temperature; }
 }

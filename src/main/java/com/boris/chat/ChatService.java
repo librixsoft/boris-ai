@@ -129,9 +129,12 @@ public class ChatService {
         String prompt = ToolCallingConfig.loadSystemPrompt(s);
         var chatModel = buildChatModel(s);
         
+        // Usar parámetros de configuración
+        int historySize = s.getMaxHistorySize();
+        
         // Crear ChatService con historial
         TaskAborter aborter = new TaskAborter();
-        ChatService chatService = new ChatService(() -> null, botName, aborter, 10);
+        ChatService chatService = new ChatService(() -> null, botName, aborter, historySize);
         
         // Crear ChatClient con el system prompt y tools
         ChatClient client = ChatClient.builder(chatModel)
@@ -140,7 +143,7 @@ public class ChatService {
                 .build();
         
         // Crear nuevo ChatService con el client real
-        return new ChatService(() -> client, botName, aborter, 10);
+        return new ChatService(() -> client, botName, aborter, historySize);
     }
 
     /** Expose the aborter so UI can wire ESC key to it. */
@@ -172,15 +175,16 @@ public class ChatService {
         }
         
         StringBuilder promptBuilder = new StringBuilder();
-        promptBuilder.append("CONTEXTO DE LA CONVERSACIÓN ANTERIOR:\n");
-        promptBuilder.append("==============================\n");
+        promptBuilder.append("===== CONTEXTO DE LA CONVERSACIÓN ANTERIOR =====\n");
+        promptBuilder.append("IMPORTANTE: Mantén el contexto de lo que estamos trabajando. Si estábamos en medio de una tarea, continúa desde donde nos quedamos.\n\n");
         
         for (String message : conversationHistory) {
             promptBuilder.append(message).append("\n");
         }
         
-        promptBuilder.append("==============================\n");
+        promptBuilder.append("\n===== FIN DEL CONTEXTO =====\n");
         promptBuilder.append("MENSAJE ACTUAL: ").append(currentMessage);
+        promptBuilder.append("\n\nINSTRUCCIÓN: Si esto es una continuación de una tarea anterior, continúa secuencialmente desde donde nos quedamos. No empieces de nuevo ni saltes pasos.");
         return promptBuilder.toString();
     }
 

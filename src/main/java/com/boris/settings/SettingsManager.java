@@ -3,6 +3,7 @@ package com.boris.settings;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -31,7 +32,15 @@ public class SettingsManager {
             Files.createDirectories(parent);
         }
 
-        String defaultJson = MAPPER.writeValueAsString(Settings.defaultSettings());
+        // Crear configuración por defecto con los nuevos campos
+        Settings defaultSettings = new Settings();
+        defaultSettings.setModel(new ModelConfig("http://localhost:11434", "qwen3.6-35b-64k"));
+        defaultSettings.setEnv(Map.of("OLLAMA_API_KEY", "ollama"));
+        defaultSettings.setMaxHistorySize(20);
+        defaultSettings.setEnforceSequentialExecution(true);
+        defaultSettings.setTemperature(0.7);
+
+        String defaultJson = MAPPER.writeValueAsString(defaultSettings);
         Files.writeString(path, defaultJson, StandardCharsets.UTF_8);
     }
 
