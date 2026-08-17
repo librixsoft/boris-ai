@@ -21,3 +21,7 @@
   - [ ] Crear comandos /skill list, /skill load, /skill unload
 
 - [x] En la UI cuando se envie un mensaje y aparece el spinner abajo siempre debera mostrarse el input text del usuario (de momento como no habra un sistema de colas complejo) cuando el modelo o chat aun este procesando la info y aparezda el spinner el user tendra habgilitado el campo de input si envia un nuevo prompt se enviara al chat pero no se proesara hasta q termine de responder el chat, el sistema de colas de momento sera muy sencillo se ira guardando en un array list e ira saliendo en ese orden de momento las colas son muy sencillas posteriormente se robusteceran
+
+- [ ] Al pedirle al agente "busca info sobre esta web y generame un odf con esta info" ha creado un pdf con css, el agente no sabe interpretar o hace falta decirle como usar la tool o hacer strip solo de contenido
+
+- [x] En el chat cuando se recibe una respuesta del modelo con formato json o markdown se repite muchas veces la respuesta en el chat, se imprimie multiples veces

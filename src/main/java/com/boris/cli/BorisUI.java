@@ -261,6 +261,7 @@ public class BorisUI {
             return;
         }
         if (text.equals("/clear")) {
+            chatService.clearHistory();
             rawTranscript.setLength(0);
             gui.getGUIThread().invokeLater(() -> chatBox.setText(""));
             return;
@@ -282,14 +283,30 @@ public class BorisUI {
                             if (chunk != null && !chunk.isEmpty()) {
                                 if (firstChunk.compareAndSet(true, false)) {
                                     waiting.set(false);
-                                    appendLine("● ");
+                                    // Agregar salto de línea y el prefijo del asistente
+                                    gui.getGUIThread().invokeLater(() -> {
+                                        if (rawTranscript.length() > 0) rawTranscript.append("\n");
+                                        rawTranscript.append("● ");
+                                        renderTranscript();
+                                        scrollToBottom();
+                                    });
                                 }
-                                assistantBuffer.append(chunk);
-                                replaceLastLine("● " + assistantBuffer);
+                                // Simplemente agregar el chunk al final, sin reemplazar
+                                gui.getGUIThread().invokeLater(() -> {
+                                    rawTranscript.append(chunk);
+                                    renderTranscript();
+                                    scrollToBottom();
+                                });
                             }
                         },
                         () -> {
                             waiting.set(false);
+                            // Agregar salto de línea al final de la respuesta
+                            gui.getGUIThread().invokeLater(() -> {
+                                rawTranscript.append("\n");
+                                renderTranscript();
+                                scrollToBottom();
+                            });
                             String finalText = assistantBuffer.toString();
                             if (ChatService.EXIT_COMMAND.equals(finalText)) {
                                 gui.getGUIThread().invokeLater(() -> window.close());
@@ -311,16 +328,6 @@ public class BorisUI {
         gui.getGUIThread().invokeLater(() -> {
             if (rawTranscript.length() > 0) rawTranscript.append("\n");
             rawTranscript.append(text);
-            renderTranscript();
-            scrollToBottom();
-        });
-    }
-
-    private void replaceLastLine(String newText) {
-        gui.getGUIThread().invokeLater(() -> {
-            int lastNewline = rawTranscript.lastIndexOf("\n");
-            rawTranscript.setLength(lastNewline >= 0 ? lastNewline + 1 : 0);
-            rawTranscript.append(newText);
             renderTranscript();
             scrollToBottom();
         });
