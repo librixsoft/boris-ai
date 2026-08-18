@@ -26,16 +26,6 @@
 
 - [x] En el chat cuando se recibe una respuesta del modelo con formato json o markdown se repite muchas veces la respuesta en el chat, se imprimie multiples veces
 
-- [ ] SettingsDoctor/Parser de Configuración
-  - [ ] Crear clase `SettingsDoctor` en `src/main/java/com/boris/settings/SettingsDoctor.java`
-  - [ ] Cargar plantilla JSON original desde resources (`src/main/resources/settings-template.json`)
-  - [ ] Leer el settings.json del usuario y compararlo con la plantilla
-  - [ ] Detectar campos faltantes, tipos incorrectos, valores inválidos y estructura corrupta
-  - [ ] Corregir automáticamente el settings.json del usuario:
-    - [ ] Agregar campos faltantes con valores de la plantilla
-    - [ ] Corregir tipos de datos incorrectos
-    - [ ] Validar valores contra esquema/validaciones
-    - [ ] Reparar estructura JSON si es posible
-  - [ ] Generar reporte de cambios realizados
-  - [ ] Ofrecer opción de backup antes de corregir
-  - [ ] Integrar con SettingsManager para validación al cargar
+- [ ] Implementar un settings doctor (settings.json) por si se rompe el file de config se restaure
+
+- [ ] Aplicar plan core  diffs: /Users/lastprophet/Documents/workspaces/boris-ai/plans/plan-so-tool-calling-refined.md
