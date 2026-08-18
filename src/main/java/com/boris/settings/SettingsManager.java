@@ -12,7 +12,7 @@ public class SettingsManager {
 
     private static final String DEFAULT_SETTINGS_PATH = System.getProperty("user.home") + "/.boris/settings.json";
 
-    private static final String AGENTS_MD_RESOURCE = "/AGENTS.md";
+    private static final String AGENTS_MD_RESOURCE = "/prompts/init/AGENTS.md";
     private static final String AGENTS_MD_DEST = System.getProperty("user.home") + "/.boris/AGENTS.md";
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
