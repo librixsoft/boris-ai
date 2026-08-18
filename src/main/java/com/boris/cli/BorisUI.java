@@ -637,13 +637,11 @@ public class BorisUI {
                             // Render table row with formatting
                             renderTableRow(graphics, line, i, size, isHeader, columnWidths);
                         } else {
-                            // Normal line
+                            // Normal line - apply markdown formatting
                             inTable = false;
                             isHeader = false;
                             columnWidths.clear();
-                            graphics.setBackgroundColor(BG);
-                            graphics.setForegroundColor(FG);
-                            graphics.putString(0, i, padOrTruncate(line, size.getColumns() - scrollbarWidth()));
+                            renderMarkdownLine(graphics, line, i, size);
                         }
                     }
 
@@ -652,6 +650,201 @@ public class BorisUI {
                     }
 
                     drawScrollbar(graphics, size.getColumns(), visibleRows, maxOffset, scrollOffset);
+                }
+
+                private void renderMarkdownLine(TextGUIGraphics graphics, String line, int row, TerminalSize size) {
+                    graphics.setBackgroundColor(BG);
+                    
+                    // Check for headers (# ## ###)
+                    if (line.startsWith("###")) {
+                        graphics.setForegroundColor(ACCENT);
+                        String content = line.substring(3).trim();
+                        graphics.putString(0, row, padOrTruncate("   " + content, size.getColumns() - scrollbarWidth()));
+                        return;
+                    }
+                    if (line.startsWith("##")) {
+                        graphics.setForegroundColor(ACCENT);
+                        String content = line.substring(2).trim();
+                        graphics.putString(0, row, padOrTruncate("  " + content, size.getColumns() - scrollbarWidth()));
+                        return;
+                    }
+                    if (line.startsWith("#")) {
+                        graphics.setForegroundColor(ACCENT);
+                        String content = line.substring(1).trim();
+                        graphics.putString(0, row, padOrTruncate(" " + content, size.getColumns() - scrollbarWidth()));
+                        return;
+                    }
+                    
+                    // Check for blockquotes (> )
+                    if (line.trim().startsWith(">")) {
+                        graphics.setForegroundColor(MUTED);
+                        graphics.putString(0, row, padOrTruncate(line, size.getColumns() - scrollbarWidth()));
+                        return;
+                    }
+                    
+                    // Check for code blocks (``` or ```)
+                    if (line.trim().startsWith("```") || line.trim().startsWith("``")) {
+                        graphics.setForegroundColor(USERC);
+                        graphics.setBackgroundColor(BG_ELEVATED);
+                        graphics.putString(0, row, padOrTruncate(line, size.getColumns() - scrollbarWidth()));
+                        return;
+                    }
+                    
+                    // Check for inline code (`code`)
+                    if (line.contains("`")) {
+                        renderInlineCode(graphics, line, row, size);
+                        return;
+                    }
+                    
+                    // Check for bold (**text**)
+                    if (line.contains("**")) {
+                        renderBoldText(graphics, line, row, size);
+                        return;
+                    }
+                    
+                    // Check for italic (*text*)
+                    if (line.contains("*") && !line.contains("**")) {
+                        renderItalicText(graphics, line, row, size);
+                        return;
+                    }
+                    
+                    // Check for lists (- or *)
+                    if (line.trim().startsWith("- ") || line.trim().startsWith("* ")) {
+                        graphics.setForegroundColor(USERC);
+                        graphics.putString(0, row, padOrTruncate(line, size.getColumns() - scrollbarWidth()));
+                        return;
+                    }
+                    
+                    // Check for numbered lists (1. 2. etc)
+                    if (line.trim().matches("^\\d+\\..*")) {
+                        graphics.setForegroundColor(USERC);
+                        graphics.putString(0, row, padOrTruncate(line, size.getColumns() - scrollbarWidth()));
+                        return;
+                    }
+                    
+                    // Default text
+                    graphics.setForegroundColor(FG);
+                    graphics.putString(0, row, padOrTruncate(line, size.getColumns() - scrollbarWidth()));
+                }
+
+                private void renderInlineCode(TextGUIGraphics graphics, String line, int row, TerminalSize size) {
+                    graphics.setBackgroundColor(BG);
+                    int x = 0;
+                    StringBuilder current = new StringBuilder();
+                    boolean inCode = false;
+                    
+                    for (int i = 0; i < line.length() && x < size.getColumns() - scrollbarWidth(); i++) {
+                        char c = line.charAt(i);
+                        
+                        if (c == '`' && (i == 0 || line.charAt(i-1) != '\\')) {
+                            if (inCode) {
+                                // End of code block
+                                graphics.setBackgroundColor(BG_ELEVATED);
+                                graphics.setForegroundColor(USERC);
+                                graphics.putString(x, row, current.toString());
+                                x += current.length();
+                                current.setLength(0);
+                                inCode = false;
+                                graphics.setBackgroundColor(BG);
+                                graphics.setForegroundColor(FG);
+                            } else {
+                                // Start of code block
+                                inCode = true;
+                            }
+                        } else {
+                            current.append(c);
+                        }
+                    }
+                    
+                    // Flush remaining text
+                    if (current.length() > 0) {
+                        if (inCode) {
+                            graphics.setBackgroundColor(BG_ELEVATED);
+                            graphics.setForegroundColor(USERC);
+                        } else {
+                            graphics.setBackgroundColor(BG);
+                            graphics.setForegroundColor(FG);
+                        }
+                        graphics.putString(x, row, padOrTruncate(current.toString(), size.getColumns() - scrollbarWidth() - x));
+                    }
+                }
+
+                private void renderBoldText(TextGUIGraphics graphics, String line, int row, TerminalSize size) {
+                    graphics.setBackgroundColor(BG);
+                    int x = 0;
+                    StringBuilder current = new StringBuilder();
+                    boolean inBold = false;
+                    
+                    for (int i = 0; i < line.length() && x < size.getColumns() - scrollbarWidth(); i++) {
+                        char c = line.charAt(i);
+                        
+                        if (c == '*' && i + 1 < line.length() && line.charAt(i + 1) == '*') {
+                            if (inBold) {
+                                // End of bold
+                                graphics.setForegroundColor(ACCENT);
+                                graphics.putString(x, row, current.toString());
+                                x += current.length();
+                                current.setLength(0);
+                                inBold = false;
+                                i++; // skip second *
+                                graphics.setForegroundColor(FG);
+                            } else {
+                                // Start of bold
+                                inBold = true;
+                                i++; // skip second *
+                            }
+                        } else {
+                            current.append(c);
+                        }
+                    }
+                    
+                    // Flush remaining text
+                    if (current.length() > 0) {
+                        if (inBold) {
+                            graphics.setForegroundColor(ACCENT);
+                        } else {
+                            graphics.setForegroundColor(FG);
+                        }
+                        graphics.putString(x, row, padOrTruncate(current.toString(), size.getColumns() - scrollbarWidth() - x));
+                    }
+                }
+
+                private void renderItalicText(TextGUIGraphics graphics, String line, int row, TerminalSize size) {
+                    graphics.setBackgroundColor(BG);
+                    int x = 0;
+                    StringBuilder current = new StringBuilder();
+                    boolean inItalic = false;
+                    
+                    for (int i = 0; i < line.length() && x < size.getColumns() - scrollbarWidth(); i++) {
+                        char c = line.charAt(i);
+                        
+                        if (c == '*' && (i == 0 || line.charAt(i-1) != '*')) {
+                            if (inItalic) {
+                                // End of italic
+                                graphics.setForegroundColor(SELECTED_BG);
+                                graphics.putString(x, row, current.toString());
+                                x += current.length();
+                                current.setLength(0);
+                                inItalic = false;
+                                graphics.setForegroundColor(FG);
+                            } else {
+                                // Start of italic
+                                inItalic = true;
+                            }
+                        } else {
+                            current.append(c);
+                        }
+                    }
+                    
+                    // Flush remaining text
+                    if (current.length() > 0) {
+                        if (inItalic) {
+                            graphics.setForegroundColor(SELECTED_BG);
+                        } else {
+                            graphics.setForegroundColor(FG);
+                        }
+                        graphics.putString(x, row, padOrTruncate(current.toString(), size.getColumns() - scrollbarWidth() - x));
+                    }
                 }
 
                 private List<Integer> parseColumnWidths(String line) {
