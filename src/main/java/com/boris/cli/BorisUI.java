@@ -603,10 +603,48 @@ public class BorisUI {
 
                     graphics.setBackgroundColor(BG);
 
+                    // Track if we're inside a table and if we're rendering the header
+                    boolean inTable = false;
+                    boolean isHeader = false;
+                    List<Integer> columnWidths = new ArrayList<>();
+
                     for (int i = 0; i < visibleRows && scrollOffset + i < lines.size(); i++) {
                         String line = lines.get(scrollOffset + i);
-                        String displayLine = padOrTruncate(line, size.getColumns() - scrollbarWidth());
-                        graphics.putString(0, i, displayLine);
+                        
+                        // Detect table markdown
+                        if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
+                            // Check if it's a separator line (contains only -, +, and |)
+                            String trimmed = line.trim().replaceAll("\\|", "").trim();
+                            if (trimmed.matches("^[-+\\s]+$")) {
+                                // Separator line - skip but stay in table
+                                inTable = true;
+                                isHeader = false;
+                                graphics.setBackgroundColor(BG);
+                                graphics.setForegroundColor(MUTED);
+                                graphics.putString(0, i, padOrTruncate(line, size.getColumns() - scrollbarWidth()));
+                                continue;
+                            }
+                            
+                            if (!inTable) {
+                                // Start of new table - parse column widths from header
+                                columnWidths = parseColumnWidths(line);
+                                inTable = true;
+                                isHeader = true;
+                            } else {
+                                isHeader = false;
+                            }
+                            
+                            // Render table row with formatting
+                            renderTableRow(graphics, line, i, size, isHeader, columnWidths);
+                        } else {
+                            // Normal line
+                            inTable = false;
+                            isHeader = false;
+                            columnWidths.clear();
+                            graphics.setBackgroundColor(BG);
+                            graphics.setForegroundColor(FG);
+                            graphics.putString(0, i, padOrTruncate(line, size.getColumns() - scrollbarWidth()));
+                        }
                     }
 
                     for (int i = (lines.size() - scrollOffset); i < visibleRows; i++) {
@@ -614,6 +652,55 @@ public class BorisUI {
                     }
 
                     drawScrollbar(graphics, size.getColumns(), visibleRows, maxOffset, scrollOffset);
+                }
+
+                private List<Integer> parseColumnWidths(String line) {
+                    List<Integer> widths = new ArrayList<>();
+                    String[] parts = line.split("\\|");
+                    for (String part : parts) {
+                        if (!part.trim().isEmpty()) {
+                            widths.add(part.trim().length() + 2); // +2 for padding
+                        }
+                    }
+                    return widths;
+                }
+
+                private void renderTableRow(TextGUIGraphics graphics, String line, int row, TerminalSize size, boolean isHeader, List<Integer> columnWidths) {
+                    String[] parts = line.split("\\|");
+                    int x = 0;
+                    
+                    // Set colors based on whether it's header or data
+                    if (isHeader) {
+                        graphics.setBackgroundColor(BG_ELEVATED);
+                        graphics.setForegroundColor(ACCENT);
+                    } else {
+                        graphics.setBackgroundColor(BG);
+                        graphics.setForegroundColor(FG);
+                    }
+                    
+                    // Draw left border
+                    graphics.putString(x, row, "│");
+                    x += 1;
+                    
+                    // Draw cells
+                    for (int i = 1; i < parts.length - 1; i++) { // Skip first and last empty parts
+                        String cell = parts[i].trim();
+                        int cellWidth = columnWidths.size() > i - 1 ? columnWidths.get(i - 1) : 15;
+                        
+                        // Pad cell content
+                        String paddedCell = padOrTruncate(cell, cellWidth - 1);
+                        graphics.putString(x, row, paddedCell);
+                        x += cellWidth;
+                        
+                        // Draw separator
+                        graphics.putString(x, row, "│");
+                        x += 1;
+                    }
+                    
+                    // Fill remaining space
+                    if (x < size.getColumns() - scrollbarWidth()) {
+                        graphics.putString(x, row, padOrTruncate("", size.getColumns() - scrollbarWidth() - x));
+                    }
                 }
 
                 private void drawScrollbar(TextGUIGraphics graphics, int totalWidth, int visibleRows, int maxOffset, int currentOffset) {
