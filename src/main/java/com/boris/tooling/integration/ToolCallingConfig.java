@@ -31,7 +31,8 @@ import com.boris.tooling.tool.WriteTool;
 public class ToolCallingConfig {
 
     private static final String[] SYSTEM_PROMPT_PATHS = {
-        "~/.boris/AGENTS.md"
+        "~/.boris/AGENTS.md",
+        "src/main/resources/prompts/init/AGENTS.md"
     };
 
     private final ReadFileTool readFileTool;
@@ -58,7 +59,10 @@ public class ToolCallingConfig {
 
     public static String loadSystemPrompt(Settings settings) {
         StringBuilder prompt = new StringBuilder();
-        prompt.append(DEFAULT_SYSTEM_PROMPT.trim());
+        
+        // Load default system prompt from resources
+        String defaultPrompt = loadDefaultSystemPrompt();
+        prompt.append(defaultPrompt.trim());
 
         try {
             for (String path : SYSTEM_PROMPT_PATHS) {
@@ -75,55 +79,25 @@ public class ToolCallingConfig {
         return prompt.toString();
     }
 
-    private static final String DEFAULT_SYSTEM_PROMPT = """
-            Default system prompt — no AGENTS.md found at any configured path.
-
-            ===== CRITICAL BEHAVIOR RULES =====
-            1. EXECUTE TASKS STRICTLY SEQUENTIALLY - Complete one task entirely before starting the next
-            2. NEVER parallelize tasks or work on multiple things simultaneously
-            3. ALWAYS verify the current state before making changes
-            4. NEVER assume file contents - READ files before editing them
-            5. COMPLETE each subtask fully before moving to the next one
-            6. REPORT completion status clearly after each major step
-            7. MAINTAIN context - remember what you're working on throughout the conversation
-
-            ===== TASK EXECUTION PROTOCOL =====
-            When given a complex task:
-            1. Break it down into clear, sequential steps
-            2. Execute step 1 completely
-            3. Confirm step 1 completion before starting step 2
-            4. Continue until all steps are complete
-            5. Never skip ahead or work on multiple steps at once
-
-            ===== AVAILABLE TOOLS =====
-            - read_file(path): Read file contents from disk.
-            - write_file(path, content): Create or overwrite a file.
-            - delete_file(path): Delete a file.
-            - list_files(path): List directory contents.
-            - apply_edit(path, old_text, new_text): Apply a surgical edit to an existing file.
-            - multi_edit(path, edits): Apply multiple sequential edits to a file.
-            - revert_edit(path, old_text, new_text): Revert a previous edit by restoring original content.
-            - get_system_info(): Get OS, memory, CPU info.
-            - web_search(query, count): Search the web using Bing via Playwright. Returns titles, URLs, and snippets with no API key required. Parameters: query (required), count (1-10, default 5).
-            - generate_pdf(content, outputPath, contentType): Generate PDF from HTML, Markdown, or plain text. Parameters: content (required), outputPath (required), contentType (required: 'html', 'markdown', or 'text').
-            - create_office_document(documentType, outputPath, title, content, customization): Create personalized Word, PowerPoint, or Excel documents with advanced styling and layouts.
+    private static String loadDefaultSystemPrompt() {
+        try {
+            // Load from resources directory
+            Path resourcePath = Path.of("src/main/resources/prompts/core/default-system-prompt.md");
+            if (Files.exists(resourcePath)) {
+                return Files.readString(resourcePath);
+            }
             
-            ===== OFFICE DOCUMENT PARAMETERS (customization JSON) =====
-            COLORS: primaryColor, secondaryColor, accentColor, textColor, backgroundColor, headerBgColor, footerBgColor, borderColor, tableBorderColor, tableHeaderBg, tableRowBg, tableAlternateRowBg (all hex: RRGGBB)
-            TEXT STYLES: fontFamily, headerFontSize, bodyFontSize, footerFontSize (integers), boldTitle, italicBody, underlineHeaders (boolean)
-            SPACING: marginTop, marginBottom, marginLeft, marginRight, paddingHeader, paddingContent, paddingFooter (pixels), lineSpacing (1.0, 1.5, 2.0)
-            DESIGN: layout ("oneColumn", "twoColumn", "threeColumn", "grid"), style ("corporate", "modern", "minimal", "colorful"), headerStyle ("solid", "gradient", "banner"), borderStyle ("solid", "dashed", "dotted", "none"), borderWidth (1-5), shadowEffect (true/false)
-
-            ===== INSTRUCTIONS =====
-            1. Focus on ONE task at a time only. Complete it fully before moving to the next.
-            2. Analyze the user's request carefully and confirm understanding.
-            3. Use tools directly — do not explain what you would do, just do it.
-            4. When writing files, include full content with all code and imports.
-            5. Always read existing files before editing them - NEVER assume contents.
-            6. For office documents: extract ALL customization parameters from user instructions (colors, layout, text styles, spacing, effects) and pass them as a complete JSON object to create_office_document.
-            7. Report progress clearly: "Step 1/3: Reading file..." then "Step 1/3: Complete"
-            8. If uncertain about context, ask for clarification rather than making assumptions.
-            """;
+            // Fallback to classpath resource
+            var resource = ToolCallingConfig.class.getClassLoader().getResourceAsStream("prompts/core/default-system-prompt.md");
+            if (resource != null) {
+                return new String(resource.readAllBytes());
+            }
+            
+            throw new BorisException("Default system prompt file not found: src/main/resources/prompts/core/default-system-prompt.md");
+        } catch (IOException e) {
+            throw new BorisException("Failed to load default system prompt: " + e.getMessage(), e);
+        }
+    }
 
     public static ChatClient buildChatClientWithTools(String settingsPath) throws Exception {
         LlmClient llmClient = new LlmClient(settingsPath);
