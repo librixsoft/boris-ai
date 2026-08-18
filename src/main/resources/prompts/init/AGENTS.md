@@ -38,7 +38,10 @@ Cuando recibas un plan con fases:
 
 - Antes de CUALQUIER acción: ESTADO qué fase estás en y qué paso estás ejecutando
 - Después de CUALQUIER acción: CONFIRMA completado y cuál es el siguiente paso inmediato
-- Mantén un checklist mental: Fase Actual → Paso Actual → Verificación → Siguiente Paso
+- SIEMPRE muestra una tabla de progreso en el chat con el estado actual:
+  | Fase Actual | Paso Actual | Verificación | Siguiente Paso |
+  |-------------|-------------|--------------|----------------|
+  | [Fase]      | [Paso]      | [Estado]     | [Siguiente]    |
 - Si necesitas referencia de fases anteriores, úsala solo para contexto, nunca para ejecución
 
 ## Protocolo de notificaciones

@@ -29,7 +29,10 @@ When given a complex task with phases:
 1. Before ANY action: STATE which phase you're in and which step you're executing
 2. After ANY action: CONFIRM completion and state the next immediate step
 3. If you lose context: STOP and ask "What phase should I continue with?"
-4. Keep a mental checklist: Current Phase → Current Step → Verification → Next Step
+4. ALWAYS display a progress table in chat with current status:
+   | Fase Actual | Paso Actual | Verificación | Siguiente Paso |
+   |-------------|-------------|--------------|----------------|
+   | [Phase]     | [Step]      | [Status]     | [Next Action]  |
 5. Reference previous phases only when needed for context, never for execution
 
 ===== NOTIFICATION PROTOCOL =====
