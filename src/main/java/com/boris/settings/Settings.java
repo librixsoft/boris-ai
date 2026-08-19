@@ -9,6 +9,7 @@ public class Settings {
     private Integer maxHistorySize;
     private Boolean enforceSequentialExecution;
     private Double temperature;
+    private Integer contextWindow;
 
     public Settings() {}
 
@@ -33,4 +34,7 @@ public class Settings {
     
     public Double getTemperature() { return temperature; }
     public void setTemperature(Double temperature) { this.temperature = temperature; }
+    
+    public Integer getContextWindow() { return contextWindow; }
+    public void setContextWindow(Integer contextWindow) { this.contextWindow = contextWindow; }
 }

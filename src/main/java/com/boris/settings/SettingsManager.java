@@ -39,6 +39,7 @@ public class SettingsManager {
         defaultSettings.setMaxHistorySize(20);
         defaultSettings.setEnforceSequentialExecution(true);
         defaultSettings.setTemperature(0.7);
+        defaultSettings.setContextWindow(10000);
 
         String defaultJson = MAPPER.writeValueAsString(defaultSettings);
         Files.writeString(path, defaultJson, StandardCharsets.UTF_8);

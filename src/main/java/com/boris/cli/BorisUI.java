@@ -37,6 +37,8 @@ import com.googlecode.lanterna.terminal.Terminal;
 
 import com.boris.chat.ChatService;
 import com.boris.task.TaskAborter;
+import com.boris.settings.Settings;
+import com.boris.settings.SettingsManager;
 
 /**
  * BorisUI — TUI fullscreen estilo Claude Code / Qwen CLI, sobre Lanterna.
@@ -77,6 +79,18 @@ public class BorisUI {
     private final ChatService chatService;
     private final TaskAborter taskAborter = new TaskAborter();
     private volatile boolean wasAborted = false;
+    
+    // Contador de tokens generados en la sesión
+    private volatile int generatedTokens = 0;
+    private volatile int contextWindowLimit = 0;
+    
+    // Método para formatear tokens en formato k
+    private String formatTokens(int tokens) {
+        if (tokens >= 1000) {
+            return (tokens / 1000) + "k";
+        }
+        return String.valueOf(tokens);
+    }
 
     private Screen screen;
     private MultiWindowTextGUI gui;
@@ -98,6 +112,15 @@ public class BorisUI {
 
     public BorisUI(String settingsPath) throws Exception {
         this.chatService = ChatService.withTools(settingsPath, "boris");
+        
+        // Leer el contextWindow desde el settings
+        SettingsManager mgr = new SettingsManager();
+        Settings s = mgr.loadSettings(settingsPath);
+        if (s != null && s.getContextWindow() != null) {
+            this.contextWindowLimit = s.getContextWindow();
+        } else {
+            this.contextWindowLimit = 10000; // valor por defecto
+        }
     }
 
     public void start() throws Exception {
@@ -130,6 +153,11 @@ public class BorisUI {
 
         appendLine("boris listo. Escribí un mensaje y Enter. "
                 + "/exit para salir, /clear para limpiar, ESC para abortar tarea, Tab para mover el foco entre chat e input.");
+        
+        // Mostrar contador inicial de tokens
+        gui.getGUIThread().invokeLater(() -> {
+            statusLabel.setText(" tokens: " + formatTokens(generatedTokens) + "/" + formatTokens(contextWindowLimit));
+        });
 
         try {
             window.waitUntilClosed();
@@ -326,7 +354,17 @@ public class BorisUI {
         if (text.equals("/clear")) {
             chatService.clearHistory();
             rawTranscript.setLength(0);
-            gui.getGUIThread().invokeLater(() -> chatBox.setText(""));
+            generatedTokens = 0; // resetear contador de tokens
+            gui.getGUIThread().invokeLater(() -> {
+                chatBox.setText("");
+                statusLabel.setText("");
+            });
+            return;
+        }
+        
+        // Verificar si se ha alcanzado el límite de tokens
+        if (generatedTokens >= contextWindowLimit) {
+            appendLine("✗ límite de tokens alcanzado (" + formatTokens(contextWindowLimit) + "). No se pueden enviar más mensajes en esta sesión.");
             return;
         }
 
@@ -359,6 +397,9 @@ public class BorisUI {
                                 return;
                             }
                             if (chunk != null && !chunk.isEmpty()) {
+                                // Contar tokens (aproximación: cada chunk ~1 token)
+                                generatedTokens += chunk.length();
+                                
                                 if (firstChunk.compareAndSet(true, false)) {
                                     // Agregar salto de línea y el prefijo del asistente
                                     gui.getGUIThread().invokeLater(() -> {
@@ -383,6 +424,12 @@ public class BorisUI {
                                 rawTranscript.append("\n");
                                 renderTranscript();
                                 scrollToBottom();
+                                // Mostrar mensaje si se alcanzó el límite
+                                if (generatedTokens >= contextWindowLimit) {
+                                    statusLabel.setText(" tokens: " + formatTokens(generatedTokens) + "/" + formatTokens(contextWindowLimit) + " (límite alcanzado)");
+                                } else {
+                                    statusLabel.setText(" tokens: " + formatTokens(generatedTokens) + "/" + formatTokens(contextWindowLimit));
+                                }
                             });
                             String finalText = assistantBuffer.toString();
                             if (ChatService.EXIT_COMMAND.equals(finalText)) {
@@ -498,7 +545,7 @@ public class BorisUI {
                 final int seconds = (int) (elapsed / 1000) % 60;
                 final int minutes = (int) (elapsed / 1000) / 60;
                 
-                gui.getGUIThread().invokeLater(() -> statusLabel.setText(" " + frame + " pensando... " + minutes + "m " + seconds + "s"));
+                gui.getGUIThread().invokeLater(() -> statusLabel.setText(" " + frame + " pensando... " + minutes + "m " + seconds + "s   tokens: " + formatTokens(generatedTokens) + "/" + formatTokens(contextWindowLimit)));
                 i++;
                 try {
                     Thread.sleep(80);
@@ -508,7 +555,13 @@ public class BorisUI {
             }
             // Solo limpiar el label si no fue abortado manualmente
             if (!wasAborted) {
-                gui.getGUIThread().invokeLater(() -> statusLabel.setText(""));
+                gui.getGUIThread().invokeLater(() -> {
+                    if (generatedTokens >= contextWindowLimit) {
+                        statusLabel.setText(" tokens: " + formatTokens(generatedTokens) + "/" + formatTokens(contextWindowLimit) + " (límite alcanzado)");
+                    } else {
+                        statusLabel.setText(" tokens: " + formatTokens(generatedTokens) + "/" + formatTokens(contextWindowLimit));
+                    }
+                });
             }
         });
         t.setDaemon(true);
