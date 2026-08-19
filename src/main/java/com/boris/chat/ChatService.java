@@ -24,13 +24,15 @@ public class ChatService {
     private final TaskAborter taskAborter;
     private final List<String> conversationHistory;
     private final int maxHistorySize;
+    private final boolean enableHistory;
 
-    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize) {
+    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory) {
         this.chatClientSupplier = chatClientSupplier;
         this.botName = botName;
         this.taskAborter = taskAborter;
         this.conversationHistory = new ArrayList<>();
         this.maxHistorySize = maxHistorySize;
+        this.enableHistory = enableHistory;
     }
 
     public String sendMessage(String userMessage) {
@@ -56,14 +58,16 @@ public class ChatService {
             // Construir prompt con historial incluido en el mensaje del usuario
             String fullMessage = buildPromptWithHistory(userMessage);
             
-            // Agregar mensaje del usuario al historial
-            conversationHistory.add("User: " + userMessage);
-            trimHistory();
+            // Agregar mensaje del usuario al historial (si está habilitado)
+            if (enableHistory) {
+                conversationHistory.add("User: " + userMessage);
+                trimHistory();
+            }
             
             String response = client.prompt(fullMessage).call().content();
             
-            // Agregar respuesta al historial
-            if (response != null && !response.isEmpty()) {
+            // Agregar respuesta al historial (si está habilitado)
+            if (enableHistory && response != null && !response.isEmpty()) {
                 conversationHistory.add(botName + ": " + response);
                 trimHistory();
             }
@@ -131,10 +135,11 @@ public class ChatService {
         
         // Usar parámetros de configuración
         int historySize = s.getMaxHistorySize();
+        boolean enableHistory = s.getEnableHistory() != null ? s.getEnableHistory() : true;
         
         // Crear ChatService con historial
         TaskAborter aborter = new TaskAborter();
-        ChatService chatService = new ChatService(() -> null, botName, aborter, historySize);
+        ChatService chatService = new ChatService(() -> null, botName, aborter, historySize, enableHistory);
         
         // Crear ChatClient con el system prompt y tools
         ChatClient client = ChatClient.builder(chatModel)
@@ -143,7 +148,7 @@ public class ChatService {
                 .build();
         
         // Crear nuevo ChatService con el client real
-        return new ChatService(() -> client, botName, aborter, historySize);
+        return new ChatService(() -> client, botName, aborter, historySize, enableHistory);
     }
 
     /** Expose the aborter so UI can wire ESC key to it. */
@@ -170,7 +175,7 @@ public class ChatService {
 
     /** Build prompt with conversation history */
     private String buildPromptWithHistory(String currentMessage) {
-        if (conversationHistory.isEmpty()) {
+        if (!enableHistory || conversationHistory.isEmpty()) {
             return currentMessage;
         }
         

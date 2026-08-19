@@ -37,6 +37,7 @@ public class SettingsManager {
         defaultSettings.setModel(new ModelConfig("http://localhost:11434", "qwen3.6-35b-64k"));
         defaultSettings.setEnv(Map.of("OLLAMA_API_KEY", "ollama"));
         defaultSettings.setMaxHistorySize(20);
+        defaultSettings.setEnableHistory(true);
         defaultSettings.setEnforceSequentialExecution(true);
         defaultSettings.setTemperature(0.7);
         defaultSettings.setContextWindow(10000);

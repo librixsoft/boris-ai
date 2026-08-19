@@ -11,6 +11,8 @@
   - [ ] Implementar compresión por cantidad de mensajes (threshold configurable)
   - [ ] Limitar maxTokens en opciones del modelo para reducir consumo de memoria
   - [ ] Agregar estadísticas de uso de tokens/memoria por sesión
+  - [ ] Sistema de gestión de contexto con H2 en memoria y ventana deslizante por tokens (max 16k)
+  - [ ] Contar tokens del historial enviado al modelo (no solo respuestas)
 
 - [x] @Tool PdfGenerationTool para crear PDFs desde HTML, Markdown y texto plano
 - [ ] Sistema de skills compatible con skills estándar (Claude, OpenClaw) en workspace

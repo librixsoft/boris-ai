@@ -7,6 +7,7 @@ public class Settings {
     private Map<String, String> env;
     private String systemPrompt;
     private Integer maxHistorySize;
+    private Boolean enableHistory;
     private Boolean enforceSequentialExecution;
     private Double temperature;
     private Integer contextWindow;
@@ -28,6 +29,9 @@ public class Settings {
     
     public Integer getMaxHistorySize() { return maxHistorySize; }
     public void setMaxHistorySize(Integer maxHistorySize) { this.maxHistorySize = maxHistorySize; }
+    
+    public Boolean getEnableHistory() { return enableHistory; }
+    public void setEnableHistory(Boolean enableHistory) { this.enableHistory = enableHistory; }
     
     public Boolean getEnforceSequentialExecution() { return enforceSequentialExecution; }
     public void setEnforceSequentialExecution(Boolean enforceSequentialExecution) { this.enforceSequentialExecution = enforceSequentialExecution; }
