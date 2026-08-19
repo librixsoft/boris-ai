@@ -488,9 +488,17 @@ public class BorisUI {
     private void startSpinner() {
         Thread t = new Thread(() -> {
             int i = 0;
+            long startTime = System.currentTimeMillis();
+            
             while (waiting.get() && !taskAborter.isAborted()) {
                 String frame = SPINNER_FRAMES[i % SPINNER_FRAMES.length];
-                gui.getGUIThread().invokeLater(() -> statusLabel.setText(" " + frame + " pensando..."));
+                
+                // Calcular tiempo transcurrido directamente en la lambda
+                final long elapsed = System.currentTimeMillis() - startTime;
+                final int seconds = (int) (elapsed / 1000) % 60;
+                final int minutes = (int) (elapsed / 1000) / 60;
+                
+                gui.getGUIThread().invokeLater(() -> statusLabel.setText(" " + frame + " pensando... " + minutes + "m " + seconds + "s"));
                 i++;
                 try {
                     Thread.sleep(80);
