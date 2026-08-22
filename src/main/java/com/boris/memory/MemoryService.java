@@ -123,7 +123,7 @@ public class MemoryService {
         promptBuilder.append("===== CONTEXTO DE LA CONVERSACIÓN =====\n");
 
         if (!contextMessages.isEmpty()) {
-            promptBuilder.append("--- HISTORIAL RECIENTE ---\n");
+            promptBuilder.append("--- CONTEXTO RECUPERADO DE MEMORIA ---\n");
             for (ConversationMessage msg : contextMessages) {
                 promptBuilder.append(msg.getRole().toUpperCase()).append(": ").append(msg.getContent()).append("\n");
             }
@@ -132,7 +132,7 @@ public class MemoryService {
 
         promptBuilder.append("===== FIN DEL CONTEXTO =====\n");
         promptBuilder.append("MENSAJE ACTUAL: ").append(currentMessage);
-        promptBuilder.append("\n\nINSTRUCCIÓN: Continúa secuencialmente desde donde nos quedamos.");
+        promptBuilder.append("\n\nINSTRUCCIÓN: Usa el contexto recuperado solo si es relevante para el mensaje actual.");
 
         return promptBuilder.toString();
     }
@@ -152,7 +152,7 @@ public class MemoryService {
         promptBuilder.append("===== CONTEXTO DE LA CONVERSACIÓN =====\n");
 
         if (!contextMessages.isEmpty()) {
-            promptBuilder.append("--- HISTORIAL RECIENTE ---\n");
+            promptBuilder.append("--- CONTEXTO RECUPERADO DE MEMORIA ---\n");
             for (ConversationMessage msg : contextMessages) {
                 promptBuilder.append(msg.getRole().toUpperCase()).append(": ").append(msg.getContent()).append("\n");
             }
@@ -161,7 +161,7 @@ public class MemoryService {
 
         promptBuilder.append("===== FIN DEL CONTEXTO =====\n");
         promptBuilder.append("MENSAJE ACTUAL: ").append(currentMessage);
-        promptBuilder.append("\n\nINSTRUCCIÓN: Continúa secuencialmente desde donde nos quedamos.");
+        promptBuilder.append("\n\nINSTRUCCIÓN: Usa el contexto recuperado solo si es relevante para el mensaje actual.");
 
         return promptBuilder.toString();
     }
@@ -175,7 +175,7 @@ public class MemoryService {
 
     public String buildSwappedContextPrompt(String currentMessage, List<ConversationMessage> relevantMessages) {
         StringBuilder promptBuilder = new StringBuilder();
-        promptBuilder.append("===== CONTEXTO RECUPERADO (iteraciones previas) =====\n");
+        promptBuilder.append("===== CONTEXTO RECUPERADO DE MEMORIA =====\n");
 
         if (!relevantMessages.isEmpty()) {
             for (ConversationMessage msg : relevantMessages) {

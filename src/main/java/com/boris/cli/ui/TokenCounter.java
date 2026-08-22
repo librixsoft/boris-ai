@@ -4,7 +4,6 @@ public class TokenCounter {
 
     private final int contextWindowLimit;
     private volatile int generatedTokens;
-    private volatile int iterationCount = 1;
 
     public TokenCounter(int contextWindowLimit) {
         this.contextWindowLimit = contextWindowLimit;
@@ -16,7 +15,6 @@ public class TokenCounter {
 
     public void resetSession() {
         generatedTokens = 0;
-        resetIteration();
     }
 
     public void resetTokensOnly() {
@@ -54,7 +52,7 @@ public class TokenCounter {
     }
 
     public String plainStatus() {
-        return "tokens: " + formatTokens(generatedTokens) + "/" + formatTokens(contextWindowLimit) + "  iter: " + iterationCount;
+        return "tokens: " + formatTokens(generatedTokens) + "/" + formatTokens(contextWindowLimit);
     }
 
     public String statusText() {
@@ -67,17 +65,5 @@ public class TokenCounter {
     public String limitMessage() {
         return "⚠ límite de contexto alcanzado (" + formatTokens(contextWindowLimit)
                 + "). Historial guardado en memoria persistente (H2). Reiniciando contador...";
-    }
-
-    public void incrementIteration() {
-        iterationCount++;
-    }
-
-    public int getIteration() {
-        return iterationCount;
-    }
-
-    public void resetIteration() {
-        iterationCount = 1;
     }
 }

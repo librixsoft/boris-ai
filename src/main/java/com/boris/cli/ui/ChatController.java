@@ -1,11 +1,9 @@
 package com.boris.cli.ui;
 
 import com.boris.chat.ChatService;
-import com.boris.memory.ConversationMessage;
 import com.boris.memory.MemoryService;
 import com.boris.task.TaskAborter;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ChatController implements InputArea.InputListener {
@@ -98,13 +96,7 @@ public class ChatController implements InputArea.InputListener {
             return;
         }
 
-        if (tokenCounter.limitReached() && tokenCounter.getIteration() == 1) {
-            tokenCounter.incrementIteration();
-            tokenCounter.resetTokensOnly();
-            transcript.appendLine("⚠ Límite alcanzado. Iteración " + tokenCounter.getIteration() + ". Buscando referencias en memoria...");
-        }
-
-        String fullPrompt = buildFullPromptWithSwap(text);
+        String fullPrompt = buildFullPrompt(text);
         int promptTokens = tokenCounter.estimateTokens(fullPrompt);
 
         if (tokenCounter.wouldExceedLimit(promptTokens)) {
@@ -130,24 +122,6 @@ public class ChatController implements InputArea.InputListener {
         Thread task = new Thread(() -> runStream(finalPrompt, text, assistantBuffer, firstChunk));
         task.setDaemon(true);
         task.start();
-    }
-
-    private String buildFullPromptWithSwap(String userMessage) {
-        if (memoryService == null) {
-            return userMessage;
-        }
-
-        String basePrompt = buildFullPrompt(userMessage);
-
-        if (tokenCounter.getIteration() > 1) {
-            List<ConversationMessage> relevant = memoryService.searchRelevantContext(userMessage, 5);
-            if (!relevant.isEmpty()) {
-                String swappedPrompt = memoryService.buildSwappedContextPrompt(userMessage, relevant);
-                return swappedPrompt + "\n\n" + basePrompt;
-            }
-        }
-
-        return basePrompt;
     }
 
     private String buildFullPrompt(String userMessage) {
