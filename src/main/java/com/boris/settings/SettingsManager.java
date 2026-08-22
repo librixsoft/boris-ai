@@ -42,6 +42,13 @@ public class SettingsManager {
         defaultSettings.setTemperature(0.7);
         defaultSettings.setContextWindow(10000);
 
+        Settings.MemoryConfig memoryConfig = new Settings.MemoryConfig();
+        memoryConfig.setEnabled(true);
+        memoryConfig.setMaxContextTokens(8000);
+        memoryConfig.setMaxHistoryMessages(50);
+        memoryConfig.setSessionId("default");
+        defaultSettings.setMemory(memoryConfig);
+
         String defaultJson = MAPPER.writeValueAsString(defaultSettings);
         Files.writeString(path, defaultJson, StandardCharsets.UTF_8);
     }

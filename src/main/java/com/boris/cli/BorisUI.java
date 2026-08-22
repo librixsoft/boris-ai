@@ -1,5 +1,6 @@
 package com.boris.cli;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -50,10 +51,10 @@ public class BorisUI {
     private MultiWindowTextGUI gui;
     private Window window;
 
-    public BorisUI(String settingsPath) throws Exception {
-        this.chatService = ChatService.withTools(settingsPath, "boris");
+    public BorisUI(ChatService chatService) throws IOException {
+        this.chatService = chatService;
         SettingsManager mgr = new SettingsManager();
-        Settings s = mgr.loadSettings(settingsPath);
+        Settings s = mgr.loadSettings(System.getProperty("user.home") + "/.boris/settings.json");
         int contextWindowLimit = 10000;
         if (s != null && s.getContextWindow() != null) {
             contextWindowLimit = s.getContextWindow();

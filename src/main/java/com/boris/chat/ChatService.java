@@ -1,6 +1,5 @@
 package com.boris.chat;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -10,6 +9,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
 
+import com.boris.memory.MemoryService;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 import com.boris.task.TaskAborter;
@@ -22,16 +22,15 @@ public class ChatService {
     private final Supplier<ChatClient> chatClientSupplier;
     private final String botName;
     private final TaskAborter taskAborter;
-    private final List<String> conversationHistory;
-    private final int maxHistorySize;
+    private final MemoryService memoryService;
     private final boolean enableHistory;
 
-    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory) {
+    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter,
+                       MemoryService memoryService, boolean enableHistory) {
         this.chatClientSupplier = chatClientSupplier;
         this.botName = botName;
         this.taskAborter = taskAborter;
-        this.conversationHistory = new ArrayList<>();
-        this.maxHistorySize = maxHistorySize;
+        this.memoryService = memoryService;
         this.enableHistory = enableHistory;
     }
 
@@ -55,23 +54,18 @@ public class ChatService {
         }
 
         try {
-            // Construir prompt con historial incluido en el mensaje del usuario
-            String fullMessage = buildPromptWithHistory(userMessage);
-            
-            // Agregar mensaje del usuario al historial (si está habilitado)
-            if (enableHistory) {
-                conversationHistory.add("User: " + userMessage);
-                trimHistory();
+            String fullMessage = buildPromptWithMemory(userMessage);
+
+            if (enableHistory && memoryService != null) {
+                memoryService.saveUserMessage(userMessage);
             }
-            
+
             String response = client.prompt(fullMessage).call().content();
-            
-            // Agregar respuesta al historial (si está habilitado)
-            if (enableHistory && response != null && !response.isEmpty()) {
-                conversationHistory.add(botName + ": " + response);
-                trimHistory();
+
+            if (enableHistory && memoryService != null && response != null && !response.isEmpty()) {
+                memoryService.saveAssistantMessage(response);
             }
-            
+
             return "*%s* %s".formatted(botName, response != null ? response : "");
         } catch (Exception e) {
             if (taskAborter.isAborted()) {
@@ -101,19 +95,25 @@ public class ChatService {
         }
 
         try {
-            client.prompt(userMessage)
-                .stream()
-                .content()
-                .doOnNext(chunk -> onChunk.accept(chunk))
-                .doOnComplete(() -> {
-                    if (onComplete != null) onComplete.run();
-                })
-                .doOnError(e -> {
-                    if (!taskAborter.isAborted()) {
-                        throw new com.boris.exceptions.BorisException("Chat error", e);
-                    }
-                })
-                .subscribe();
+            String fullMessage = buildPromptWithMemory(userMessage);
+
+            if (enableHistory && memoryService != null) {
+                memoryService.saveUserMessage(userMessage);
+            }
+
+            client.prompt(fullMessage)
+                    .stream()
+                    .content()
+                    .doOnNext(chunk -> onChunk.accept(chunk))
+                    .doOnComplete(() -> {
+                        if (onComplete != null) onComplete.run();
+                    })
+                    .doOnError(e -> {
+                        if (!taskAborter.isAborted()) {
+                            throw new com.boris.exceptions.BorisException("Chat error", e);
+                        }
+                    })
+                    .subscribe();
         } catch (Exception e) {
             if (taskAborter.isAborted()) {
                 return;
@@ -122,7 +122,7 @@ public class ChatService {
         }
     }
 
-    public static ChatService withTools(String settingsPath, String botName) throws Exception {
+    public static ChatService withTools(String settingsPath, String botName, MemoryService memoryService) throws Exception {
         SettingsManager mgr = new SettingsManager();
         mgr.ensureAgentsMd();
         Settings s = mgr.loadSettings(settingsPath);
@@ -132,65 +132,52 @@ public class ChatService {
 
         String prompt = ToolCallingConfig.loadSystemPrompt(s);
         var chatModel = buildChatModel(s);
-        
-        // Usar parámetros de configuración
-        int historySize = s.getMaxHistorySize();
+
         boolean enableHistory = s.getEnableHistory() != null ? s.getEnableHistory() : true;
-        
-        // Crear ChatService con historial
+
         TaskAborter aborter = new TaskAborter();
-        ChatService chatService = new ChatService(() -> null, botName, aborter, historySize, enableHistory);
-        
-        // Crear ChatClient con el system prompt y tools
+        ChatService chatService = new ChatService(() -> null, botName, aborter, memoryService, enableHistory);
+
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultSystem(prompt)
                 .defaultTools(ToolCallingConfig.buildNativeToolCallbacks())
                 .build();
-        
-        // Crear nuevo ChatService con el client real
-        return new ChatService(() -> client, botName, aborter, historySize, enableHistory);
+
+        return new ChatService(() -> client, botName, aborter, memoryService, enableHistory);
     }
 
-    /** Expose the aborter so UI can wire ESC key to it. */
     public TaskAborter getTaskAborter() {
         return taskAborter;
     }
 
-    /** Clear the chat history */
     public void clearHistory() {
-        conversationHistory.clear();
-    }
-
-    /** Get the conversation history */
-    public List<String> getConversationHistory() {
-        return new ArrayList<>(conversationHistory);
-    }
-
-    /** Trim history to max size */
-    private void trimHistory() {
-        while (conversationHistory.size() > maxHistorySize) {
-            conversationHistory.remove(0);
+        if (memoryService != null) {
+            memoryService.clearSession();
         }
     }
 
-    /** Build prompt with conversation history */
-    private String buildPromptWithHistory(String currentMessage) {
-        if (!enableHistory || conversationHistory.isEmpty()) {
+    public List<String> getConversationHistory() {
+        if (memoryService == null) {
+            return List.of();
+        }
+        return memoryService.getAllMessages().stream()
+                .map(m -> m.getRole().toUpperCase() + ": " + m.getContent())
+                .toList();
+    }
+
+    public long getMessageCount() {
+        if (memoryService == null) {
+            return 0;
+        }
+        return memoryService.getMessageCount();
+    }
+
+    private String buildPromptWithMemory(String currentMessage) {
+        if (!enableHistory || memoryService == null) {
             return currentMessage;
         }
-        
-        StringBuilder promptBuilder = new StringBuilder();
-        promptBuilder.append("===== CONTEXTO DE LA CONVERSACIÓN ANTERIOR =====\n");
-        promptBuilder.append("IMPORTANTE: Mantén el contexto de lo que estamos trabajando. Si estábamos en medio de una tarea, continúa desde donde nos quedamos.\n\n");
-        
-        for (String message : conversationHistory) {
-            promptBuilder.append(message).append("\n");
-        }
-        
-        promptBuilder.append("\n===== FIN DEL CONTEXTO =====\n");
-        promptBuilder.append("MENSAJE ACTUAL: ").append(currentMessage);
-        promptBuilder.append("\n\nINSTRUCCIÓN: Si esto es una continuación de una tarea anterior, continúa secuencialmente desde donde nos quedamos. No empieces de nuevo ni saltes pasos.");
-        return promptBuilder.toString();
+
+        return memoryService.buildContextPrompt(currentMessage);
     }
 
     private static org.springframework.ai.chat.model.ChatModel buildChatModel(Settings settings) throws Exception {

@@ -11,6 +11,7 @@ public class Settings {
     private Boolean enforceSequentialExecution;
     private Double temperature;
     private Integer contextWindow;
+    private MemoryConfig memory;
 
     public Settings() {}
 
@@ -41,4 +42,25 @@ public class Settings {
     
     public Integer getContextWindow() { return contextWindow; }
     public void setContextWindow(Integer contextWindow) { this.contextWindow = contextWindow; }
+
+    public MemoryConfig getMemory() { return memory; }
+    public void setMemory(MemoryConfig memory) { this.memory = memory; }
+
+    public static class MemoryConfig {
+        private Boolean enabled;
+        private Integer maxContextTokens;
+        private Integer maxHistoryMessages;
+        private String sessionId;
+
+        public MemoryConfig() {}
+
+        public Boolean getEnabled() { return enabled; }
+        public void setEnabled(Boolean enabled) { this.enabled = enabled; }
+        public Integer getMaxContextTokens() { return maxContextTokens; }
+        public void setMaxContextTokens(Integer maxContextTokens) { this.maxContextTokens = maxContextTokens; }
+        public Integer getMaxHistoryMessages() { return maxHistoryMessages; }
+        public void setMaxHistoryMessages(Integer maxHistoryMessages) { this.maxHistoryMessages = maxHistoryMessages; }
+        public String getSessionId() { return sessionId; }
+        public void setSessionId(String sessionId) { this.sessionId = sessionId; }
+    }
 }
