@@ -198,6 +198,10 @@ public class MemoryService {
         return repository.countBySessionId(sessionId);
     }
 
+    public long getPersistedTokens() {
+        return repository.sumTokensBySessionId(sessionId);
+    }
+
     public String getSessionId() {
         return sessionId;
     }

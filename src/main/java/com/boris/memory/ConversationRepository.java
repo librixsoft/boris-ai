@@ -28,4 +28,7 @@ public interface ConversationRepository extends JpaRepository<ConversationMessag
 
     @Query("SELECT m FROM ConversationMessage m WHERE m.sessionId = :sessionId AND (LOWER(m.content) LIKE LOWER(CONCAT('%', :keyword, '%'))) ORDER BY m.timestamp DESC")
     List<ConversationMessage> findByKeyword(@Param("sessionId") String sessionId, @Param("keyword") String keyword, Pageable pageable);
+
+    @Query("SELECT COALESCE(SUM(m.tokens), 0) FROM ConversationMessage m WHERE m.sessionId = :sessionId")
+    long sumTokensBySessionId(@Param("sessionId") String sessionId);
 }

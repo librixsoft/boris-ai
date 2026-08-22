@@ -37,6 +37,7 @@ import com.boris.cli.ui.InputArea;
 import com.boris.cli.ui.StatusBar;
 import com.boris.cli.ui.ThinkingSpinner;
 import com.boris.cli.ui.TokenCounter;
+import com.boris.cli.ui.RamGauge;
 import com.boris.cli.ui.Transcript;
 import com.boris.cli.ui.UiExecutor;
 import com.boris.cli.ui.UiTheme;
@@ -63,6 +64,7 @@ public class BorisUI {
             contextWindowLimit = s.getContextWindow();
         }
         this.tokenCounter = new TokenCounter(contextWindowLimit);
+        this.tokenCounter.attachRamGauge(new RamGauge(memoryService::getPersistedTokens));
     }
 
     public void start() throws Exception {

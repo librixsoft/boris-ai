@@ -4,9 +4,14 @@ public class TokenCounter {
 
     private final int contextWindowLimit;
     private volatile int generatedTokens;
+    private volatile RamGauge ramGauge;
 
     public TokenCounter(int contextWindowLimit) {
         this.contextWindowLimit = contextWindowLimit;
+    }
+
+    public void attachRamGauge(RamGauge ramGauge) {
+        this.ramGauge = ramGauge;
     }
 
     public void addTokens(int amount) {
@@ -52,7 +57,12 @@ public class TokenCounter {
     }
 
     public String plainStatus() {
-        return "tokens: " + formatTokens(generatedTokens) + "/" + formatTokens(contextWindowLimit);
+        StringBuilder sb = new StringBuilder();
+        sb.append(" t/gpu: ").append(formatTokens(generatedTokens)).append("/").append(formatTokens(contextWindowLimit));
+        if (ramGauge != null) {
+            sb.append(" | t/ram left: ").append(ramGauge.render());
+        }
+        return sb.toString();
     }
 
     public String statusText() {
