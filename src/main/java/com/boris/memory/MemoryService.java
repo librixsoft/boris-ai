@@ -59,6 +59,10 @@ public class MemoryService {
     }
 
     public List<ConversationMessage> getMessagesForContext(String currentQuery) {
+        return getMessagesForContext(currentQuery, maxContextTokens, maxHistoryMessages);
+    }
+
+    public List<ConversationMessage> getMessagesForContext(String currentQuery, int tokenBudget, int maxMessages) {
         List<ConversationMessage> recent = repository.findBySessionIdOrderByTimestampDesc(sessionId, PageRequest.of(0, recentFull)).getContent();
         if (recent.isEmpty()) {
             return List.of();
@@ -71,19 +75,44 @@ public class MemoryService {
             ConversationMessage msg = recent.get(i);
             int msgTokens = msg.getTokens() != null ? msg.getTokens() : estimateTokens(msg.getContent());
 
-            if (estimatedTokens + msgTokens > maxContextTokens) {
+            if (estimatedTokens + msgTokens > tokenBudget) {
                 break;
             }
 
             selectedMessages.add(0, msg);
             estimatedTokens += msgTokens;
 
-            if (selectedMessages.size() >= maxHistoryMessages) {
+            if (selectedMessages.size() >= maxMessages) {
                 break;
             }
         }
 
         return selectedMessages;
+    }
+
+    public String buildContextPrompt(String currentMessage, int tokenBudget, int maxMessages) {
+        List<ConversationMessage> contextMessages = getMessagesForContext(currentMessage, tokenBudget, maxMessages);
+
+        StringBuilder promptBuilder = new StringBuilder();
+        promptBuilder.append("===== CONTEXTO DE LA CONVERSACIÓN =====\n");
+
+        if (!contextMessages.isEmpty()) {
+            promptBuilder.append("--- HISTORIAL RECIENTE ---\n");
+            for (ConversationMessage msg : contextMessages) {
+                promptBuilder.append(msg.getRole().toUpperCase()).append(": ").append(msg.getContent()).append("\n");
+            }
+            promptBuilder.append("\n");
+        }
+
+        promptBuilder.append("===== FIN DEL CONTEXTO =====\n");
+        promptBuilder.append("MENSAJE ACTUAL: ").append(currentMessage);
+        promptBuilder.append("\n\nINSTRUCCIÓN: Continúa secuencialmente desde donde nos quedamos.");
+
+        return promptBuilder.toString();
+    }
+
+    public int estimatePromptTokens(String prompt) {
+        return estimateTokens(prompt);
     }
 
     public List<ConversationMessage> searchRelevantMessages(String query, int limit) {

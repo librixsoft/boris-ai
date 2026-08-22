@@ -1,6 +1,7 @@
 package com.boris.cli.ui;
 
 import com.boris.chat.ChatService;
+import com.boris.memory.MemoryService;
 import com.boris.task.TaskAborter;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -8,6 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ChatController implements InputArea.InputListener {
 
     private final ChatService chatService;
+    private final MemoryService memoryService;
     private final TaskAborter taskAborter = new TaskAborter();
     private final CommandHistory commandHistory;
     private final TokenCounter tokenCounter;
@@ -20,6 +22,7 @@ public class ChatController implements InputArea.InputListener {
     private final Runnable onClose;
 
     public ChatController(ChatService chatService,
+                          MemoryService memoryService,
                           CommandHistory commandHistory,
                           TokenCounter tokenCounter,
                           ThinkingSpinner spinner,
@@ -30,6 +33,7 @@ public class ChatController implements InputArea.InputListener {
                           AtomicBoolean wasAborted,
                           Runnable onClose) {
         this.chatService = chatService;
+        this.memoryService = memoryService;
         this.commandHistory = commandHistory;
         this.tokenCounter = tokenCounter;
         this.spinner = spinner;
@@ -92,13 +96,17 @@ public class ChatController implements InputArea.InputListener {
             return;
         }
 
-        if (tokenCounter.limitReached()) {
-            transcript.appendLine(tokenCounter.limitMessage());
-            tokenCounter.resetSession();
+        String fullPrompt = buildFullPrompt(text);
+        int promptTokens = tokenCounter.estimateTokens(fullPrompt);
+
+        if (tokenCounter.wouldExceedLimit(promptTokens)) {
+            transcript.appendLine("⚠ Contexto excede límite (" + tokenCounter.formatTokens(promptTokens) + " > " + tokenCounter.formatTokens(tokenCounter.limit()) + "). Recortando historial...");
+            fullPrompt = buildTrimmedPrompt(text);
+            promptTokens = tokenCounter.estimateTokens(fullPrompt);
         }
 
-        // Count user message tokens
-        tokenCounter.addTokens(text.length());
+        final String finalPrompt = fullPrompt;
+        tokenCounter.addTokens(promptTokens);
 
         commandHistory.record(text);
         transcript.appendLine("❯ " + text);
@@ -111,17 +119,37 @@ public class ChatController implements InputArea.InputListener {
         StringBuilder assistantBuffer = new StringBuilder();
         AtomicBoolean firstChunk = new AtomicBoolean(true);
 
-        Thread task = new Thread(() -> runStream(text, assistantBuffer, firstChunk));
+        Thread task = new Thread(() -> runStream(finalPrompt, text, assistantBuffer, firstChunk));
         task.setDaemon(true);
         task.start();
     }
 
-    private void runStream(String text, StringBuilder assistantBuffer, AtomicBoolean firstChunk) {
+    private String buildFullPrompt(String userMessage) {
+        if (memoryService == null) {
+            return userMessage;
+        }
+        int tokenBudget = tokenCounter.limit() - tokenCounter.generated();
+        if (tokenBudget < 1000) {
+            tokenBudget = 2000;
+        }
+        return memoryService.buildContextPrompt(userMessage, tokenBudget, 15);
+    }
+
+    private String buildTrimmedPrompt(String userMessage) {
+        if (memoryService == null) {
+            return userMessage;
+        }
+        int tokenBudget = Math.max(2000, tokenCounter.limit() / 2);
+        return memoryService.buildContextPrompt(userMessage, tokenBudget, 10);
+    }
+
+    private void runStream(String fullPrompt, String userMessage, StringBuilder assistantBuffer, AtomicBoolean firstChunk) {
         try {
             taskAborter.startTask(Thread.currentThread());
 
-            chatService.sendMessageStream(
-                    text,
+            chatService.sendMessageStreamWithPrompt(
+                    fullPrompt,
+                    userMessage,
                     chunk -> {
                         if (taskAborter.isAborted()) {
                             return;

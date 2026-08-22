@@ -76,6 +76,10 @@ public class ChatService {
     }
 
     public void sendMessageStream(String userMessage, Consumer<String> onChunk, Runnable onComplete) {
+        sendMessageStreamWithPrompt(buildPromptWithMemory(userMessage), userMessage, onChunk, onComplete);
+    }
+
+    public void sendMessageStreamWithPrompt(String fullPrompt, String userMessage, Consumer<String> onChunk, Runnable onComplete) {
         if (userMessage == null || userMessage.trim().isEmpty()) {
             throw new com.boris.exceptions.BorisException("User message cannot be null or empty");
         }
@@ -95,14 +99,12 @@ public class ChatService {
         }
 
         try {
-            String fullMessage = buildPromptWithMemory(userMessage);
-
             if (enableHistory && memoryService != null) {
                 memoryService.saveUserMessage(userMessage);
             }
 
             StringBuilder responseBuilder = new StringBuilder();
-            client.prompt(fullMessage)
+            client.prompt(fullPrompt)
                     .stream()
                     .content()
                     .doOnNext(chunk -> {

@@ -22,7 +22,7 @@ public class BorisApp implements Runnable {
             String settingsPath = System.getProperty("user.home") + "/.boris/settings.json";
             ChatService chatService = ChatService.withTools(settingsPath, "boris", memoryService);
 
-            new BorisUI(chatService).start();
+            new BorisUI(chatService, memoryService).start();
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {

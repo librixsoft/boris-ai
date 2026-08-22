@@ -29,6 +29,17 @@ public class TokenCounter {
         return generatedTokens >= contextWindowLimit;
     }
 
+    public boolean wouldExceedLimit(int additionalTokens) {
+        return generatedTokens + additionalTokens >= contextWindowLimit;
+    }
+
+    public int estimateTokens(String text) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+        return (int) Math.ceil(text.length() / 3.5);
+    }
+
     public String formatTokens(int tokens) {
         if (tokens >= 1000) {
             return (tokens / 1000) + "k";

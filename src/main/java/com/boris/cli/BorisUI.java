@@ -23,6 +23,7 @@ import com.googlecode.lanterna.terminal.MouseCaptureMode;
 import com.googlecode.lanterna.terminal.Terminal;
 
 import com.boris.chat.ChatService;
+import com.boris.memory.MemoryService;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 
@@ -45,14 +46,16 @@ public class BorisUI {
     private static final int SCROLL_STEP = 3;
 
     private final ChatService chatService;
+    private final MemoryService memoryService;
     private final TokenCounter tokenCounter;
 
     private Screen screen;
     private MultiWindowTextGUI gui;
     private Window window;
 
-    public BorisUI(ChatService chatService) throws IOException {
+    public BorisUI(ChatService chatService, MemoryService memoryService) throws IOException {
         this.chatService = chatService;
+        this.memoryService = memoryService;
         SettingsManager mgr = new SettingsManager();
         Settings s = mgr.loadSettings(System.getProperty("user.home") + "/.boris/settings.json");
         int contextWindowLimit = 10000;
@@ -89,6 +92,7 @@ public class BorisUI {
         ThinkingSpinner spinner = new ThinkingSpinner(statusBar, tokenCounter, waiting, wasAborted);
         ChatController controller = new ChatController(
                 chatService,
+                memoryService,
                 commandHistory,
                 tokenCounter,
                 spinner,
