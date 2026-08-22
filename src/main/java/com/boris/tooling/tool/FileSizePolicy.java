@@ -3,7 +3,7 @@ package com.boris.tooling.tool;
 public final class FileSizePolicy {
 
     private static final double CHARS_PER_TOKEN = 3.5;
-    private static final int CONTEXT_WINDOW_FILE_SHARE_DIVISOR = 2;
+    private static final int CONTEXT_WINDOW_FILE_SHARE_DIVISOR = 4;
 
     private FileSizePolicy() {
     }

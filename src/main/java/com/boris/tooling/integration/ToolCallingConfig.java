@@ -48,7 +48,7 @@ public class ToolCallingConfig {
 
     public ToolCallingConfig(Settings settings) {
         int contextWindow = requireContextWindow(settings);
-        this.readFileTool = new ReadFileTool();
+        this.readFileTool = new ReadFileTool(contextWindow);
         this.writeTool = new WriteTool(contextWindow);
         this.deleteTool = new DeleteTool();
         this.listFilesTool = new ListFilesTool();

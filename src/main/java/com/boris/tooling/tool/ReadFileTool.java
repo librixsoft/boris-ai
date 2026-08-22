@@ -16,6 +16,14 @@ public class ReadFileTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    private final int maxFileTokens;
+    private final int maxFileChars;
+
+    public ReadFileTool(int contextWindow) {
+        this.maxFileTokens = FileSizePolicy.maxFileTokens(contextWindow);
+        this.maxFileChars = FileSizePolicy.maxFileChars(contextWindow);
+    }
+
     public ToolDefinition read_file() {
         var pathProp = Map.of("type", "string", "description", "Absolute or relative file path");
         var properties = new LinkedHashMap<String, Object>();
@@ -45,6 +53,13 @@ public class ReadFileTool {
         }
 
         try {
+            long sizeBytes = Files.size(path);
+            int estimatedTokens = (int) Math.ceil(sizeBytes / 3.5);
+            if (estimatedTokens > maxFileTokens) {
+                return formatOutput(false, FileSizePolicy.tooLargeMessage(
+                        "read_file", pathStr, estimatedTokens, maxFileTokens, maxFileChars));
+            }
+
             String content = Files.readString(path);
             return formatOutput(true, content);
         } catch (IOException e) {

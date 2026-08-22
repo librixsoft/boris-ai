@@ -19,7 +19,7 @@ class ReadFileToolTest {
         Path file = tempDir.resolve("test.txt");
         Files.writeString(file, "hello world");
 
-        String result = new ReadFileTool().execute(Map.of("path", file.toString()));
+        String result = new ReadFileTool(8000).execute(Map.of("path", file.toString()));
 
         assertTrue(result.contains("\"success\":true"));
         assertTrue(result.contains("hello world"));
@@ -27,7 +27,7 @@ class ReadFileToolTest {
 
     @Test
     void read_file_returnsError_whenFileNotFound() {
-        String result = new ReadFileTool().execute(Map.of("path", "/nonexistent/file.txt"));
+        String result = new ReadFileTool(8000).execute(Map.of("path", "/nonexistent/file.txt"));
 
         assertTrue(result.contains("Error"));
         assertTrue(result.contains("not found"));
@@ -35,7 +35,7 @@ class ReadFileToolTest {
 
     @Test
     void read_file_returnsError_whenPathBlank() {
-        String result = new ReadFileTool().execute(Map.of("path", ""));
+        String result = new ReadFileTool(8000).execute(Map.of("path", ""));
 
         assertTrue(result.contains("Error"));
         assertTrue(result.contains("path is required"));
@@ -43,7 +43,7 @@ class ReadFileToolTest {
 
     @Test
     void read_file_returnsError_whenNullPath() {
-        String result = new ReadFileTool().execute(Map.of());
+        String result = new ReadFileTool(8000).execute(Map.of());
 
         assertTrue(result.contains("Error"));
         assertTrue(result.contains("path is required"));
@@ -54,15 +54,30 @@ class ReadFileToolTest {
         Path dir = tempDir.resolve("adir");
         Files.createDirectory(dir);
 
-        String result = new ReadFileTool().execute(Map.of("path", dir.toString()));
+        String result = new ReadFileTool(8000).execute(Map.of("path", dir.toString()));
 
         assertTrue(result.contains("Error"));
         assertTrue(result.contains("not a regular file"));
     }
 
     @Test
+    void read_file_returnsError_whenFileExceedsContextShare() throws Exception {
+        Path file = tempDir.resolve("big.txt");
+        int contextWindow = 8000;
+        int maxChars = FileSizePolicy.maxFileChars(contextWindow);
+        char[] bigContent = new char[maxChars + 5000];
+        java.util.Arrays.fill(bigContent, 'a');
+        Files.writeString(file, new String(bigContent));
+
+        String result = new ReadFileTool(contextWindow).execute(Map.of("path", file.toString()));
+
+        assertTrue(result.contains("\"success\":false"));
+        assertTrue(result.contains("read_file rejected"));
+    }
+
+    @Test
     void read_file_definition_hasCorrectNameAndDescription() {
-        var def = new ReadFileTool().read_file();
+        var def = new ReadFileTool(8000).read_file();
         assertEquals("read_file", def.name());
         assertFalse(def.description().isBlank());
     }
