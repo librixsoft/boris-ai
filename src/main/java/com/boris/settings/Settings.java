@@ -12,6 +12,7 @@ public class Settings {
     private Double temperature;
     private Integer contextWindow;
     private MemoryConfig memory;
+    private TaskQueueConfig taskQueue;
 
     public Settings() {}
 
@@ -45,6 +46,24 @@ public class Settings {
 
     public MemoryConfig getMemory() { return memory; }
     public void setMemory(MemoryConfig memory) { this.memory = memory; }
+
+    public TaskQueueConfig getTaskQueue() { return taskQueue; }
+    public void setTaskQueue(TaskQueueConfig taskQueue) { this.taskQueue = taskQueue; }
+
+    public static class TaskQueueConfig {
+        private Boolean enabled;
+        private Integer maxSubTasks;
+        private Integer reserveResponseTokens;
+
+        public TaskQueueConfig() {}
+
+        public Boolean getEnabled() { return enabled; }
+        public void setEnabled(Boolean enabled) { this.enabled = enabled; }
+        public Integer getMaxSubTasks() { return maxSubTasks; }
+        public void setMaxSubTasks(Integer maxSubTasks) { this.maxSubTasks = maxSubTasks; }
+        public Integer getReserveResponseTokens() { return reserveResponseTokens; }
+        public void setReserveResponseTokens(Integer reserveResponseTokens) { this.reserveResponseTokens = reserveResponseTokens; }
+    }
 
     public static class MemoryConfig {
         private Boolean enabled;

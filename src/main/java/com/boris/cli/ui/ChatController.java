@@ -2,14 +2,20 @@ package com.boris.cli.ui;
 
 import com.boris.chat.ChatService;
 import com.boris.memory.MemoryService;
+import com.boris.task.QueuedTaskRunner;
+import com.boris.task.SubTask;
 import com.boris.task.TaskAborter;
+import com.boris.task.TaskPlanner;
+import com.boris.task.TaskPlanner.Classification;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ChatController implements InputArea.InputListener {
 
     private final ChatService chatService;
     private final MemoryService memoryService;
+    private final TaskPlanner taskPlanner;
     private final TaskAborter taskAborter = new TaskAborter();
     private final CommandHistory commandHistory;
     private final TokenCounter tokenCounter;
@@ -23,6 +29,7 @@ public class ChatController implements InputArea.InputListener {
 
     public ChatController(ChatService chatService,
                           MemoryService memoryService,
+                          TaskPlanner taskPlanner,
                           CommandHistory commandHistory,
                           TokenCounter tokenCounter,
                           ThinkingSpinner spinner,
@@ -34,6 +41,7 @@ public class ChatController implements InputArea.InputListener {
                           Runnable onClose) {
         this.chatService = chatService;
         this.memoryService = memoryService;
+        this.taskPlanner = taskPlanner;
         this.commandHistory = commandHistory;
         this.tokenCounter = tokenCounter;
         this.spinner = spinner;
@@ -96,6 +104,18 @@ public class ChatController implements InputArea.InputListener {
             return;
         }
 
+        if (taskPlanner != null && taskPlanner.isEnabled()) {
+            commandHistory.record(text);
+            transcript.appendLine("❯ " + text);
+            startQueuedTask(text);
+            return;
+        }
+
+        String fullPrompt = buildPromptFor(text);
+        beginStream(fullPrompt, text);
+    }
+
+    private String buildPromptFor(String text) {
         String fullPrompt = buildFullPrompt(text);
         int promptTokens = tokenCounter.estimateTokens(fullPrompt);
 
@@ -106,12 +126,11 @@ public class ChatController implements InputArea.InputListener {
             transcript.appendLine("ℹ historial guardado en memoria persistente (H2), podés continuar");
         }
 
-        final String finalPrompt = fullPrompt;
         tokenCounter.addTokens(promptTokens);
+        return fullPrompt;
+    }
 
-        commandHistory.record(text);
-        transcript.appendLine("❯ " + text);
-
+    private void beginStream(String fullPrompt, String text) {
         wasAborted.set(false);
         taskAborter.reset();
         waiting.set(true);
@@ -120,9 +139,128 @@ public class ChatController implements InputArea.InputListener {
         StringBuilder assistantBuffer = new StringBuilder();
         AtomicBoolean firstChunk = new AtomicBoolean(true);
 
-        Thread task = new Thread(() -> runStream(finalPrompt, text, assistantBuffer, firstChunk));
+        Thread task = new Thread(() -> runStream(fullPrompt, text, assistantBuffer, firstChunk));
         task.setDaemon(true);
         task.start();
+    }
+
+    private void startQueuedTask(String text) {
+        wasAborted.set(false);
+        taskAborter.reset();
+        waiting.set(true);
+        spinner.start();
+
+        Thread plannerThread = new Thread(() -> runQueued(text));
+        plannerThread.setDaemon(true);
+        plannerThread.start();
+    }
+
+    private void runQueued(String goal) {
+        Classification classification;
+        try {
+            classification = taskPlanner.classify(buildClassificationInput(goal));
+        } catch (Exception e) {
+            transcript.appendLine("ℹ clasificación no disponible (" + e.getMessage() + "), envío directo");
+            beginStream(buildPromptFor(goal), goal);
+            return;
+        }
+
+        if (!classification.isLargeTask()) {
+            beginStream(buildPromptFor(goal), goal);
+            return;
+        }
+
+        List<SubTask> planned = classification.getSubtasks();
+        if (memoryService != null) {
+            memoryService.saveUserMessage(goal);
+        }
+        transcript.appendLine("▸ tarea grande detectada: cola de " + planned.size() + " subtareas");
+        for (SubTask t : planned) {
+            transcript.appendLine("   " + t.getIndex() + ". " + t.getTitle());
+        }
+
+        QueuedTaskRunner runner = new QueuedTaskRunner(
+                chatService, memoryService, tokenCounter, taskAborter, taskPlanner, queueCallbacks());
+        runner.run(goal, planned);
+    }
+
+    private String buildClassificationInput(String goal) {
+        if (memoryService == null) {
+            return goal;
+        }
+        List<com.boris.memory.ConversationMessage> recent = memoryService.getRecentMessages(4);
+        if (recent.isEmpty()) {
+            return goal;
+        }
+        StringBuilder ctx = new StringBuilder("CONTEXTO RECIENTE:\n");
+        for (com.boris.memory.ConversationMessage m : recent) {
+            String content = m.getContent();
+            if (content.length() > 200) {
+                content = content.substring(content.length() - 200);
+            }
+            ctx.append(m.getRole()).append(": ").append(content).append("\n");
+        }
+        ctx.append("MENSAJE ACTUAL: ").append(goal);
+        return ctx.toString();
+    }
+
+    private QueuedTaskRunner.Callbacks queueCallbacks() {
+        AtomicBoolean partPrefixPending = new AtomicBoolean(true);
+        return new QueuedTaskRunner.Callbacks() {
+            @Override
+            public void onTaskStarted(SubTask task, int total) {
+                partPrefixPending.set(true);
+                transcript.appendLine("▶ [" + task.getIndex() + "/" + total + "] " + task.getTitle());
+            }
+
+            @Override
+            public void onTaskChunk(String chunk) {
+                if (partPrefixPending.compareAndSet(true, false)) {
+                    transcript.appendAssistantPrefix();
+                }
+                tokenCounter.addTokens(chunk.length());
+                transcript.appendChunk(chunk);
+            }
+
+            @Override
+            public void onTaskCompleted(SubTask task, int total, String outputTail) {
+                transcript.endAssistantResponse();
+                transcript.appendLine("✓ [" + task.getIndex() + "/" + total + "] completada");
+                statusBar.showTokenStatus(tokenCounter);
+            }
+
+            @Override
+            public void onTaskFailed(SubTask task, int total, String error) {
+                transcript.endAssistantResponse();
+                transcript.appendLine("✗ [" + task.getIndex() + "/" + total + "] falló: " + error);
+                finishQueue();
+            }
+
+            @Override
+            public void onQueueCompleted(int completed, int total) {
+                transcript.appendLine("■ cola finalizada: " + completed + "/" + total
+                        + " subtareas completadas, resultado ensamblado");
+                finishQueue();
+            }
+
+            @Override
+            public void onQueueCancelled(int completed, int total) {
+                transcript.appendLine("■ cola cancelada en " + completed + "/" + total + " subtareas");
+                finishQueue();
+            }
+
+            @Override
+            public void onQueueFailed(String error) {
+                transcript.appendLine("✗ error en la cola: " + error);
+                finishQueue();
+            }
+        };
+    }
+
+    private void finishQueue() {
+        waiting.set(false);
+        taskAborter.reset();
+        statusBar.showTokenStatus(tokenCounter);
     }
 
     private String buildFullPrompt(String userMessage) {

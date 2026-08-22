@@ -49,6 +49,7 @@ public class BorisUI {
     private final ChatService chatService;
     private final MemoryService memoryService;
     private final TokenCounter tokenCounter;
+    private final Settings settings;
 
     private Screen screen;
     private MultiWindowTextGUI gui;
@@ -63,8 +64,24 @@ public class BorisUI {
         if (s != null && s.getContextWindow() != null) {
             contextWindowLimit = s.getContextWindow();
         }
+        this.settings = s;
         this.tokenCounter = new TokenCounter(contextWindowLimit);
         this.tokenCounter.attachRamGauge(new RamGauge(memoryService::getPersistedTokens));
+    }
+
+    private static com.boris.task.TaskPlanner buildTaskPlanner(ChatService chatService, Settings settings) {
+        boolean enabled = true;
+        Integer maxSubTasks = null;
+        Integer reserveResponseTokens = null;
+        if (settings != null && settings.getTaskQueue() != null) {
+            com.boris.settings.Settings.TaskQueueConfig cfg = settings.getTaskQueue();
+            if (cfg.getEnabled() != null) {
+                enabled = cfg.getEnabled();
+            }
+            maxSubTasks = cfg.getMaxSubTasks();
+            reserveResponseTokens = cfg.getReserveResponseTokens();
+        }
+        return new com.boris.task.TaskPlanner(chatService::sendRawMessage, enabled, maxSubTasks, reserveResponseTokens);
     }
 
     public void start() throws Exception {
@@ -92,9 +109,11 @@ public class BorisUI {
         Transcript transcript = new Transcript(chatPanel, uiExecutor);
         StatusBar statusBar = new StatusBar(uiExecutor);
         ThinkingSpinner spinner = new ThinkingSpinner(statusBar, tokenCounter, waiting, wasAborted);
+        com.boris.task.TaskPlanner taskPlanner = buildTaskPlanner(chatService, settings);
         ChatController controller = new ChatController(
                 chatService,
                 memoryService,
+                taskPlanner,
                 commandHistory,
                 tokenCounter,
                 spinner,

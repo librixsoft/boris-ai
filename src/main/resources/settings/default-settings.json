@@ -16,5 +16,10 @@
     "maxContextTokens": 6000,
     "maxHistoryMessages": 1,
     "sessionId": "default"
+  },
+  "taskQueue": {
+    "enabled": true,
+    "maxSubTasks": 5,
+    "reserveResponseTokens": 2500
   }
 }

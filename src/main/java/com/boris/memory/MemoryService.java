@@ -206,6 +206,10 @@ public class MemoryService {
         return sessionId;
     }
 
+    public int getMaxContextTokens() {
+        return maxContextTokens;
+    }
+
     private int estimateTokens(String text) {
         if (text == null || text.isEmpty()) {
             return 0;

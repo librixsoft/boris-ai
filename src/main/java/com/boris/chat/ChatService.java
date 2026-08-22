@@ -79,7 +79,30 @@ public class ChatService {
         sendMessageStreamWithPrompt(buildPromptWithMemory(userMessage), userMessage, onChunk, onComplete);
     }
 
-    public void sendMessageStreamWithPrompt(String fullPrompt, String userMessage, Consumer<String> onChunk, Runnable onComplete) {
+    public String sendRawMessage(String prompt) {
+        if (prompt == null || prompt.trim().isEmpty()) {
+            throw new com.boris.exceptions.BorisException("Prompt cannot be null or empty");
+        }
+        ChatClient client = chatClientSupplier.get();
+        if (client == null) {
+            throw new IllegalStateException("Spring AI ChatClient is required — tool calling must be used. Use ChatService.withTools() to construct.");
+        }
+        try {
+            String response = client.prompt(prompt).call().content();
+            return response != null ? response : "";
+        } catch (Exception e) {
+            throw new com.boris.exceptions.BorisException("Chat error", e);
+        }
+    }
+
+    public void sendMessageStreamWithPrompt(String fullPrompt, String userMessage, Consumer<String> onChunk,
+                                            Runnable onComplete) {
+        sendMessageStreamWithPrompt(fullPrompt, userMessage, onChunk, onComplete,
+                error -> { throw new com.boris.exceptions.BorisException("Chat error", error); });
+    }
+
+    public void sendMessageStreamWithPrompt(String fullPrompt, String userMessage, Consumer<String> onChunk,
+                                            Runnable onComplete, java.util.function.Consumer<Throwable> onError) {
         if (userMessage == null || userMessage.trim().isEmpty()) {
             throw new com.boris.exceptions.BorisException("User message cannot be null or empty");
         }
@@ -124,7 +147,7 @@ public class ChatService {
                     })
                     .doOnError(e -> {
                         if (!taskAborter.isAborted()) {
-                            throw new com.boris.exceptions.BorisException("Chat error", e);
+                            onError.accept(e);
                         }
                     })
                     .subscribe();
