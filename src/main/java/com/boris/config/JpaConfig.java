@@ -1,10 +1,8 @@
 package com.boris.config;
 
-import com.boris.memory.ConversationMessage;
 import com.boris.memory.ConversationRepository;
 import com.boris.memory.MemoryService;
-import com.boris.settings.Settings;
-import com.boris.settings.SettingsManager;
+import com.boris.memory.MemoryProperties;
 import jakarta.persistence.EntityManagerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,7 +17,6 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import javax.sql.DataSource;
-import java.io.IOException;
 import java.util.Properties;
 
 @Configuration
@@ -64,21 +61,20 @@ public class JpaConfig {
     }
 
     @Bean
-    public Settings settings() throws IOException {
-        SettingsManager mgr = new SettingsManager();
-        String settingsPath = System.getProperty("user.home") + "/.boris/settings.json";
-        mgr.ensureExists(settingsPath);
-        return mgr.loadSettings(settingsPath);
+    public MemoryProperties memoryProperties() {
+        MemoryProperties props = new MemoryProperties();
+        props.setEnabled(true);
+        props.setSessionId("default");
+        props.setMaxContextTokens(6000);
+        props.setMaxHistoryMessages(15);
+        props.setRecentFull(8);
+        props.setSummaryTrigger(25);
+        props.setUseOllamaTokenize(true);
+        return props;
     }
 
     @Bean
-    public MemoryService memoryService(ConversationRepository repository, Settings settings) {
-        Settings.MemoryConfig memoryConfig = settings.getMemory();
-        boolean enabled = memoryConfig != null && memoryConfig.getEnabled() != null && memoryConfig.getEnabled();
-        int maxContextTokens = (memoryConfig != null && memoryConfig.getMaxContextTokens() != null) ? memoryConfig.getMaxContextTokens() : 8000;
-        int maxHistoryMessages = (memoryConfig != null && memoryConfig.getMaxHistoryMessages() != null) ? memoryConfig.getMaxHistoryMessages() : 50;
-        String sessionId = (memoryConfig != null && memoryConfig.getSessionId() != null) ? memoryConfig.getSessionId() : "default";
-
-        return new MemoryService(repository, sessionId, maxContextTokens, maxHistoryMessages);
+    public MemoryService memoryService(ConversationRepository repository, MemoryProperties props) {
+        return new MemoryService(repository, props);
     }
 }

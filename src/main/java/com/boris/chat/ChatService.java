@@ -147,6 +147,10 @@ public class ChatService {
 
         boolean enableHistory = s.getEnableHistory() != null ? s.getEnableHistory() : true;
 
+        if (memoryService != null && s.getMemory() != null) {
+            memoryService.configureFromSettings(s.getMemory());
+        }
+
         TaskAborter aborter = new TaskAborter();
         ChatService chatService = new ChatService(() -> null, botName, aborter, memoryService, enableHistory);
 
