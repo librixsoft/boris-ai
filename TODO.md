@@ -33,4 +33,18 @@
 
 - [ ] Aplicar plan core  diffs: /Users/lastprophet/Documents/workspaces/boris-ai/plans/plan-so-tool-calling-refined.md
 
-- [ ] /Users/lastprophet/.boris/settings.json  "enableHistory": false,  el sistema de history de spring ai debera funcionar ahora con memory ram g2 bd xq se tiene un context window demasiado limitado xq es ia local este context se vas reiniciando al llegar al limite para eso debera estar la capa de persistenmcia de memory ram bd recordando todo a pesar de q se reiniicie el context windows de spring debes habilitarlo pero no inyectar todo el historial , todo el historiasl completo debera ir en la memory ram bd h2 y haer la busqueda en la bd cuando se ocupe algo o se encuentre e inyectarlo en el context windows de spering ai
+- [x] /Users/lastprophet/.boris/settings.json  "enableHistory": false,  el sistema de history de spring ai debera funcionar ahora con memory ram g2 bd xq se tiene un context window demasiado limitado xq es ia local este context se vas reiniciando al llegar al limite para eso debera estar la capa de persistenmcia de memory ram bd recordando todo a pesar de q se reiniicie el context windows de spring debes habilitarlo pero no inyectar todo el historial , todo el historiasl completo debera ir en la memory ram bd h2 y haer la busqueda en la bd cuando se ocupe algo o se encuentre e inyectarlo en el context windows de spering ai
+
+- [ ] Sistema CodeArtifact: swap H2 para código (context window limpio)
+  - Entidad JPA CodeArtifact: id, sessionId, type(CLASS|METHOD|FILE), name, filePath, content, tokens, language, createdAt
+  - Auto-detección en MemoryService.saveAssistantMessage(): parsea respuesta, extrae bloques ```java ...```, crea CodeArtifact por clase/método
+  - Repository CodeArtifactRepository: findBySessionIdAndNameContaining, findBySessionIdAndType
+  - MemoryService.buildContextPrompt():
+    - searchRelevantCodeArtifacts(query): busca por nombre de clase/método en CodeArtifact
+    - Inyecta solo metadata: `[CODEARTIFACT] CLASS MiClase (src/main/java/.../MiClase.java, 2.3k tokens, java)`
+    - NO inyecta contenido completo
+  - Tools nuevas:
+    - readCodeArtifact(name): devuelve contenido completo de la clase/método
+    - listCodeArtifacts(sessionId): lista todos los artifacts de la sesión
+  - Swap real: context window = referencias (~100 tokens c/u); código pesado (2k-10k tokens) vive en H2 RAM disk
+  - Limpieza: TTL opcional o max artifacts por sesión
