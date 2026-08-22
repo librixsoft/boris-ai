@@ -5,7 +5,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -17,6 +21,7 @@ public class MemoryService {
     private int maxContextTokens;
     private int maxHistoryMessages;
     private final int recentFull;
+    private final int searchLimit;
 
     public MemoryService(ConversationRepository repository, MemoryProperties props) {
         this.repository = repository;
@@ -25,6 +30,7 @@ public class MemoryService {
         this.maxContextTokens = props.getMaxContextTokens();
         this.maxHistoryMessages = props.getMaxHistoryMessages();
         this.recentFull = props.getRecentFull();
+        this.searchLimit = props.getSearchLimit();
     }
 
     public void configureFromSettings(Settings.MemoryConfig memoryConfig) {
@@ -59,35 +65,55 @@ public class MemoryService {
     }
 
     public List<ConversationMessage> getMessagesForContext(String currentQuery) {
-        return getMessagesForContext(currentQuery, maxContextTokens, maxHistoryMessages);
+        return getMessagesForContext(currentQuery, maxContextTokens, searchLimit);
     }
 
     public List<ConversationMessage> getMessagesForContext(String currentQuery, int tokenBudget, int maxMessages) {
-        List<ConversationMessage> recent = repository.findBySessionIdOrderByTimestampDesc(sessionId, PageRequest.of(0, recentFull)).getContent();
-        if (recent.isEmpty()) {
+        List<String> keywords = extractKeywords(currentQuery);
+        if (keywords.isEmpty()) {
             return List.of();
         }
+
+        Map<Long, ConversationMessage> unique = new LinkedHashMap<>();
+        for (String keyword : keywords) {
+            for (ConversationMessage msg : repository.findByKeyword(sessionId, keyword, PageRequest.of(0, searchLimit))) {
+                if (msg.getId() != null) {
+                    unique.putIfAbsent(msg.getId(), msg);
+                }
+            }
+        }
+
+        List<ConversationMessage> chronological = unique.values().stream()
+                .sorted(Comparator.comparing(ConversationMessage::getTimestamp))
+                .toList();
 
         List<ConversationMessage> selectedMessages = new ArrayList<>();
         int estimatedTokens = 0;
 
-        for (int i = recent.size() - 1; i >= 0; i--) {
-            ConversationMessage msg = recent.get(i);
+        for (int i = chronological.size() - 1; i >= 0; i--) {
+            ConversationMessage msg = chronological.get(i);
             int msgTokens = msg.getTokens() != null ? msg.getTokens() : estimateTokens(msg.getContent());
 
-            if (estimatedTokens + msgTokens > tokenBudget) {
+            if (estimatedTokens + msgTokens > tokenBudget || selectedMessages.size() >= maxMessages) {
                 break;
             }
 
             selectedMessages.add(0, msg);
             estimatedTokens += msgTokens;
-
-            if (selectedMessages.size() >= maxMessages) {
-                break;
-            }
         }
 
         return selectedMessages;
+    }
+
+    private List<String> extractKeywords(String query) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(query.toLowerCase().split("[^a-záéíóúñü0-9]+"))
+                .filter(word -> word.length() >= 3)
+                .distinct()
+                .limit(8)
+                .toList();
     }
 
     public String buildContextPrompt(String currentMessage, int tokenBudget, int maxMessages) {

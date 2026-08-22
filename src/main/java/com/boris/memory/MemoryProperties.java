@@ -10,9 +10,10 @@ public class MemoryProperties {
     private boolean enabled = true;
     private String sessionId = "default";
     private int maxContextTokens = 6000;
-    private int maxHistoryMessages = 15;
+    private int maxHistoryMessages = 1;
     private int recentFull = 8;
     private int summaryTrigger = 25;
+    private int searchLimit = 5;
     private boolean useOllamaTokenize = true;
 
     public boolean isEnabled() { return enabled; }
@@ -32,6 +33,9 @@ public class MemoryProperties {
 
     public int getSummaryTrigger() { return summaryTrigger; }
     public void setSummaryTrigger(int summaryTrigger) { this.summaryTrigger = summaryTrigger; }
+
+    public int getSearchLimit() { return searchLimit; }
+    public void setSearchLimit(int searchLimit) { this.searchLimit = searchLimit; }
 
     public boolean isUseOllamaTokenize() { return useOllamaTokenize; }
     public void setUseOllamaTokenize(boolean useOllamaTokenize) { this.useOllamaTokenize = useOllamaTokenize; }
