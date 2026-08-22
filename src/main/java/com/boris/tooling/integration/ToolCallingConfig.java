@@ -130,16 +130,20 @@ public class ToolCallingConfig {
         SettingsManager mgr = new SettingsManager();
         Settings s = mgr.loadSettings(settingsPath);
         String prompt = loadSystemPrompt(s);
-        ToolCallingConfig config = new ToolCallingConfig(s);
         return ChatClient.builder(chatModel)
                 .defaultSystem(prompt)
-                .defaultTools(ToolCallbacks.from(config))
+                .defaultTools(buildNativeToolCallbacks(s))
                 .build();
     }
 
     public static org.springframework.ai.tool.ToolCallback[] buildNativeToolCallbacks(Settings settings) {
         ToolCallingConfig config = new ToolCallingConfig(settings);
-        return ToolCallbacks.from(config);
+        org.springframework.ai.tool.ToolCallback[] callbacks = ToolCallbacks.from(config);
+        org.springframework.ai.tool.ToolCallback[] wrapped = new org.springframework.ai.tool.ToolCallback[callbacks.length];
+        for (int i = 0; i < callbacks.length; i++) {
+            wrapped[i] = new ResilientToolCallback(callbacks[i]);
+        }
+        return wrapped;
     }
 
     @SuppressWarnings("unchecked")
