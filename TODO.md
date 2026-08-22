@@ -33,4 +33,4 @@
 
 - [ ] Aplicar plan core  diffs: /Users/lastprophet/Documents/workspaces/boris-ai/plans/plan-so-tool-calling-refined.md
 
-- [ ] No usar historial de spring ai y utilizar sistema de h2 ram en bd
+- [ ] /Users/lastprophet/.boris/settings.json  "enableHistory": false,  el sistema de history de spring ai debera funcionar ahora con memory ram g2 bd xq se tiene un context window demasiado limitado xq es ia local este context se vas reiniciando al llegar al limite para eso debera estar la capa de persistenmcia de memory ram bd recordando todo a pesar de q se reiniicie el context windows de spring debes habilitarlo pero no inyectar todo el historial , todo el historiasl completo debera ir en la memory ram bd h2 y haer la busqueda en la bd cuando se ocupe algo o se encuentre e inyectarlo en el context windows de spering ai
