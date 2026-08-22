@@ -1,0 +1,20 @@
+{
+  "model": {
+    "baseUrl": "http://localhost:8080/",
+    "name": "qwen3.8-27b-iq3-xxs"
+  },
+  "env": {
+    "OLLAMA_API_KEY": "llamacpp-local"
+  },
+  "maxHistorySize": 20,
+  "enableHistory": true,
+  "enforceSequentialExecution": true,
+  "temperature": 0.7,
+  "contextWindow": 8000,
+  "memory": {
+    "enabled": true,
+    "maxContextTokens": 6000,
+    "maxHistoryMessages": 1,
+    "sessionId": "default"
+  }
+}

@@ -32,7 +32,8 @@ class SettingsManagerTest {
         String content = Files.readString(settingsFile);
         assertNotNull(content);
         assertTrue(content.contains("\"model\""));
-        assertTrue(content.contains("qwen3.6-35b-64k"));
+        assertTrue(content.contains("\"baseUrl\""));
+        assertTrue(content.contains("\"memory\""));
     }
 
     @Test

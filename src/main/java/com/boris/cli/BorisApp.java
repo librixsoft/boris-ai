@@ -16,6 +16,7 @@ public class BorisApp implements Runnable {
     public void run() {
         try {
             SettingsManager mgr = new SettingsManager();
+            mgr.ensureDefaultSettings();
             mgr.ensureAgentsMd();
 
             MemoryService memoryService = AppContext.getMemoryService();

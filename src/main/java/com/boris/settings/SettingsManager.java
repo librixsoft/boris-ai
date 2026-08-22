@@ -3,7 +3,6 @@ package com.boris.settings;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
-import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -11,6 +10,8 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 public class SettingsManager {
 
     private static final String DEFAULT_SETTINGS_PATH = System.getProperty("user.home") + "/.boris/settings.json";
+
+    private static final String SETTINGS_TEMPLATE_RESOURCE = "/settings/default-settings.json";
 
     private static final String AGENTS_MD_RESOURCE = "/prompts/init/AGENTS.md";
     private static final String AGENTS_MD_DEST = System.getProperty("user.home") + "/.boris/AGENTS.md";
@@ -32,25 +33,16 @@ public class SettingsManager {
             Files.createDirectories(parent);
         }
 
-        // Crear configuración por defecto con los nuevos campos
-        Settings defaultSettings = new Settings();
-        defaultSettings.setModel(new ModelConfig("http://localhost:11434", "qwen3.6-35b-64k"));
-        defaultSettings.setEnv(Map.of("OLLAMA_API_KEY", "ollama"));
-        defaultSettings.setMaxHistorySize(20);
-        defaultSettings.setEnableHistory(true);
-        defaultSettings.setEnforceSequentialExecution(true);
-        defaultSettings.setTemperature(0.7);
-        defaultSettings.setContextWindow(10000);
+        try (var in = getClass().getResourceAsStream(SETTINGS_TEMPLATE_RESOURCE)) {
+            if (in == null) {
+                throw new IOException("Template settings.json not found on classpath: " + SETTINGS_TEMPLATE_RESOURCE);
+            }
+            Files.copy(in, path);
+        }
+    }
 
-        Settings.MemoryConfig memoryConfig = new Settings.MemoryConfig();
-        memoryConfig.setEnabled(true);
-        memoryConfig.setMaxContextTokens(8000);
-        memoryConfig.setMaxHistoryMessages(50);
-        memoryConfig.setSessionId("default");
-        defaultSettings.setMemory(memoryConfig);
-
-        String defaultJson = MAPPER.writeValueAsString(defaultSettings);
-        Files.writeString(path, defaultJson, StandardCharsets.UTF_8);
+    public void ensureDefaultSettings() throws IOException {
+        ensureExists(DEFAULT_SETTINGS_PATH);
     }
 
     public Settings loadSettings(String path) throws IOException {
