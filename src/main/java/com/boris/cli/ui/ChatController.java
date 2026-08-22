@@ -100,9 +100,10 @@ public class ChatController implements InputArea.InputListener {
         int promptTokens = tokenCounter.estimateTokens(fullPrompt);
 
         if (tokenCounter.wouldExceedLimit(promptTokens)) {
-            transcript.appendLine("⚠ Contexto excede límite (" + tokenCounter.formatTokens(promptTokens) + " > " + tokenCounter.formatTokens(tokenCounter.limit()) + "). Recortando historial...");
             fullPrompt = buildTrimmedPrompt(text);
             promptTokens = tokenCounter.estimateTokens(fullPrompt);
+            tokenCounter.resetTokensOnly();
+            transcript.appendLine("ℹ historial guardado en memoria persistente (H2), podés continuar");
         }
 
         final String finalPrompt = fullPrompt;

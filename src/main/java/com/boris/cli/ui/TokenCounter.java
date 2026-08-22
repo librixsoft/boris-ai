@@ -57,7 +57,7 @@ public class TokenCounter {
 
     public String statusText() {
         if (limitReached()) {
-            return " " + plainStatus() + " (límite alcanzado)";
+            return " " + plainStatus() + " (historial guardado)";
         }
         return " " + plainStatus();
     }
