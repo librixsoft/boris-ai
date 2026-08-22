@@ -24,6 +24,7 @@ public class ChatService {
     private final TaskAborter taskAborter;
     private final MemoryService memoryService;
     private final boolean enableHistory;
+    private volatile int systemPromptTokens;
 
     public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter,
                        MemoryService memoryService, boolean enableHistory) {
@@ -32,6 +33,21 @@ public class ChatService {
         this.taskAborter = taskAborter;
         this.memoryService = memoryService;
         this.enableHistory = enableHistory;
+    }
+
+    public void registerSystemPrompt(String systemPrompt) {
+        this.systemPromptTokens = estimatePromptTokens(systemPrompt);
+    }
+
+    public int getSystemPromptTokens() {
+        return systemPromptTokens;
+    }
+
+    private int estimatePromptTokens(String text) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+        return (int) Math.ceil(text.length() / 3.5);
     }
 
     public String sendMessage(String userMessage) {
@@ -178,6 +194,7 @@ public class ChatService {
 
         TaskAborter aborter = new TaskAborter();
         ChatService chatService = new ChatService(() -> null, botName, aborter, memoryService, enableHistory);
+        chatService.registerSystemPrompt(prompt);
 
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultSystem(prompt)

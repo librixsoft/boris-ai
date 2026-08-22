@@ -20,7 +20,7 @@ public class QueuedTaskRunner {
 
     private static final int CONTINUITY_TAIL_CHARS = 600;
     private static final int CONTEXT_MESSAGES = 10;
-    private static final int PROMPT_OVERHEAD_RESERVE_TOKENS = 2000;
+    private static final int TOOL_SCHEMA_RESERVE_TOKENS = 1800;
 
     private final ChatService chatService;
     private final MemoryService memoryService;
@@ -161,9 +161,10 @@ public class QueuedTaskRunner {
             effectiveLimit = Math.min(effectiveLimit, memoryLimit);
         }
 
+        int overheadTokens = TOOL_SCHEMA_RESERVE_TOKENS + chatService.getSystemPromptTokens();
         int available = effectiveLimit - tokenCounter.generated()
                 - planner.getReserveResponseTokens()
-                - PROMPT_OVERHEAD_RESERVE_TOKENS;
+                - overheadTokens;
 
         int historyBudget = available - tokenCounter.estimateTokens(partPrompt);
         if (historyBudget < 0) {
@@ -173,7 +174,9 @@ public class QueuedTaskRunner {
         String fullPrompt = memoryService.buildContextPrompt(partPrompt, historyBudget, CONTEXT_MESSAGES);
 
         int estimated = tokenCounter.estimateTokens(fullPrompt);
-        if (tokenCounter.wouldExceedLimit(estimated)) {
+        int projectedTotal = estimated + tokenCounter.generated() + planner.getReserveResponseTokens()
+                + overheadTokens;
+        if (projectedTotal > effectiveLimit) {
             throw new com.boris.exceptions.BorisException(
                     "la subtarea excede la ventana de contexto incluso sin historial");
         }
