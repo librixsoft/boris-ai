@@ -19,8 +19,8 @@ public class QueuedTaskRunner {
     }
 
     private static final int CONTINUITY_TAIL_CHARS = 600;
-    private static final int MIN_PROMPT_BUDGET_TOKENS = 500;
     private static final int CONTEXT_MESSAGES = 10;
+    private static final int PROMPT_OVERHEAD_RESERVE_TOKENS = 2000;
 
     private final ChatService chatService;
     private final MemoryService memoryService;
@@ -66,12 +66,13 @@ public class QueuedTaskRunner {
         callbacks.onTaskStarted(task, total);
 
         String partPrompt = buildPartPrompt(goal, tasks, position, previousTail);
-        String fullPrompt = applyTokenBudget(partPrompt);
         String userLabel = "[tarea " + task.getIndex() + "/" + total + "] " + task.getTitle();
 
         StringBuilder partOutput = new StringBuilder();
 
         try {
+            String fullPrompt = applyTokenBudget(partPrompt);
+
             chatService.sendMessageStreamWithPrompt(
                     fullPrompt,
                     userLabel,
@@ -159,16 +160,22 @@ public class QueuedTaskRunner {
         if (memoryLimit > 0) {
             effectiveLimit = Math.min(effectiveLimit, memoryLimit);
         }
-        int budget = effectiveLimit - planner.getReserveResponseTokens();
-        if (budget < MIN_PROMPT_BUDGET_TOKENS) {
-            budget = MIN_PROMPT_BUDGET_TOKENS;
+
+        int available = effectiveLimit - tokenCounter.generated()
+                - planner.getReserveResponseTokens()
+                - PROMPT_OVERHEAD_RESERVE_TOKENS;
+
+        int historyBudget = available - tokenCounter.estimateTokens(partPrompt);
+        if (historyBudget < 0) {
+            historyBudget = 0;
         }
 
-        String fullPrompt = memoryService.buildContextPrompt(partPrompt, budget, CONTEXT_MESSAGES);
+        String fullPrompt = memoryService.buildContextPrompt(partPrompt, historyBudget, CONTEXT_MESSAGES);
 
         int estimated = tokenCounter.estimateTokens(fullPrompt);
         if (tokenCounter.wouldExceedLimit(estimated)) {
-            tokenCounter.resetTokensOnly();
+            throw new com.boris.exceptions.BorisException(
+                    "la subtarea excede la ventana de contexto incluso sin historial");
         }
         return fullPrompt;
     }
