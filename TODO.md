@@ -49,10 +49,4 @@
   - Swap real: context window = referencias (~100 tokens c/u); código pesado (2k-10k tokens) vive en H2 RAM disk
   - Limpieza: TTL opcional o max artifacts por sesión
 
-- [ ] **FIX CRÍTICO: Memoria no recupera datos al llegar al límite de tokens**
-  - Problema: Al alcanzar 8k tokens, se recorta historial a 2k/10msgs y se envía al LLM. Si el usuario pregunta "¿cómo me llamo?" y el nombre está en mensajes antiguos (>10), el LLM no lo ve en el prompt y dice que no recuerda.
-  - Solución: Agregar búsqueda semántica/por palabras clave en H2 antes de construir prompt:
-    - `MemoryService.searchRelevantMessages(query, limit)` ya existe pero no se usa
-    - En `buildContextPrompt()`: si la query contiene "nombre", "me llamo", "quién soy", etc. → buscar en TODO el historial H2 (no solo recientes)
-    - Inyectar resultados relevantes como "--- MEMORIA RELEVANTE (búsqueda) ---" antes del historial reciente
-  - Alternativa: Tool `recall_memory(query)` que el LLM pueda invocar para buscar en H2 completo
+- [ ] Memoria por historial al llegar al limite se guardaa en bd y en seguiente iteracion hace busqueda e inyecta en el prompt (probar feature)

@@ -20,8 +20,8 @@ public class MemoryService {
 
     public MemoryService(ConversationRepository repository, MemoryProperties props) {
         this.repository = repository;
-        this.sessionId = props.getSessionId() != null && !props.getSessionId().isEmpty() 
-            ? props.getSessionId() : UUID.randomUUID().toString();
+        this.sessionId = props.getSessionId() != null && !props.getSessionId().isEmpty()
+                ? props.getSessionId() : UUID.randomUUID().toString();
         this.maxContextTokens = props.getMaxContextTokens();
         this.maxHistoryMessages = props.getMaxHistoryMessages();
         this.recentFull = props.getRecentFull();
@@ -136,6 +136,30 @@ public class MemoryService {
         promptBuilder.append("===== FIN DEL CONTEXTO =====\n");
         promptBuilder.append("MENSAJE ACTUAL: ").append(currentMessage);
         promptBuilder.append("\n\nINSTRUCCIÓN: Continúa secuencialmente desde donde nos quedamos.");
+
+        return promptBuilder.toString();
+    }
+
+    public List<ConversationMessage> searchRelevantContext(String userMessage, int limit) {
+        if (userMessage == null || userMessage.trim().isEmpty()) {
+            return List.of();
+        }
+        return repository.findByKeyword(sessionId, userMessage.trim(), PageRequest.of(0, limit));
+    }
+
+    public String buildSwappedContextPrompt(String currentMessage, List<ConversationMessage> relevantMessages) {
+        StringBuilder promptBuilder = new StringBuilder();
+        promptBuilder.append("===== CONTEXTO RECUPERADO (iteraciones previas) =====\n");
+
+        if (!relevantMessages.isEmpty()) {
+            for (ConversationMessage msg : relevantMessages) {
+                promptBuilder.append(msg.getRole().toUpperCase()).append(": ").append(msg.getContent()).append("\n");
+            }
+            promptBuilder.append("\n");
+        }
+
+        promptBuilder.append("===== FIN CONTEXTO RECUPERADO =====\n");
+        promptBuilder.append("MENSAJE ACTUAL: ").append(currentMessage);
 
         return promptBuilder.toString();
     }

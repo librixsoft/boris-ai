@@ -25,4 +25,7 @@ public interface ConversationRepository extends JpaRepository<ConversationMessag
     long countBySessionId(String sessionId);
 
     void deleteBySessionId(String sessionId);
+
+    @Query("SELECT m FROM ConversationMessage m WHERE m.sessionId = :sessionId AND (LOWER(m.content) LIKE LOWER(CONCAT('%', :keyword, '%'))) ORDER BY m.timestamp DESC")
+    List<ConversationMessage> findByKeyword(@Param("sessionId") String sessionId, @Param("keyword") String keyword, Pageable pageable);
 }
