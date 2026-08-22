@@ -158,7 +158,7 @@ public class ChatService {
 
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultSystem(prompt)
-                .defaultTools(ToolCallingConfig.buildNativeToolCallbacks())
+                .defaultTools(ToolCallingConfig.buildNativeToolCallbacks(s))
                 .build();
 
         return new ChatService(() -> client, botName, aborter, memoryService, enableHistory);

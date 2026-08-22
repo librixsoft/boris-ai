@@ -20,6 +20,7 @@ import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 import com.boris.tooling.tool.DeleteTool;
 import com.boris.tooling.tool.EditTool;
+import com.boris.tooling.tool.FileSizePolicy;
 import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
@@ -45,21 +46,29 @@ public class ToolCallingConfig {
     private final PdfGenerationTool pdfGenerationTool;
     private final OfficeDocumentTool officeDocumentTool;
 
-    public ToolCallingConfig() {
+    public ToolCallingConfig(Settings settings) {
+        int contextWindow = requireContextWindow(settings);
         this.readFileTool = new ReadFileTool();
-        this.writeTool = new WriteTool();
+        this.writeTool = new WriteTool(contextWindow);
         this.deleteTool = new DeleteTool();
         this.listFilesTool = new ListFilesTool();
-        this.editTool = new EditTool();
+        this.editTool = new EditTool(contextWindow);
         this.systemInfoTool = new SystemInfoTool();
         this.webSearchTool = new WebSearchTool();
         this.pdfGenerationTool = new PdfGenerationTool();
         this.officeDocumentTool = new OfficeDocumentTool();
     }
 
+    private static int requireContextWindow(Settings settings) {
+        if (settings == null || settings.getContextWindow() == null) {
+            throw new BorisException("contextWindow is required in settings.json so file size limits can be enforced. Add \"contextWindow\": 8000 to your settings.json.");
+        }
+        return settings.getContextWindow();
+    }
+
     public static String loadSystemPrompt(Settings settings) {
         StringBuilder prompt = new StringBuilder();
-        
+
         // Load default system prompt from resources
         String defaultPrompt = loadDefaultSystemPrompt();
         prompt.append(defaultPrompt.trim());
@@ -76,7 +85,23 @@ public class ToolCallingConfig {
             }
         } catch (IOException ignored) {}
 
+        prompt.append("\n\n").append(buildFileSizeLimitsSection(settings));
+
         return prompt.toString();
+    }
+
+    private static String buildFileSizeLimitsSection(Settings settings) {
+        int contextWindow = requireContextWindow(settings);
+        int maxTokens = FileSizePolicy.maxFileTokens(contextWindow);
+        int maxChars = FileSizePolicy.maxFileChars(contextWindow);
+        return "===== FILE SIZE LIMITS (MANDATORY) =====\n"
+                + "Model context window: " + contextWindow + " tokens.\n"
+                + "Maximum content size per single write_file / apply_edit / multi_edit call: "
+                + maxTokens + " tokens (~" + maxChars + " characters).\n"
+                + "1. NEVER generate a file whose content exceeds this maximum. The tools will REJECT it and the work will be lost.\n"
+                + "2. Plan large tasks as MULTIPLE small files instead of one giant file.\n"
+                + "3. If a single file must be bigger than the maximum, build it in parts: write_file with part 1 only, then append each following part with apply_edit.\n"
+                + "4. If a tool rejects your content because it exceeds the limit, split the content and retry with smaller parts instead of repeating the same oversized call.";
     }
 
     private static String loadDefaultSystemPrompt() {
@@ -105,15 +130,15 @@ public class ToolCallingConfig {
         SettingsManager mgr = new SettingsManager();
         Settings s = mgr.loadSettings(settingsPath);
         String prompt = loadSystemPrompt(s);
-        ToolCallingConfig config = new ToolCallingConfig();
+        ToolCallingConfig config = new ToolCallingConfig(s);
         return ChatClient.builder(chatModel)
                 .defaultSystem(prompt)
                 .defaultTools(ToolCallbacks.from(config))
                 .build();
     }
 
-    public static org.springframework.ai.tool.ToolCallback[] buildNativeToolCallbacks() {
-        ToolCallingConfig config = new ToolCallingConfig();
+    public static org.springframework.ai.tool.ToolCallback[] buildNativeToolCallbacks(Settings settings) {
+        ToolCallingConfig config = new ToolCallingConfig(settings);
         return ToolCallbacks.from(config);
     }
 

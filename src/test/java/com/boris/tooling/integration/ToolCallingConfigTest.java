@@ -4,13 +4,21 @@ import org.junit.jupiter.api.*;
 import org.springframework.ai.model.function.FunctionCallback;
 import org.springframework.ai.tool.ToolCallback;
 
+import com.boris.settings.Settings;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class ToolCallingConfigTest {
 
+    private ToolCallback[] callbacks() {
+        Settings s = new Settings();
+        s.setContextWindow(8000);
+        return ToolCallingConfig.buildNativeToolCallbacks(s);
+    }
+
     @Test
     void buildNativeToolCallbacks_returnsNonEmptyArray() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
+        ToolCallback[] callbacks = callbacks();
 
         assertNotNull(callbacks);
         assertTrue(callbacks.length > 0);
@@ -18,7 +26,7 @@ class ToolCallingConfigTest {
 
     @Test
     void buildNativeToolCallbacks_allHaveValidDefinitions() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
+        ToolCallback[] callbacks = callbacks();
 
         for (ToolCallback callback : callbacks) {
             assertNotNull(callback.getToolDefinition().name());
@@ -29,7 +37,7 @@ class ToolCallingConfigTest {
 
     @Test
     void buildNativeToolCallbacks_containsExpectedTools() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
+        ToolCallback[] callbacks = callbacks();
 
         var names = java.util.Arrays.stream(callbacks)
                 .map(cb -> cb.getToolDefinition().name())
@@ -45,7 +53,7 @@ class ToolCallingConfigTest {
 
     @Test
     void buildNativeToolCallbacks_callbackCallsExecuteCorrectly() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
+        ToolCallback[] callbacks = callbacks();
 
         var readCb = java.util.Arrays.stream(callbacks)
                 .filter(cb -> "read_file".equals(cb.getToolDefinition().name()))
@@ -59,7 +67,7 @@ class ToolCallingConfigTest {
 
     @Test
     void toolCallbacks_allAreFunctionCallbacks() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
+        ToolCallback[] callbacks = callbacks();
 
         for (ToolCallback cb : callbacks) {
             assertInstanceOf(FunctionCallback.class, cb);
@@ -68,7 +76,7 @@ class ToolCallingConfigTest {
 
     @Test
     void generatePdfTool_callbackHasCorrectDefinition() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
+        ToolCallback[] callbacks = callbacks();
 
         var pdfCb = java.util.Arrays.stream(callbacks)
                 .filter(cb -> "generate_pdf".equals(cb.getToolDefinition().name()))
@@ -82,7 +90,7 @@ class ToolCallingConfigTest {
 
     @Test
     void generatePdfTool_callbackCanBeInvoked() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
+        ToolCallback[] callbacks = callbacks();
 
         var pdfCb = java.util.Arrays.stream(callbacks)
                 .filter(cb -> "generate_pdf".equals(cb.getToolDefinition().name()))

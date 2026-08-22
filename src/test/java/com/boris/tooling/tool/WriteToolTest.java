@@ -11,6 +11,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class WriteToolTest {
 
+    private final WriteTool writeTool = new WriteTool(8000);
+
     @TempDir
     Path tempDir;
 
@@ -18,7 +20,7 @@ class WriteToolTest {
     void write_file_createsNewFile() throws Exception {
         Path file = tempDir.resolve("new.txt");
 
-        String result = WriteTool.execute(Map.of("path", file.toString(), "content", "test content"));
+        String result = writeTool.execute(Map.of("path", file.toString(), "content", "test content"));
 
         assertTrue(result.contains("\"success\":true"));
         assertTrue(Files.exists(file));
@@ -30,7 +32,7 @@ class WriteToolTest {
         Path file = tempDir.resolve("overwrite.txt");
         Files.writeString(file, "old content");
 
-        String result = WriteTool.execute(Map.of("path", file.toString(), "content", "new content"));
+        String result = writeTool.execute(Map.of("path", file.toString(), "content", "new content"));
 
         assertTrue(result.contains("\"success\":true"));
         assertEquals("new content", Files.readString(file));
@@ -41,7 +43,7 @@ class WriteToolTest {
         Path deepDir = tempDir.resolve("a/b/c");
         Path file = deepDir.resolve("file.txt");
 
-        String result = WriteTool.execute(Map.of("path", file.toString(), "content", "deep"));
+        String result = writeTool.execute(Map.of("path", file.toString(), "content", "deep"));
 
         assertTrue(result.contains("\"success\":true"));
         assertTrue(Files.exists(file));
@@ -49,10 +51,32 @@ class WriteToolTest {
 
     @Test
     void write_file_returnsError_whenPathBlank() {
-        String result = WriteTool.execute(Map.of("path", "", "content", "x"));
+        String result = writeTool.execute(Map.of("path", "", "content", "x"));
 
         assertTrue(result.contains("\"success\":false"));
         assertTrue(result.contains("path is required"));
+    }
+
+    @Test
+    void write_file_rejectsContentExceedingLimit() {
+        Path file = tempDir.resolve("big.txt");
+        String hugeContent = "x".repeat(20000);
+
+        String result = writeTool.execute(Map.of("path", file.toString(), "content", hugeContent));
+
+        assertTrue(result.contains("\"success\":false"));
+        assertTrue(result.contains("exceeds the model context limit"));
+        assertTrue(!Files.exists(file));
+    }
+
+    @Test
+    void write_file_acceptsContentWithinLimit() {
+        Path file = tempDir.resolve("ok.txt");
+        String content = "x".repeat(1000);
+
+        String result = writeTool.execute(Map.of("path", file.toString(), "content", content));
+
+        assertTrue(result.contains("\"success\":true"));
     }
 
     @Test

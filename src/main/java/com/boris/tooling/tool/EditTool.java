@@ -13,6 +13,14 @@ import com.boris.tooling.ToolDefinition;
 
 public class EditTool {
 
+    private final int maxFileTokens;
+    private final int maxFileChars;
+
+    public EditTool(int contextWindow) {
+        this.maxFileTokens = FileSizePolicy.maxFileTokens(contextWindow);
+        this.maxFileChars = FileSizePolicy.maxFileChars(contextWindow);
+    }
+
     public static ToolDefinition apply_edit() {
         var pathProp = Map.of("type", "string", "description", "Absolute or relative file path");
         var oldTextProp = Map.of("type", "string", "description", "Exact text to find and replace in the file");
@@ -30,7 +38,7 @@ public class EditTool {
                 schema);
     }
 
-    public static String apply_edit(Map<String, Object> args) {
+    public String apply_edit(Map<String, Object> args) {
         @SuppressWarnings("unchecked")
         String pathStr = (String) args.getOrDefault("path", "");
         @SuppressWarnings("unchecked")
@@ -43,6 +51,11 @@ public class EditTool {
         }
         if (oldText == null || oldText.isEmpty()) {
             return formatOutput(false, "Error: old_text is required");
+        }
+
+        int estimatedTokens = FileSizePolicy.estimateTokens(newText);
+        if (estimatedTokens > maxFileTokens) {
+            return formatOutput(false, FileSizePolicy.tooLargeMessage("apply_edit", pathStr, estimatedTokens, maxFileTokens, maxFileChars));
         }
 
         Path path = Paths.get(pathStr);
@@ -84,7 +97,7 @@ public class EditTool {
     }
 
     @SuppressWarnings("unchecked")
-    public static String multi_edit(Map<String, Object> args) {
+    public String multi_edit(Map<String, Object> args) {
         @SuppressWarnings("unchecked")
         String pathStr = (String) args.getOrDefault("path", "");
         List<Map<String, Object>> editsList = (List<Map<String, Object>>) args.get("edits");
@@ -94,6 +107,17 @@ public class EditTool {
         }
         if (editsList == null || editsList.isEmpty()) {
             return formatOutput(false, "Error: edits array is required and must not be empty");
+        }
+
+        int totalNewTextTokens = 0;
+        for (Map<String, Object> edit : editsList) {
+            Object newText = edit.get("new_text");
+            if (newText instanceof String s) {
+                totalNewTextTokens += FileSizePolicy.estimateTokens(s);
+            }
+        }
+        if (totalNewTextTokens > maxFileTokens) {
+            return formatOutput(false, FileSizePolicy.tooLargeMessage("multi_edit", pathStr, totalNewTextTokens, maxFileTokens, maxFileChars));
         }
 
         Path path = Paths.get(pathStr);
@@ -148,7 +172,7 @@ public class EditTool {
                 schema);
     }
 
-    public static String revert_edit(Map<String, Object> args) {
+    public String revert_edit(Map<String, Object> args) {
         @SuppressWarnings("unchecked")
         String pathStr = (String) args.getOrDefault("path", "");
         @SuppressWarnings("unchecked")
@@ -161,6 +185,11 @@ public class EditTool {
         }
         if (oldText == null || oldText.isEmpty()) {
             return formatOutput(false, "Error: old_text is required");
+        }
+
+        int estimatedTokens = FileSizePolicy.estimateTokens(newText);
+        if (estimatedTokens > maxFileTokens) {
+            return formatOutput(false, FileSizePolicy.tooLargeMessage("revert_edit", pathStr, estimatedTokens, maxFileTokens, maxFileChars));
         }
 
         Path path = Paths.get(pathStr);

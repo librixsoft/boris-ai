@@ -12,6 +12,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class EditToolTest {
 
+    private final EditTool editTool = new EditTool(8000);
+
     @TempDir
     Path tempDir;
 
@@ -22,7 +24,7 @@ class EditToolTest {
         Path file = tempDir.resolve("test.txt");
         Files.writeString(file, "hello world foo bar");
 
-        String result = EditTool.apply_edit(Map.of(
+        String result = editTool.apply_edit(Map.of(
                 "path", file.toString(),
                 "old_text", "foo",
                 "new_text", "bar"
@@ -37,7 +39,7 @@ class EditToolTest {
         Path file = tempDir.resolve("test2.txt");
         Files.writeString(file, "hello world");
 
-        String result = EditTool.apply_edit(Map.of(
+        String result = editTool.apply_edit(Map.of(
                 "path", file.toString(),
                 "old_text", "xyz",
                 "new_text", "abc"
@@ -49,7 +51,7 @@ class EditToolTest {
 
     @Test
     void apply_edit_returnsError_whenPathBlank() throws Exception {
-        String result = EditTool.apply_edit(Map.of(
+        String result = editTool.apply_edit(Map.of(
                 "path", "",
                 "old_text", "x",
                 "new_text", "y"
@@ -61,7 +63,7 @@ class EditToolTest {
 
     @Test
     void apply_edit_returnsError_whenOldTextBlank() throws Exception {
-        String result = EditTool.apply_edit(Map.of(
+        String result = editTool.apply_edit(Map.of(
                 "path", "/some/path",
                 "old_text", "",
                 "new_text", "y"
@@ -73,7 +75,7 @@ class EditToolTest {
 
     @Test
     void apply_edit_returnsError_whenFileNotFound() {
-        String result = EditTool.apply_edit(Map.of(
+        String result = editTool.apply_edit(Map.of(
                 "path", "/nonexistent/file.txt",
                 "old_text", "x",
                 "new_text", "y"
@@ -88,7 +90,7 @@ class EditToolTest {
         Path file = tempDir.resolve("multi.txt");
         Files.writeString(file, "aaa bbb aaa ccc aaa");
 
-        String result = EditTool.apply_edit(Map.of(
+        String result = editTool.apply_edit(Map.of(
                 "path", file.toString(),
                 "old_text", "aaa",
                 "new_text", "zzz"
@@ -103,7 +105,7 @@ class EditToolTest {
         Path file = tempDir.resolve("special.txt");
         Files.writeString(file, "hello world");
 
-        String result = EditTool.apply_edit(Map.of(
+        String result = editTool.apply_edit(Map.of(
                 "path", file.toString(),
                 "old_text", "world",
                 "new_text", "replaced text"
@@ -120,7 +122,7 @@ class EditToolTest {
         Path file = tempDir.resolve("multi-edit.txt");
         Files.writeString(file, "alpha beta gamma delta");
 
-        String result = EditTool.multi_edit(Map.of(
+        String result = editTool.multi_edit(Map.of(
                 "path", file.toString(),
                 "edits", List.of(
                         Map.of("old_text", "beta", "new_text", "BETA"),
@@ -141,7 +143,7 @@ class EditToolTest {
         params.put("path", file.toString());
         params.put("edits", (List<Map<String, Object>>) null);
 
-        String result = EditTool.multi_edit(params);
+        String result = editTool.multi_edit(params);
 
         assertTrue(result.contains("\"success\":false"));
         assertTrue(result.contains("edits array is required"));
@@ -152,7 +154,7 @@ class EditToolTest {
         Path file = tempDir.resolve("empty-edits.txt");
         Files.writeString(file, "hello");
 
-        String result = EditTool.multi_edit(Map.of(
+        String result = editTool.multi_edit(Map.of(
                 "path", file.toString(),
                 "edits", List.of()
         ));
@@ -165,7 +167,7 @@ class EditToolTest {
         Path file = tempDir.resolve("fail-index.txt");
         Files.writeString(file, "hello world");
 
-        String result = EditTool.multi_edit(Map.of(
+        String result = editTool.multi_edit(Map.of(
                 "path", file.toString(),
                 "edits", List.of(
                         Map.of("old_text", "hello", "new_text", "hi"),
@@ -181,7 +183,7 @@ class EditToolTest {
         Path file = tempDir.resolve("empty-old.txt");
         Files.writeString(file, "hello world");
 
-        String result = EditTool.multi_edit(Map.of(
+        String result = editTool.multi_edit(Map.of(
                 "path", file.toString(),
                 "edits", List.of(
                         Map.of("old_text", "", "new_text", "x")
@@ -193,7 +195,7 @@ class EditToolTest {
 
     @Test
     void multi_edit_returnsError_whenPathBlank() {
-        String result = EditTool.multi_edit(Map.of(
+        String result = editTool.multi_edit(Map.of(
                 "path", "",
                 "edits", List.of(Map.of("old_text", "x", "new_text", "y"))
         ));
@@ -209,7 +211,7 @@ class EditToolTest {
         Path file = tempDir.resolve("revert.txt");
         Files.writeString(file, "old content modified");
 
-        String result = EditTool.revert_edit(Map.of(
+        String result = editTool.revert_edit(Map.of(
                 "path", file.toString(),
                 "old_text", "modified",
                 "new_text", "original"
@@ -224,7 +226,7 @@ class EditToolTest {
         Path file = tempDir.resolve("revert-fail.txt");
         Files.writeString(file, "hello world");
 
-        String result = EditTool.revert_edit(Map.of(
+        String result = editTool.revert_edit(Map.of(
                 "path", file.toString(),
                 "old_text", "xyz",
                 "new_text", "abc"
@@ -236,7 +238,7 @@ class EditToolTest {
 
     @Test
     void revert_edit_returnsError_whenPathBlank() {
-        String result = EditTool.revert_edit(Map.of(
+        String result = editTool.revert_edit(Map.of(
                 "path", "",
                 "old_text", "x",
                 "new_text", "y"
@@ -248,7 +250,7 @@ class EditToolTest {
 
     @Test
     void revert_edit_returnsError_whenOldTextBlank() {
-        String result = EditTool.revert_edit(Map.of(
+        String result = editTool.revert_edit(Map.of(
                 "path", "/some/path",
                 "old_text", "",
                 "new_text", "y"
@@ -260,7 +262,7 @@ class EditToolTest {
 
     @Test
     void revert_edit_returnsError_whenFileNotFound() {
-        String result = EditTool.revert_edit(Map.of(
+        String result = editTool.revert_edit(Map.of(
                 "path", "/nonexistent/file.txt",
                 "old_text", "x",
                 "new_text", "y"
@@ -268,6 +270,39 @@ class EditToolTest {
 
         assertTrue(result.contains("\"success\":false"));
         assertTrue(result.contains("not found"));
+    }
+
+    @Test
+    void apply_edit_rejectsNewTextExceedingLimit() throws Exception {
+        Path file = tempDir.resolve("guard.txt");
+        Files.writeString(file, "hello world");
+
+        String result = editTool.apply_edit(Map.of(
+                "path", file.toString(),
+                "old_text", "world",
+                "new_text", "x".repeat(20000)
+        ));
+
+        assertTrue(result.contains("\"success\":false"));
+        assertTrue(result.contains("exceeds the model context limit"));
+        assertEquals("hello world", Files.readString(file));
+    }
+
+    @Test
+    void multi_edit_rejectsWhenTotalNewTextExceedsLimit() throws Exception {
+        Path file = tempDir.resolve("guard-multi.txt");
+        Files.writeString(file, "hello world");
+
+        String result = editTool.multi_edit(Map.of(
+                "path", file.toString(),
+                "edits", List.of(
+                        Map.of("old_text", "hello", "new_text", "x".repeat(8000)),
+                        Map.of("old_text", "world", "new_text", "y".repeat(8000))
+                )
+        ));
+
+        assertTrue(result.contains("\"success\":false"));
+        assertTrue(result.contains("exceeds the model context limit"));
     }
 
     // --- ToolDefinition builders ---

@@ -15,6 +15,14 @@ public class WriteTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    private final int maxFileTokens;
+    private final int maxFileChars;
+
+    public WriteTool(int contextWindow) {
+        this.maxFileTokens = FileSizePolicy.maxFileTokens(contextWindow);
+        this.maxFileChars = FileSizePolicy.maxFileChars(contextWindow);
+    }
+
     public static ToolDefinition write_file() {
         var pathProp = Map.of("type", "string", "description", "Absolute or relative file path");
         var contentProp = Map.of("type", "string", "description", "Content to write to the file");
@@ -30,7 +38,7 @@ public class WriteTool {
                 schema);
     }
 
-    public static String execute(Map<String, Object> args) {
+    public String execute(Map<String, Object> args) {
         @SuppressWarnings("unchecked")
         String pathStr = (String) args.getOrDefault("path", "");
         @SuppressWarnings("unchecked")
@@ -41,6 +49,11 @@ public class WriteTool {
         }
         if (content == null) {
             content = "";
+        }
+
+        int estimatedTokens = FileSizePolicy.estimateTokens(content);
+        if (estimatedTokens > maxFileTokens) {
+            return formatOutput(false, FileSizePolicy.tooLargeMessage("write_file", pathStr, estimatedTokens, maxFileTokens, maxFileChars));
         }
 
         Path path = Paths.get(pathStr);
