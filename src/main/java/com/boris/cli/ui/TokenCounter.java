@@ -48,7 +48,7 @@ public class TokenCounter {
     }
 
     public String limitMessage() {
-        return "✗ límite de tokens alcanzado (" + formatTokens(contextWindowLimit)
-                + "). No se pueden enviar más mensajes en esta sesión.";
+        return "⚠ límite de contexto alcanzado (" + formatTokens(contextWindowLimit)
+                + "). Historial guardado en memoria persistente (H2). Reiniciando contador...";
     }
 }

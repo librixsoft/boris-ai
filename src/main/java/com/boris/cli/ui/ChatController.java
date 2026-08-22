@@ -94,8 +94,11 @@ public class ChatController implements InputArea.InputListener {
 
         if (tokenCounter.limitReached()) {
             transcript.appendLine(tokenCounter.limitMessage());
-            return;
+            tokenCounter.resetSession();
         }
+
+        // Count user message tokens
+        tokenCounter.addTokens(text.length());
 
         commandHistory.record(text);
         transcript.appendLine("❯ " + text);
