@@ -101,11 +101,23 @@ public class ChatService {
                 memoryService.saveUserMessage(userMessage);
             }
 
+            StringBuilder responseBuilder = new StringBuilder();
             client.prompt(fullMessage)
                     .stream()
                     .content()
-                    .doOnNext(chunk -> onChunk.accept(chunk))
+                    .doOnNext(chunk -> {
+                        onChunk.accept(chunk);
+                        if (chunk != null) {
+                            responseBuilder.append(chunk);
+                        }
+                    })
                     .doOnComplete(() -> {
+                        if (enableHistory && memoryService != null) {
+                            String fullResponse = responseBuilder.toString();
+                            if (!fullResponse.isEmpty()) {
+                                memoryService.saveAssistantMessage(fullResponse);
+                            }
+                        }
                         if (onComplete != null) onComplete.run();
                     })
                     .doOnError(e -> {
