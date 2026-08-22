@@ -32,3 +32,5 @@
 - [ ] Implementar un settings doctor (settings.json) por si se rompe el file de config se restaure
 
 - [ ] Aplicar plan core  diffs: /Users/lastprophet/Documents/workspaces/boris-ai/plans/plan-so-tool-calling-refined.md
+
+- [ ] No usar historial de spring ai y utilizar sistema de h2 ram en bd
