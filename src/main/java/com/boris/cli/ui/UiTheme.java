@@ -13,6 +13,8 @@ public final class UiTheme {
     public static final TextColor ACCENT = new TextColor.RGB(200, 200, 100);
     public static final TextColor USERC = new TextColor.RGB(200, 200, 100);
     public static final TextColor SELECTED_BG = new TextColor.RGB(58, 61, 79);
+    public static final TextColor SELECT_BG = new TextColor.RGB(68, 71, 90);
+    public static final TextColor SELECT_FG = new TextColor.RGB(248, 248, 242);
 
     private UiTheme() {
     }

@@ -99,7 +99,7 @@ public class BorisUI {
                 () -> window.close()
         );
 
-        window = new BorisWindow(SCROLL_STEP, delta -> uiExecutor.run(() -> chatPanel.scroll(delta)));
+        window = new BorisWindow(chatPanel, SCROLL_STEP, delta -> uiExecutor.run(() -> chatPanel.scroll(delta)));
         window.setHints(Arrays.asList(Window.Hint.FULL_SCREEN, Window.Hint.NO_DECORATIONS));
         window.addWindowListener(new WindowListenerAdapter() {
             @Override
