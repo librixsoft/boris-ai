@@ -70,16 +70,23 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
         boolean isHeader = false;
         List<Integer> columnWidths = new ArrayList<>();
 
+        boolean inThinking = false;
+        for (int lineIdx = 0; lineIdx < component.getScrollOffset() && lineIdx < component.getLineCount(); lineIdx++) {
+            inThinking = MarkdownLineRenderer.updateThinkingState(component.getLine(lineIdx), inThinking);
+        }
+
         for (int i = 0; i < visibleRows && component.getScrollOffset() + i < component.getLineCount(); i++) {
-            String line = component.getLine(component.getScrollOffset() + i);
+            int lineIdx = component.getScrollOffset() + i;
+            String line = component.getLine(lineIdx);
 
             if (tableRowRenderer.isTableRow(line)) {
                 if (tableRowRenderer.isSeparatorRow(line)) {
                     inTable = true;
                     isHeader = false;
                     graphics.setBackgroundColor(UiTheme.BG);
-                    graphics.setForegroundColor(UiTheme.MUTED);
+                    graphics.setForegroundColor(inThinking ? UiTheme.THINKING_MUTED : UiTheme.MUTED);
                     graphics.putString(0, i, padOrTruncate(line, contentWidth));
+                    inThinking = MarkdownLineRenderer.updateThinkingState(line, inThinking);
                     continue;
                 }
 
@@ -96,8 +103,10 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
                 inTable = false;
                 isHeader = false;
                 columnWidths.clear();
-                markdownLineRenderer.render(graphics, line, i, contentWidth);
+                markdownLineRenderer.render(graphics, line, i, contentWidth, inThinking);
             }
+
+            inThinking = MarkdownLineRenderer.updateThinkingState(line, inThinking);
         }
 
         for (int i = component.getLineCount() - component.getScrollOffset(); i < visibleRows; i++) {

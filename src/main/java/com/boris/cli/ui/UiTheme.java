@@ -15,6 +15,9 @@ public final class UiTheme {
     public static final TextColor SELECTED_BG = new TextColor.RGB(58, 61, 79);
     public static final TextColor SELECT_BG = new TextColor.RGB(68, 71, 90);
     public static final TextColor SELECT_FG = new TextColor.RGB(248, 248, 242);
+    public static final TextColor THINKING = new TextColor.RGB(128, 128, 128);
+    public static final TextColor THINKING_BOLD = new TextColor.RGB(160, 160, 160);
+    public static final TextColor THINKING_MUTED = new TextColor.RGB(100, 100, 100);
 
     private UiTheme() {
     }
