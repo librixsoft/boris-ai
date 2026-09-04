@@ -101,8 +101,21 @@ public class BorisUIMinimal {
                 }
 
                 String response = responseRef.get();
-                if (response != null && ChatService.EXIT_COMMAND.equals(response)) {
-                    break;
+                if (response != null) {
+                    var fallbackResults = com.boris.tooling.fallback.ToolFallbackHandler.handleFallback(response);
+                    for (var res : fallbackResults) {
+                        if (res.executed()) {
+                            if (res.success()) {
+                                System.out.println("⚡ [Fallback Tool: " + res.toolName() + "] " + res.message());
+                            } else {
+                                System.out.println("✗ [Fallback Tool Error: " + res.toolName() + "] " + res.message());
+                            }
+                        }
+                    }
+
+                    if (ChatService.EXIT_COMMAND.equals(response)) {
+                        break;
+                    }
                 }
 
                 System.out.println();

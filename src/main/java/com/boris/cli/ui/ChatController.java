@@ -142,6 +142,9 @@ public class ChatController implements InputArea.InputListener {
                             return;
                         }
                         if (chunk != null && !chunk.isEmpty()) {
+                            synchronized (assistantBuffer) {
+                                assistantBuffer.append(chunk);
+                            }
                             tokenCounter.addTokens(chunk.length());
                             if (firstChunk.compareAndSet(true, false)) {
                                 transcript.appendAssistantPrefix();
@@ -161,9 +164,25 @@ public class ChatController implements InputArea.InputListener {
     private void finishResponse(StringBuilder assistantBuffer) {
         waiting.set(false);
         transcript.endAssistantResponse();
+
+        String finalText;
+        synchronized (assistantBuffer) {
+            finalText = assistantBuffer.toString();
+        }
+
+        var fallbackResults = com.boris.tooling.fallback.ToolFallbackHandler.handleFallback(finalText);
+        for (var res : fallbackResults) {
+            if (res.executed()) {
+                if (res.success()) {
+                    transcript.appendLine("⚡ [Fallback Tool: " + res.toolName() + "] " + res.message());
+                } else {
+                    transcript.appendLine("✗ [Fallback Tool Error: " + res.toolName() + "] " + res.message());
+                }
+            }
+        }
+
         statusBar.showTokenStatus(tokenCounter);
 
-        String finalText = assistantBuffer.toString();
         if (ChatService.EXIT_COMMAND.equals(finalText)) {
             onClose.run();
         }
