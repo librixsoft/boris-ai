@@ -25,14 +25,28 @@ public class ChatService {
     private final List<String> conversationHistory;
     private final int maxHistorySize;
     private final boolean enableHistory;
+    private boolean thinkingEnabled;
+    private String thinkingMode;
+    private final String modelName;
 
     public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory) {
+        this(chatClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, true, "think", "");
+    }
+
+    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode) {
+        this(chatClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, thinkingEnabled, thinkingMode, "");
+    }
+
+    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode, String modelName) {
         this.chatClientSupplier = chatClientSupplier;
         this.botName = botName;
         this.taskAborter = taskAborter;
         this.conversationHistory = new ArrayList<>();
         this.maxHistorySize = maxHistorySize;
         this.enableHistory = enableHistory;
+        this.thinkingEnabled = thinkingEnabled;
+        this.thinkingMode = thinkingMode;
+        this.modelName = modelName;
     }
 
     public String sendMessage(String userMessage) {
@@ -64,7 +78,12 @@ public class ChatService {
                 trimHistory();
             }
             
-            String response = client.prompt(fullMessage).call().content();
+            String response = client.prompt(fullMessage)
+                .options(OpenAiChatOptions.builder()
+                        .model(this.modelName)
+                        .reasoningEffort(thinkingEnabled ? "medium" : null)
+                        .build())
+                .call().content();
             
             // Agregar respuesta al historial (si está habilitado)
             if (enableHistory && response != null && !response.isEmpty()) {
@@ -100,8 +119,15 @@ public class ChatService {
             throw new IllegalStateException("Spring AI ChatClient is required — tool calling must be used. Use ChatService.withTools() to construct.");
         }
 
+        OpenAiChatOptions.Builder optionsBuilder = OpenAiChatOptions.builder()
+                .model(this.modelName);
+        if (thinkingEnabled) {
+            optionsBuilder.reasoningEffort("medium");
+        }
+
         try {
             client.prompt(userMessage)
+                .options(optionsBuilder.build())
                 .stream()
                 .content()
                 .doOnNext(chunk -> onChunk.accept(chunk))
@@ -131,7 +157,10 @@ public class ChatService {
         }
 
         String prompt = ToolCallingConfig.loadSystemPrompt(s);
-        var chatModel = buildChatModel(s);
+        String modelName = s.getModel().getName();
+        boolean thinkingEnabled = s.getThinkingEnabled() != null ? s.getThinkingEnabled() : true;
+        String thinkingMode = s.getThinkingMode() != null ? s.getThinkingMode() : "think";
+        var chatModel = buildChatModel(s, thinkingEnabled, thinkingMode);
         
         // Usar parámetros de configuración
         int historySize = s.getMaxHistorySize();
@@ -148,12 +177,21 @@ public class ChatService {
                 .build();
         
         // Crear nuevo ChatService con el client real
-        return new ChatService(() -> client, botName, aborter, historySize, enableHistory);
+        return new ChatService(() -> client, botName, aborter, historySize, enableHistory, thinkingEnabled, thinkingMode, modelName);
     }
 
     /** Expose the aborter so UI can wire ESC key to it. */
     public TaskAborter getTaskAborter() {
         return taskAborter;
+    }
+
+    /** Toggle thinking mode and rebuild the chat client. */
+    public void setThinkingEnabled(boolean enabled) {
+        this.thinkingEnabled = enabled;
+    }
+
+    public boolean isThinkingEnabled() {
+        return thinkingEnabled;
     }
 
     /** Clear the chat history */
@@ -194,6 +232,10 @@ public class ChatService {
     }
 
     private static org.springframework.ai.chat.model.ChatModel buildChatModel(Settings settings) throws Exception {
+        return buildChatModel(settings, true, "think");
+    }
+
+    private static org.springframework.ai.chat.model.ChatModel buildChatModel(Settings settings, boolean thinkingEnabled, String thinkingMode) throws Exception {
         String baseUrl = settings.getModel().getBaseUrl();
         String modelName = settings.getModel().getName();
         Map<String, String> envMap = settings.getEnv();

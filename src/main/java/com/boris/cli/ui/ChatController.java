@@ -105,6 +105,7 @@ public class ChatController implements InputArea.InputListener {
                 newState = !current;
             }
             chatPanel.setThinkingEnabled(newState);
+            chatService.setThinkingEnabled(newState);
             transcript.appendLine(newState ? "● Razonamiento (thinking) activado" : "● Razonamiento (thinking) desactivado");
             transcript.rerender();
             return;

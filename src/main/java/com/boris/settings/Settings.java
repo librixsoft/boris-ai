@@ -11,6 +11,8 @@ public class Settings {
     private Boolean enforceSequentialExecution;
     private Double temperature;
     private Integer contextWindow;
+    private Boolean thinkingEnabled;
+    private String thinkingMode;
 
     public Settings() {}
 
@@ -41,4 +43,10 @@ public class Settings {
     
     public Integer getContextWindow() { return contextWindow; }
     public void setContextWindow(Integer contextWindow) { this.contextWindow = contextWindow; }
+
+    public Boolean getThinkingEnabled() { return thinkingEnabled; }
+    public void setThinkingEnabled(Boolean thinkingEnabled) { this.thinkingEnabled = thinkingEnabled; }
+
+    public String getThinkingMode() { return thinkingMode; }
+    public void setThinkingMode(String thinkingMode) { this.thinkingMode = thinkingMode; }
 }

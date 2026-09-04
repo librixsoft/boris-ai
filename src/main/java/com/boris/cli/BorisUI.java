@@ -49,14 +49,15 @@ public class BorisUI {
     private Screen screen;
     private MultiWindowTextGUI gui;
     private Window window;
+    private final Settings settings;
 
     public BorisUI(String settingsPath) throws Exception {
         this.chatService = ChatService.withTools(settingsPath, "boris");
         SettingsManager mgr = new SettingsManager();
-        Settings s = mgr.loadSettings(settingsPath);
+        this.settings = mgr.loadSettings(settingsPath);
         int contextWindowLimit = 10000;
-        if (s != null && s.getContextWindow() != null) {
-            contextWindowLimit = s.getContextWindow();
+        if (this.settings != null && this.settings.getContextWindow() != null) {
+            contextWindowLimit = this.settings.getContextWindow();
         }
         this.tokenCounter = new TokenCounter(contextWindowLimit);
     }
@@ -83,9 +84,10 @@ public class BorisUI {
         CommandHistory commandHistory = new CommandHistory();
 
         ChatPanel chatPanel = new ChatPanel();
+        boolean thinkingEnabled = this.settings != null && this.settings.getThinkingEnabled() != null ? this.settings.getThinkingEnabled() : true;
         Transcript transcript = new Transcript(chatPanel, uiExecutor);
         StatusBar statusBar = new StatusBar(uiExecutor);
-        ThinkingSpinner spinner = new ThinkingSpinner(statusBar, tokenCounter, waiting, wasAborted);
+        ThinkingSpinner spinner = new ThinkingSpinner(statusBar, tokenCounter, waiting, wasAborted, () -> chatPanel.isThinkingEnabled());
         ChatController controller = new ChatController(
                 chatService,
                 commandHistory,
