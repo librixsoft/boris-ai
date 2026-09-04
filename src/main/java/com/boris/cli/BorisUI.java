@@ -116,11 +116,12 @@ public class BorisUI {
         footer.addComponent(new Separator(Direction.HORIZONTAL));
         footer.addComponent(statusBar);
 
-        InputArea inputArea = new InputArea(commandHistory, waiting, SCROLL_STEP, controller);
+        HintBar hintBar = new HintBar();
+        InputArea inputArea = new InputArea(commandHistory, waiting, SCROLL_STEP, controller, hintBar);
         Border borderedInput = inputArea.withBorder(Borders.singleLine());
         borderedInput.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Fill));
         footer.addComponent(borderedInput);
-        footer.addComponent(new HintBar());
+        footer.addComponent(hintBar);
 
         root.addComponent(footer, BorderLayout.Location.BOTTOM);
 
@@ -131,7 +132,7 @@ public class BorisUI {
         ((SeparateTextGUIThread) gui.getGUIThread()).start();
 
         transcript.appendLine("boris listo. Escribí un mensaje y Enter. "
-                + "/exit para salir, /clear para limpiar, ESC para abortar tarea, Tab para mover el foco entre chat e input.");
+                + "Escribe / para ver comandos (/exit, /clear, /thinking), ESC para abortar tarea, Tab para mover el foco.");
         statusBar.showTokenStatus(tokenCounter);
 
         try {

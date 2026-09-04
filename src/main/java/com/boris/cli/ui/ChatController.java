@@ -80,15 +80,33 @@ public class ChatController implements InputArea.InputListener {
     }
 
     private void handleSubmit(String text) {
-        if (text.equals("/exit") || text.equals("/quit")) {
+        String trimmed = text.trim();
+        String lower = trimmed.toLowerCase();
+        if (lower.equals("/exit") || lower.equals("/quit")) {
             onClose.run();
             return;
         }
-        if (text.equals("/clear")) {
+        if (lower.equals("/clear")) {
             chatService.clearHistory();
             tokenCounter.resetSession();
             transcript.clear();
             statusBar.clear();
+            return;
+        }
+        if (lower.equals("/thinking") || lower.equals("/think") || lower.equals("/reasoning")
+                || lower.startsWith("/thinking ") || lower.startsWith("/think ") || lower.startsWith("/reasoning ")) {
+            boolean current = chatPanel.isThinkingEnabled();
+            boolean newState;
+            if (lower.contains(" on") || lower.contains(" true") || lower.contains(" activar")) {
+                newState = true;
+            } else if (lower.contains(" off") || lower.contains(" false") || lower.contains(" desactivar")) {
+                newState = false;
+            } else {
+                newState = !current;
+            }
+            chatPanel.setThinkingEnabled(newState);
+            transcript.appendLine(newState ? "● Razonamiento (thinking) activado" : "● Razonamiento (thinking) desactivado");
+            transcript.rerender();
             return;
         }
 

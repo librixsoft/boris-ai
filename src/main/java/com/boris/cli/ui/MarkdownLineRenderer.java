@@ -165,10 +165,14 @@ public class MarkdownLineRenderer {
     }
 
     public void render(TextGUIGraphics graphics, String line, int row, int contentWidth) {
-        render(graphics, line, row, contentWidth, false);
+        render(graphics, line, row, contentWidth, false, true);
     }
 
     public void render(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean inThinking) {
+        render(graphics, line, row, contentWidth, inThinking, true);
+    }
+
+    public void render(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean inThinking, boolean thinkingEnabled) {
         if (line == null) {
             line = "";
         }
@@ -177,6 +181,26 @@ public class MarkdownLineRenderer {
         if (segments.isEmpty()) {
             graphics.setBackgroundColor(UiTheme.BG);
             graphics.putString(0, row, padOrTruncate("", contentWidth));
+            return;
+        }
+
+        if (!thinkingEnabled) {
+            List<TextSegment> nonThinking = new ArrayList<>();
+            for (TextSegment seg : segments) {
+                if (!seg.isThinking()) {
+                    nonThinking.add(seg);
+                }
+            }
+            if (nonThinking.isEmpty()) {
+                graphics.setBackgroundColor(UiTheme.BG);
+                graphics.putString(0, row, padOrTruncate("", contentWidth));
+                return;
+            }
+            if (nonThinking.size() == 1) {
+                renderSingleSegmentLine(graphics, nonThinking.get(0).getText(), row, contentWidth, false);
+                return;
+            }
+            renderMultiSegmentLine(graphics, nonThinking, row, contentWidth);
             return;
         }
 

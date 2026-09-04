@@ -117,4 +117,18 @@ class MarkdownLineRendererTest {
         verify(graphics, atLeastOnce()).setForegroundColor(UiTheme.FG);
         verify(graphics, atLeastOnce()).setForegroundColor(UiTheme.THINKING);
     }
+
+    @Test
+    void testRenderThinkingDisabledHidesThinkingContent() {
+        // When thinkingEnabled is false, thinking segment should not be styled with THINKING color
+        renderer.render(graphics, "Prefix <think>Inside</think> Suffix", 0, 60, false, false);
+        verify(graphics, atLeastOnce()).setForegroundColor(UiTheme.FG);
+        verify(graphics, never()).setForegroundColor(UiTheme.THINKING);
+    }
+
+    @Test
+    void testRenderFullThinkingLineDisabled() {
+        renderer.render(graphics, "<think>Full thinking line</think>", 0, 40, false, false);
+        verify(graphics, never()).setForegroundColor(UiTheme.THINKING);
+    }
 }

@@ -55,9 +55,20 @@ public class ChatPanel extends AbstractComponent<ChatPanel> {
     private int selectEndLine = -1;
     private int selectEndCol = -1;
 
+    private boolean thinkingEnabled = true;
+
     public ChatPanel() {
         super();
         setPreferredSize(new TerminalSize(80, 20));
+    }
+
+    public boolean isThinkingEnabled() {
+        return thinkingEnabled;
+    }
+
+    public void setThinkingEnabled(boolean thinkingEnabled) {
+        this.thinkingEnabled = thinkingEnabled;
+        invalidate();
     }
 
     public boolean isAtBottom() {

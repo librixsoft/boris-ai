@@ -69,4 +69,20 @@ class ChatContentRendererTest {
 
         org.mockito.Mockito.verify(graphics, org.mockito.Mockito.atLeastOnce()).setForegroundColor(UiTheme.THINKING);
     }
+
+    @Test
+    void testDrawComponentWithThinkingDisabled() {
+        ChatContentRenderer renderer = new ChatContentRenderer();
+        ChatPanel panel = new ChatPanel();
+        panel.setThinkingEnabled(false);
+        panel.setText("● <think>\nThinking line 1\nThinking line 2\n</think>\nNormal response");
+
+        com.googlecode.lanterna.gui2.TextGUIGraphics graphics = org.mockito.Mockito.mock(com.googlecode.lanterna.gui2.TextGUIGraphics.class);
+        org.mockito.Mockito.when(graphics.getSize()).thenReturn(new com.googlecode.lanterna.TerminalSize(60, 10));
+
+        renderer.drawComponent(graphics, panel);
+
+        org.mockito.Mockito.verify(graphics, org.mockito.Mockito.never()).setForegroundColor(UiTheme.THINKING);
+        org.mockito.Mockito.verify(graphics, org.mockito.Mockito.atLeastOnce()).setForegroundColor(UiTheme.FG);
+    }
 }

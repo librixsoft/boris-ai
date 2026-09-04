@@ -29,13 +29,19 @@ public class InputArea extends Panel {
     private final AtomicBoolean waiting;
     private final int scrollStep;
     private final InputListener listener;
+    private HintBar hintBar;
 
     public InputArea(CommandHistory commandHistory, AtomicBoolean waiting, int scrollStep, InputListener listener) {
+        this(commandHistory, waiting, scrollStep, listener, null);
+    }
+
+    public InputArea(CommandHistory commandHistory, AtomicBoolean waiting, int scrollStep, InputListener listener, HintBar hintBar) {
         super(new BorderLayout());
         this.commandHistory = commandHistory;
         this.waiting = waiting;
         this.scrollStep = scrollStep;
         this.listener = listener;
+        this.hintBar = hintBar;
 
         Label promptLabel = new Label("❯ ");
         promptLabel.setForegroundColor(UiTheme.USERC);
@@ -44,7 +50,21 @@ public class InputArea extends Panel {
         inputBox = new TextBox(new TerminalSize(1, 1), TextBox.Style.SINGLE_LINE);
         addComponent(inputBox, BorderLayout.Location.CENTER);
 
+        inputBox.setTextChangeListener((newText, changedByUser) -> {
+            if (this.hintBar != null) {
+                if (newText != null && newText.startsWith("/")) {
+                    this.hintBar.showMenu(newText);
+                } else if (this.hintBar.isMenuVisible()) {
+                    this.hintBar.hideMenu();
+                }
+            }
+        });
+
         inputBox.setInputFilter(this::handleKey);
+    }
+
+    public void setHintBar(HintBar hintBar) {
+        this.hintBar = hintBar;
     }
 
     public TextBox getTextBox() {
@@ -56,9 +76,22 @@ public class InputArea extends Panel {
 
         if (type == KeyType.Enter) {
             if (!waiting.get()) {
+                if (hintBar != null && hintBar.isMenuVisible()) {
+                    CommandItem selected = hintBar.getSelectedCommand();
+                    hintBar.hideMenu();
+                    if (selected != null) {
+                        inputBox.setText("");
+                        listener.onSubmit(selected.getCommand());
+                        return false;
+                    }
+                }
+
                 String text = inputBox.getText().trim();
                 if (!text.isEmpty()) {
                     inputBox.setText("");
+                    if (hintBar != null) {
+                        hintBar.hideMenu();
+                    }
                     listener.onSubmit(text);
                 }
             }
@@ -66,13 +99,32 @@ public class InputArea extends Panel {
         }
 
         if (type == KeyType.Escape) {
+            if (hintBar != null && hintBar.isMenuVisible()) {
+                hintBar.hideMenu();
+                if (inputBox.getText().startsWith("/")) {
+                    inputBox.setText("");
+                }
+                return false;
+            }
             if (waiting.get()) {
                 listener.onAbort();
             }
             return false;
         }
 
+        if (type == KeyType.Tab) {
+            if (hintBar != null && hintBar.isMenuVisible()) {
+                hintBar.selectNext();
+                return false;
+            }
+        }
+
         if (type == KeyType.ArrowUp) {
+            if (hintBar != null && hintBar.isMenuVisible()) {
+                hintBar.selectPrevious();
+                return false;
+            }
+
             if (commandHistory.hasEntries()) {
                 commandHistory.beginNavigation(inputBox.getText());
                 if (commandHistory.canGoOlder()) {
@@ -85,6 +137,11 @@ public class InputArea extends Panel {
         }
 
         if (type == KeyType.ArrowDown) {
+            if (hintBar != null && hintBar.isMenuVisible()) {
+                hintBar.selectNext();
+                return false;
+            }
+
             if (commandHistory.canGoNewer()) {
                 inputBox.setText(commandHistory.goNewer());
             } else if (commandHistory.navigating()) {

@@ -75,6 +75,8 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
             inThinking = MarkdownLineRenderer.updateThinkingState(component.getLine(lineIdx), inThinking);
         }
 
+        boolean thinkingEnabled = component.isThinkingEnabled();
+
         for (int i = 0; i < visibleRows && component.getScrollOffset() + i < component.getLineCount(); i++) {
             int lineIdx = component.getScrollOffset() + i;
             String line = component.getLine(lineIdx);
@@ -84,7 +86,7 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
                     inTable = true;
                     isHeader = false;
                     graphics.setBackgroundColor(UiTheme.BG);
-                    graphics.setForegroundColor(inThinking ? UiTheme.THINKING_MUTED : UiTheme.MUTED);
+                    graphics.setForegroundColor((inThinking && thinkingEnabled) ? UiTheme.THINKING_MUTED : UiTheme.MUTED);
                     graphics.putString(0, i, padOrTruncate(line, contentWidth));
                     inThinking = MarkdownLineRenderer.updateThinkingState(line, inThinking);
                     continue;
@@ -103,7 +105,7 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
                 inTable = false;
                 isHeader = false;
                 columnWidths.clear();
-                markdownLineRenderer.render(graphics, line, i, contentWidth, inThinking);
+                markdownLineRenderer.render(graphics, line, i, contentWidth, inThinking, thinkingEnabled);
             }
 
             inThinking = MarkdownLineRenderer.updateThinkingState(line, inThinking);
