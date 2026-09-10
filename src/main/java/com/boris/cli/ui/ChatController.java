@@ -179,17 +179,6 @@ public class ChatController implements InputArea.InputListener {
             }
         }
 
-        var fallbackResults = com.boris.tooling.fallback.ToolFallbackHandler.handleFallback(finalText);
-        for (var res : fallbackResults) {
-            if (res.executed()) {
-                if (res.success()) {
-                    transcript.appendLine("⚡ [Fallback Tool: " + res.toolName() + "] " + res.message());
-                } else {
-                    transcript.appendLine("✗ [Fallback Tool Error: " + res.toolName() + "] " + res.message());
-                }
-            }
-        }
-
         statusBar.showTokenStatus(tokenCounter);
 
         if (ChatService.EXIT_COMMAND.equals(finalText)) {
