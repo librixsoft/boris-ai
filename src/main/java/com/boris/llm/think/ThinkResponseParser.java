@@ -2,6 +2,11 @@ package com.boris.llm.think;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+/**
+ * Extrae el trace de razonamiento del JSON crudo de Ollama (choices[].message
+ * o choices[].delta: thinking/reasoning_content/reasoning/reasoning_text/
+ * thought). Spring AI ignora esos campos desconocidos, por eso se leen aqui.
+ */
 public final class ThinkResponseParser {
 
     private static final String[] THINKING_FIELDS = {

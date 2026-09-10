@@ -22,7 +22,7 @@ public class LlmClient {
         if (settings == null || settings.getModel() == null) {
             throw new IllegalStateException("Settings file not found or invalid: " + settingsPath);
         }
-        String thinkMode = settings.getReasoningEffort();
+        String thinkMode = OllamaThinkSpringAiFactory.resolveThinkMode(settings);
         try {
             this.chatClient = OllamaThinkSpringAiFactory.createChatClient(settings, thinkMode);
         } catch (IllegalStateException e) {

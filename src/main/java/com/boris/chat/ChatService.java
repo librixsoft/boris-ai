@@ -147,6 +147,9 @@ public class ChatService {
         }
     }
 
+    // Unico punto de llamada al LLM: todo pasa por el ChatClient de Spring AI.
+    // El think viaja como reasoning_effort (nivel o "none" si va apagado) y el
+    // trace se recupera de ThinkContextHolder (campos fuera del content).
     private ChatTurn callSpringAiOnce(ChatClient client, String fullMessage, String effectiveThink) {
         ThinkContextHolder.setThinkMode(effectiveThink);
         ThinkContextHolder.clearLastThinking();
@@ -182,15 +185,9 @@ public class ChatService {
             throw new IllegalStateException("Settings file not found or invalid: " + settingsPath);
         }
         String modelName = s.getModel().getName();
-        boolean thinkingEnabled = false;
-        String thinkingMode = "low";
-        if (s.getOptions() != null && s.getOptions().containsKey("think")) {
-            thinkingEnabled = true;
-            Object thinkValue = s.getOptions().get("think");
-            if (thinkValue instanceof String) {
-                thinkingMode = (String) thinkValue;
-            }
-        }
+        String resolvedThink = OllamaThinkSpringAiFactory.resolveThinkMode(s);
+        boolean thinkingEnabled = resolvedThink != null;
+        String thinkingMode = resolvedThink != null ? resolvedThink : "low";
         ChatClient client = OllamaThinkSpringAiFactory.createChatClient(s, thinkingEnabled ? thinkingMode : null);
         int historySize = s.getMaxHistorySize();
         boolean enableHistory = s.getEnableHistory() != null ? s.getEnableHistory() : true;
@@ -270,10 +267,14 @@ public class ChatService {
         return false;
     }
 
+    // Opciones Spring AI por llamada: el nivel de think o "none" para
+    // apagarlo (Ollama lo auto-activa si reasoning_effort se omite).
     private OpenAiChatOptions buildSpringAiOptions(String effectiveThink) {
         OpenAiChatOptions.Builder builder = OpenAiChatOptions.builder().model(this.modelName);
         if (effectiveThink != null && !effectiveThink.isBlank()) {
             builder.reasoningEffort(effectiveThink);
+        } else {
+            builder.reasoningEffort("none");
         }
         return builder.build();
     }

@@ -11,9 +11,32 @@ import org.springframework.web.client.RestClient;
 import com.boris.settings.Settings;
 import com.boris.tooling.integration.ToolCallingConfig;
 
+/**
+ * Fabrica Spring AI para Ollama con control de think.
+ *
+ * Mapeo implementado: el parametro custom del settings.json (options.think:
+ * "low"/"medium"/"high") se traduce al campo estandar de Spring AI
+ * OpenAiChatOptions.reasoningEffort, que viaja como "reasoning_effort" al
+ * endpoint /v1/chat/completions de Ollama. Ollama lo mapea a su Think interno:
+ * "low"/"medium"/"high" prenden el think, "none" lo apaga. El parametro nativo
+ * "think"/"options.think" NO funciona en ese endpoint (solo en /api/chat), por
+ * eso sin think configurado se envia reasoning_effort="none": si se omite,
+ * Ollama auto-activa el think. Sin llamadas HTTP directas ni fallbacks.
+ */
 public final class OllamaThinkSpringAiFactory {
 
     private OllamaThinkSpringAiFactory() {
+    }
+
+    public static String resolveThinkMode(Settings settings) {
+        if (settings == null || settings.getOptions() == null) {
+            return null;
+        }
+        Object thinkValue = settings.getOptions().get("think");
+        if (thinkValue instanceof String thinkStr && !thinkStr.isBlank()) {
+            return thinkStr;
+        }
+        return null;
     }
 
     public static OpenAiChatModel createChatModel(Settings settings, String thinkMode) {
@@ -42,12 +65,10 @@ public final class OllamaThinkSpringAiFactory {
         if (settings.getTemperature() != null) {
             optionsBuilder.temperature(settings.getTemperature());
         }
-        String reasoningEffort = settings.getReasoningEffort();
-        if (reasoningEffort == null || reasoningEffort.isBlank()) {
-            reasoningEffort = thinkMode;
-        }
-        if (reasoningEffort != null && !reasoningEffort.isBlank()) {
-            optionsBuilder.reasoningEffort(reasoningEffort);
+        if (thinkMode != null && !thinkMode.isBlank()) {
+            optionsBuilder.reasoningEffort(thinkMode);
+        } else {
+            optionsBuilder.reasoningEffort("none");
         }
 
         return OpenAiChatModel.builder()

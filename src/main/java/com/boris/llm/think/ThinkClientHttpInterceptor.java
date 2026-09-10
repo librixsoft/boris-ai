@@ -16,16 +16,27 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+/**
+ * Interceptor del RestClient interno de Spring AI (OpenAiApi).
+ *
+ * Inyecta "think" y "options.think" al JSON que Spring AI ya genera (nivel
+ * cuando el think esta activo, false cuando esta desactivado) y captura el
+ * trace de razonamiento que Ollama devuelve fuera del content
+ * (thinking/reasoning_content/...) en ThinkContextHolder. No es una llamada
+ * directa: solo enriquece/observa el trafico del ChatModel de Spring AI. El
+ * control efectivo del think lo hace "reasoning_effort" via OpenAiChatOptions.
+ */
 public class ThinkClientHttpInterceptor implements ClientHttpRequestInterceptor {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Override
     public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
-        String thinkMode = ThinkContextHolder.getThinkMode();
         byte[] outgoing = body;
-        if (thinkMode != null && !thinkMode.isBlank() && body != null && body.length > 0) {
-            outgoing = injectThink(body, thinkMode);
+        if (body != null && body.length > 0) {
+            String thinkMode = ThinkContextHolder.getThinkMode();
+            Object thinkValue = (thinkMode != null && !thinkMode.isBlank()) ? thinkMode : Boolean.FALSE;
+            outgoing = injectThink(body, thinkValue);
         }
         ThinkContextHolder.clearLastThinking();
         ClientHttpResponse response = execution.execute(request, outgoing);
@@ -43,14 +54,18 @@ public class ThinkClientHttpInterceptor implements ClientHttpRequestInterceptor 
         return new BufferedClientHttpResponse(response, responseBody);
     }
 
-    static byte[] injectThink(byte[] body, String thinkMode) {
+    static byte[] injectThink(byte[] body, Object thinkValue) {
         try {
             JsonNode root = MAPPER.readTree(body);
             if (!root.isObject()) {
                 return body;
             }
             ObjectNode obj = (ObjectNode) root;
-            obj.put("think", thinkMode);
+            if (thinkValue instanceof Boolean disabled && !disabled) {
+                obj.put("think", false);
+            } else {
+                obj.put("think", String.valueOf(thinkValue));
+            }
             JsonNode options = obj.get("options");
             ObjectNode optionsObj;
             if (options != null && options.isObject()) {
@@ -59,7 +74,11 @@ public class ThinkClientHttpInterceptor implements ClientHttpRequestInterceptor 
                 optionsObj = MAPPER.createObjectNode();
                 obj.set("options", optionsObj);
             }
-            optionsObj.put("think", thinkMode);
+            if (thinkValue instanceof Boolean disabled && !disabled) {
+                optionsObj.put("think", false);
+            } else {
+                optionsObj.put("think", String.valueOf(thinkValue));
+            }
             return MAPPER.writeValueAsBytes(obj);
         } catch (Exception e) {
             return body;

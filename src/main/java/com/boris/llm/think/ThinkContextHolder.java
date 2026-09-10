@@ -1,5 +1,9 @@
 package com.boris.llm.think;
 
+/**
+ * Contexto por hilo del think: el modo a enviar ("low"/... o null si va
+ * apagado) y el ultimo trace capturado de la respuesta del server.
+ */
 public final class ThinkContextHolder {
 
     private static final ThreadLocal<String> THINK_MODE = new ThreadLocal<>();

@@ -56,7 +56,13 @@ public class SettingsManager {
             return null;
         }
         String json = Files.readString(settingsFile, StandardCharsets.UTF_8);
-        return MAPPER.readValue(json, Settings.class);
+        try {
+            return MAPPER.readValue(json, Settings.class);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new com.boris.exceptions.BorisException(
+                    "Invalid JSON in settings file: " + path
+                            + ". Check for trailing commas or missing quotes.", e);
+        }
     }
 
     public String load(String path) throws IOException {
