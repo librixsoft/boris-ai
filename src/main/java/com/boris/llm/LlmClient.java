@@ -1,11 +1,10 @@
 package com.boris.llm;
 
 import java.io.IOException;
-import java.util.Map;
 
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
+
+import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 
@@ -23,35 +22,17 @@ public class LlmClient {
         if (settings == null || settings.getModel() == null) {
             throw new IllegalStateException("Settings file not found or invalid: " + settingsPath);
         }
-
-        String baseUrl = settings.getModel().getBaseUrl();
-        String modelName = settings.getModel().getName();
-        Map<String, String> envMap = settings.getEnv();
-        String apiKey = (String) envMap.getOrDefault("OLLAMA_API_KEY", "ollama");
-
-        OpenAiApi openAiApi = new OpenAiApi.Builder()
-                .baseUrl(baseUrl)
-                .apiKey(apiKey)
-                .build();
-
-        OpenAiChatOptions.Builder optionsBuilder = OpenAiChatOptions.builder()
-                .model(modelName);
-
-        if (settings.getTemperature() != null) {
-            optionsBuilder.temperature(settings.getTemperature());
+        String thinkMode = settings.getReasoningEffort();
+        try {
+            this.chatClient = OllamaThinkSpringAiFactory.createChatClient(settings, thinkMode);
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException("Failed to build Spring AI ChatClient: " + e.getMessage(), e);
         }
-
-        String reasoningEffort = settings.getReasoningEffort();
-        if (reasoningEffort != null && !reasoningEffort.isBlank()) {
-            optionsBuilder.reasoningEffort(reasoningEffort);
-        }
-
-        org.springframework.ai.openai.OpenAiChatModel chatModel = org.springframework.ai.openai.OpenAiChatModel.builder()
-                .openAiApi(openAiApi)
-                .defaultOptions(optionsBuilder.build())
-                .build();
-
-        this.chatClient = ChatClient.create(chatModel);
     }
 
+    public ChatClient getChatClient() {
+        return chatClient;
+    }
 }
