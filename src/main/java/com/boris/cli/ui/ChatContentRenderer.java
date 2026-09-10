@@ -3,6 +3,7 @@ package com.boris.cli.ui;
 import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.gui2.ComponentRenderer;
 import com.googlecode.lanterna.gui2.TextGUIGraphics;
+import com.googlecode.lanterna.TextColor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -121,7 +122,10 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
     }
 
     private void drawSelectionHighlight(TextGUIGraphics graphics, ChatPanel component, int visibleRows, int contentWidth) {
-        if (!component.isSelecting() && !component.hasSelection()) {
+        boolean isSelecting = component.isSelecting();
+        boolean hasSelection = component.hasSelection();
+
+        if (!isSelecting && !hasSelection) {
             return;
         }
 
@@ -159,12 +163,23 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
             fromCol = Math.max(0, Math.min(contentWidth, fromCol));
             toCol = Math.max(0, Math.min(contentWidth, toCol));
 
+            TextColor bgColor;
+            TextColor fgColor;
+
+            if (isSelecting) {
+                bgColor = UiTheme.SELECT_HIGHLIGHT_BG;
+                fgColor = UiTheme.SELECT_HIGHLIGHT_FG;
+            } else {
+                bgColor = UiTheme.SELECT_BG;
+                fgColor = UiTheme.SELECT_FG;
+            }
+
             for (int col = fromCol; col < toCol; col++) {
                 com.googlecode.lanterna.TextCharacter tc = graphics.getCharacter(col, row);
                 if (tc != null) {
-                    graphics.setCharacter(col, row, tc.withBackgroundColor(UiTheme.SELECT_BG).withForegroundColor(UiTheme.SELECT_FG));
+                    graphics.setCharacter(col, row, tc.withBackgroundColor(bgColor).withForegroundColor(fgColor));
                 } else {
-                    graphics.setCharacter(col, row, new com.googlecode.lanterna.TextCharacter(' ', UiTheme.SELECT_FG, UiTheme.SELECT_BG));
+                    graphics.setCharacter(col, row, new com.googlecode.lanterna.TextCharacter(' ', fgColor, bgColor));
                 }
             }
         }
