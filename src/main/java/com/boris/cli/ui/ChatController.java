@@ -171,6 +171,14 @@ public class ChatController implements InputArea.InputListener {
             finalText = assistantBuffer.toString();
         }
 
+        // Mostrar estado de thinking en el chat panel
+        if (chatService.isThinkingEnabled()) {
+            String thinkingContent = chatService.getLastThinkingContent();
+            if (thinkingContent != null && !thinkingContent.isEmpty() && !thinkingContent.startsWith("[DEBUG")) {
+                transcript.appendLine("🧠 [Thinking] " + thinkingContent);
+            }
+        }
+
         var fallbackResults = com.boris.tooling.fallback.ToolFallbackHandler.handleFallback(finalText);
         for (var res : fallbackResults) {
             if (res.executed()) {

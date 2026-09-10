@@ -34,9 +34,21 @@ public class LlmClient {
                 .apiKey(apiKey)
                 .build();
 
+        OpenAiChatOptions.Builder optionsBuilder = OpenAiChatOptions.builder()
+                .model(modelName);
+
+        if (settings.getTemperature() != null) {
+            optionsBuilder.temperature(settings.getTemperature());
+        }
+
+        String reasoningEffort = settings.getReasoningEffort();
+        if (reasoningEffort != null && !reasoningEffort.isBlank()) {
+            optionsBuilder.reasoningEffort(reasoningEffort);
+        }
+
         org.springframework.ai.openai.OpenAiChatModel chatModel = org.springframework.ai.openai.OpenAiChatModel.builder()
                 .openAiApi(openAiApi)
-                .defaultOptions(OpenAiChatOptions.builder().model(modelName).build())
+                .defaultOptions(optionsBuilder.build())
                 .build();
 
         this.chatClient = ChatClient.create(chatModel);

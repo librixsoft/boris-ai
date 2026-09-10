@@ -34,7 +34,9 @@ public class SettingsManager {
 
         // Crear configuración por defecto con los nuevos campos
         Settings defaultSettings = new Settings();
-        defaultSettings.setModel(new ModelConfig("http://localhost:11434", "qwen3.6-35b-64k"));
+        ModelConfig defaultModel = new ModelConfig("http://localhost:11434", "qwen3.6-35b-64k");
+        defaultModel.setOptions(Map.of("think", "high"));
+        defaultSettings.setModel(defaultModel);
         defaultSettings.setEnv(Map.of("OLLAMA_API_KEY", "ollama"));
         defaultSettings.setMaxHistorySize(20);
         defaultSettings.setEnableHistory(true);

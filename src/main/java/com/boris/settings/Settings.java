@@ -1,7 +1,10 @@
 package com.boris.settings;
 
 import java.util.Map;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Settings {
     private ModelConfig model;
     private Map<String, String> env;
@@ -13,6 +16,7 @@ public class Settings {
     private Integer contextWindow;
     private Boolean thinkingEnabled;
     private String thinkingMode;
+    private Map<String, Object> options;
 
     public Settings() {}
 
@@ -49,4 +53,30 @@ public class Settings {
 
     public String getThinkingMode() { return thinkingMode; }
     public void setThinkingMode(String thinkingMode) { this.thinkingMode = thinkingMode; }
+
+    public Map<String, Object> getOptions() { return options; }
+    public void setOptions(Map<String, Object> options) { this.options = options; }
+
+    @JsonIgnore
+    public String getReasoningEffort() {
+        // Check options map for "think" parameter from Ollama granite4.2
+        if (options != null && options.containsKey("think")) {
+            Object thinkValue = options.get("think");
+            if (thinkValue instanceof String) {
+                String thinkStr = ((String) thinkValue).toLowerCase();
+                // Map the values to match Spring AI expectations
+                return switch (thinkStr) {
+                    case "high" -> "high";
+                    case "medium" -> "medium";
+                    case "low" -> "low";
+                    default -> "medium";
+                };
+            }
+        }
+        // Fallback to model-specific reasoning effort
+        if (model != null && model.getReasoningEffort() != null) {
+            return model.getReasoningEffort();
+        }
+        return null;
+    }
 }
