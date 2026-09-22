@@ -82,7 +82,7 @@ public final class OllamaThinkSpringAiFactory {
         OpenAiChatModel chatModel = createChatModel(settings, thinkMode);
         return ChatClient.builder(chatModel)
                 .defaultSystem(prompt)
-                .defaultTools(ToolCallingConfig.buildNativeToolCallbacks())
+                .defaultTools(ToolCallingConfig.buildNativeToolCallbacks(settings))
                 .build();
     }
 

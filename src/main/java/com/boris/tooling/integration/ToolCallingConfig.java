@@ -14,6 +14,7 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.ai.tool.definition.DefaultToolDefinition;
 import org.springframework.ai.tool.definition.ToolDefinition;
 
+import com.boris.agent.MultiAgentExecutor;
 import com.boris.exceptions.BorisException;
 import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
@@ -44,8 +45,14 @@ public class ToolCallingConfig {
     private final WebSearchTool webSearchTool;
     private final PdfGenerationTool pdfGenerationTool;
     private final OfficeDocumentTool officeDocumentTool;
+    private final Settings settings;
+    private final MultiAgentExecutor multiAgentExecutor;
 
     public ToolCallingConfig() {
+        this(null);
+    }
+
+    public ToolCallingConfig(Settings settings) {
         this.readFileTool = new ReadFileTool();
         this.writeTool = new WriteTool();
         this.deleteTool = new DeleteTool();
@@ -55,6 +62,10 @@ public class ToolCallingConfig {
         this.webSearchTool = new WebSearchTool();
         this.pdfGenerationTool = new PdfGenerationTool();
         this.officeDocumentTool = new OfficeDocumentTool();
+        this.settings = settings;
+        this.multiAgentExecutor = (settings != null && settings.isMultiAgentEnabled())
+                ? new MultiAgentExecutor(settings)
+                : (settings != null ? new MultiAgentExecutor(settings) : null);
     }
 
     public static String loadSystemPrompt(Settings settings) {
@@ -105,7 +116,7 @@ public class ToolCallingConfig {
         SettingsManager mgr = new SettingsManager();
         Settings s = mgr.loadSettings(settingsPath);
         String prompt = loadSystemPrompt(s);
-        ToolCallingConfig config = new ToolCallingConfig();
+        ToolCallingConfig config = new ToolCallingConfig(s);
         return ChatClient.builder(chatModel)
                 .defaultSystem(prompt)
                 .defaultTools(ToolCallbacks.from(config))
@@ -113,7 +124,11 @@ public class ToolCallingConfig {
     }
 
     public static org.springframework.ai.tool.ToolCallback[] buildNativeToolCallbacks() {
-        ToolCallingConfig config = new ToolCallingConfig();
+        return buildNativeToolCallbacks(null);
+    }
+
+    public static org.springframework.ai.tool.ToolCallback[] buildNativeToolCallbacks(Settings settings) {
+        ToolCallingConfig config = new ToolCallingConfig(settings);
         return ToolCallbacks.from(config);
     }
 
@@ -228,5 +243,28 @@ public class ToolCallingConfig {
         params.put("content", content);
         params.put("customization", customization != null ? customization : new HashMap<>());
         return OfficeDocumentTool.execute(params);
+    }
+
+    @Tool(
+            name = "spawn_subagent",
+            description = "Spawn an isolated subagent instance to execute a specific subtask or research task autonomously and return the result.")
+    public String spawn_subagent(
+            @ToolParam(description = "Detailed task description and instructions for the subagent to execute") String task,
+            @ToolParam(description = "Optional role or specialty for the subagent, e.g. 'code_reviewer', 'researcher', 'tester', 'writer'") String role) {
+        if (multiAgentExecutor == null) {
+            return "Multi-agent feature is not enabled. Add '\"multi-agent\": \"yes\"' in ~/.boris/settings.json to use subagents.";
+        }
+        return multiAgentExecutor.spawnSubagent(task, role);
+    }
+
+    @Tool(
+            name = "run_parallel_tasks",
+            description = "Execute multiple independent tasks in parallel by spawning multiple agent instances simultaneously. Returns consolidated results from all worker agents.")
+    public String run_parallel_tasks(
+            @ToolParam(description = "List of task descriptions to execute concurrently in parallel") java.util.List<String> tasks) {
+        if (multiAgentExecutor == null) {
+            return "Multi-agent feature is not enabled. Add '\"multi-agent\": \"yes\"' in ~/.boris/settings.json to use parallel agents.";
+        }
+        return multiAgentExecutor.runParallelTasks(tasks);
     }
 }

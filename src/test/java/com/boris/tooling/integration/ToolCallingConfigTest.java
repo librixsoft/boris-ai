@@ -4,6 +4,8 @@ import org.junit.jupiter.api.*;
 import org.springframework.ai.model.function.FunctionCallback;
 import org.springframework.ai.tool.ToolCallback;
 
+import com.boris.settings.Settings;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class ToolCallingConfigTest {
@@ -94,5 +96,40 @@ class ToolCallingConfigTest {
 
         assertNotNull(result);
         assertTrue(result.contains("success") || result.contains("error"));
+    }
+
+    @Test
+    void buildNativeToolCallbacks_containsMultiAgentTools() {
+        Settings settings = new Settings();
+        settings.setMultiAgent("yes");
+
+        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks(settings);
+
+        var names = java.util.Arrays.stream(callbacks)
+                .map(cb -> cb.getToolDefinition().name())
+                .toList();
+
+        assertTrue(names.contains("spawn_subagent"));
+        assertTrue(names.contains("run_parallel_tasks"));
+    }
+
+    @Test
+    void buildNativeToolCallbacks_withNullSettings_stillRegistersTools() {
+        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks(null);
+
+        var names = java.util.Arrays.stream(callbacks)
+                .map(cb -> cb.getToolDefinition().name())
+                .toList();
+
+        assertTrue(names.contains("spawn_subagent"));
+        assertTrue(names.contains("run_parallel_tasks"));
+    }
+
+    @Test
+    void spawnSubagentTool_returnsDisabledMessage_whenNoExecutor() {
+        // Use null settings (no executor)
+        ToolCallingConfig config = new ToolCallingConfig(null);
+        String result = config.spawn_subagent("test task", "tester");
+        assertTrue(result.contains("not enabled"));
     }
 }
