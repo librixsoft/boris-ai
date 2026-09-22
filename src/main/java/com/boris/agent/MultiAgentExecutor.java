@@ -187,28 +187,27 @@ public class MultiAgentExecutor {
 
     /**
      * Automatically spawns an integrator subagent after parallel execution to
-     * reconcile, link, and verify consistency across all generated files.
+     * reconcile, link, verify consistency, and synthesize all completed tasks.
      *
      * @param tasks The original task descriptions from the parallel execution
      * @return Integration result string, or null if integration was not needed
      */
     protected String runAutoIntegration(List<String> tasks) {
-        if (taskAborter.isAborted()) {
+        if (taskAborter.isAborted() || tasks == null || tasks.size() < 2) {
             return null;
         }
 
-        // Extract all file paths mentioned across all tasks
+        // Extract all file paths mentioned across all tasks (if any)
         Set<String> allPaths = new LinkedHashSet<>();
         for (String task : tasks) {
             allPaths.addAll(extractFilePaths(task));
         }
 
-        // Need at least 2 files to have something to integrate
-        if (allPaths.size() < 2) {
-            return null;
+        if (!allPaths.isEmpty()) {
+            emitStatus("[status] 🔗 [Multi-Agent] Iniciando fase de integración automática (" + allPaths.size() + " archivos detectados)...");
+        } else {
+            emitStatus("[status] 🔗 [Multi-Agent] Iniciando fase de integración automática (" + tasks.size() + " tareas en paralelo)...");
         }
-
-        emitStatus("[status] 🔗 [Multi-Agent] Iniciando fase de integración automática (" + allPaths.size() + " archivos detectados)...");
 
         String integrationPrompt = buildIntegrationPrompt(allPaths, tasks);
 
@@ -217,7 +216,10 @@ public class MultiAgentExecutor {
             emitStatus("[status] ✓ [Multi-Agent] Fase de integración completada.");
             StringBuilder sb = new StringBuilder();
             sb.append("=== AUTO-INTEGRATION PHASE ===\n");
-            sb.append("Files integrated: ").append(String.join(", ", allPaths)).append("\n");
+            if (!allPaths.isEmpty()) {
+                sb.append("Files integrated: ").append(String.join(", ", allPaths)).append("\n");
+            }
+            sb.append("Integrated Tasks: ").append(tasks.size()).append("\n");
             sb.append("Result:\n").append(result).append("\n");
             sb.append("=== END AUTO-INTEGRATION ===");
             return sb.toString();
@@ -255,37 +257,41 @@ public class MultiAgentExecutor {
 
     /**
      * Builds a detailed integration prompt for the integrator subagent.
+     * This prompt is generic across all types of parallel tasks (code, web, docs, research, backend/frontend, configs).
      *
-     * @param filePaths Set of file paths to integrate
+     * @param filePaths Set of file paths to integrate (may be empty if no explicit file paths found)
      * @param originalTasks The original task descriptions for context
      * @return The integration prompt
      */
     static String buildIntegrationPrompt(Set<String> filePaths, List<String> originalTasks) {
         StringBuilder prompt = new StringBuilder();
-        prompt.append("You are the INTEGRATOR agent. Multiple files were just created in parallel by separate agents. ");
-        prompt.append("Your job is to read ALL of these files, fix any inconsistencies, and ensure they work together as a unified whole.\n\n");
+        prompt.append("You are the INTEGRATOR agent. Multiple tasks were just executed in parallel by separate subagents.\n");
+        prompt.append("Your job is to read all generated artifacts/files, reconcile any inconsistencies, ensure all dependent components ");
+        prompt.append("are fully linked and aligned, and unify the results into a cohesive, consistent whole.\n\n");
 
-        prompt.append("FILES TO INTEGRATE:\n");
-        for (String path : filePaths) {
-            prompt.append("- ").append(path).append("\n");
+        if (filePaths != null && !filePaths.isEmpty()) {
+            prompt.append("DETECTED FILES TO INTEGRATE:\n");
+            for (String path : filePaths) {
+                prompt.append("- ").append(path).append("\n");
+            }
+            prompt.append("\n");
         }
 
-        prompt.append("\nORIGINAL TASK CONTEXT:\n");
+        prompt.append("PARALLEL TASKS EXECUTED:\n");
         for (int i = 0; i < originalTasks.size(); i++) {
             prompt.append("Task ").append(i + 1).append(": ").append(originalTasks.get(i)).append("\n");
         }
 
-        prompt.append("\nINTEGRATION STEPS (execute ALL using tools):\n");
-        prompt.append("1. Use read_file to read EVERY file listed above.\n");
-        prompt.append("2. Check for cross-file dependencies:\n");
-        prompt.append("   - HTML files: Ensure they have <link rel=\"stylesheet\" href=\"...\"> for any CSS files, ");
-        prompt.append("<script src=\"...\"> for JS files. Use relative paths.\n");
-        prompt.append("   - CSS files: Ensure selectors (class names, IDs) match exactly what the HTML uses.\n");
-        prompt.append("   - JS files: Ensure function names, DOM selectors match the HTML structure.\n");
-        prompt.append("   - Backend + Frontend: Ensure API endpoint URLs, DTOs, and payload structures match.\n");
-        prompt.append("   - Config files: Ensure referenced paths, module names, and dependencies are consistent.\n");
-        prompt.append("3. Use apply_edit to fix any mismatches found (add missing links, rename selectors, fix imports).\n");
-        prompt.append("4. Report what you integrated and what changes you made.\n");
+        prompt.append("\nINTEGRATION INSTRUCTIONS (execute using tools as applicable):\n");
+        prompt.append("1. File & Artifact Verification: Use read_file to inspect all generated or referenced files.\n");
+        prompt.append("2. Cross-Component Linking & Dependency Integration:\n");
+        prompt.append("   - Web / Frontend: Link CSS stylesheets (<link rel=\"stylesheet\">) and JS scripts (<script src=\"\">) in HTML using proper relative paths. Ensure CSS selectors and JS DOM queries match the HTML elements.\n");
+        prompt.append("   - Backend & Frontend: Verify API routes, request/response models, endpoint paths, and data types align between backend and frontend.\n");
+        prompt.append("   - Documentation & Code: Ensure README, guides, or docs accurately reference created scripts, commands, and file locations.\n");
+        prompt.append("   - Modules & Imports: Resolve missing import statements, package references, or configuration keys across created code files.\n");
+        prompt.append("   - General / Research: Synthesize findings, harmonize naming conventions, and ensure no conflicting statements exist across outputs.\n");
+        prompt.append("3. Edits & Fixes: Use apply_edit or write_file to correct any broken references, missing imports, unlinked styles, or inconsistencies.\n");
+        prompt.append("4. Summary: Provide a clear summary of how the tasks were integrated and any adjustments made.\n");
 
         return prompt.toString();
     }

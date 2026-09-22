@@ -268,8 +268,10 @@ class MultiAgentExecutorTest {
     }
 
     @Test
-    void runParallelTasks_withoutFilePaths_skipsAutoIntegration() {
+    void runParallelTasks_withoutFilePaths_alsoTriggersAutoIntegration() {
         MultiAgentExecutor executor = new MultiAgentExecutor(settingsEnabled);
+        java.util.List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
+        executor.addStatusListener(events::add);
 
         String result = executor.runParallelTasks(List.of(
                 "Research topic alpha",
@@ -278,22 +280,23 @@ class MultiAgentExecutorTest {
 
         assertNotNull(result);
         assertTrue(result.contains("PARALLEL MULTI-AGENT EXECUTION"));
-        assertFalse(result.contains("AUTO-INTEGRATION PHASE"));
+        assertTrue(result.contains("AUTO-INTEGRATION PHASE"),
+                "Generic integration should run for any parallel tasks (2+ tasks)");
+        assertTrue(events.stream().anyMatch(e -> e.contains("integración automática")));
         executor.shutdown();
     }
 
     @Test
-    void runParallelTasks_withSingleFilePath_skipsAutoIntegration() {
+    void runParallelTasks_withSingleTask_skipsAutoIntegration() {
         MultiAgentExecutor executor = new MultiAgentExecutor(settingsEnabled);
 
         String result = executor.runParallelTasks(List.of(
-                "Create landing page in /Users/dev/project/landing.html",
-                "Research best practices for landing pages"
+                "Single task execution"
         ));
 
         assertNotNull(result);
         assertFalse(result.contains("AUTO-INTEGRATION PHASE"),
-                "Should not integrate when only 1 file path is detected");
+                "Should not run integration phase for single task execution");
         executor.shutdown();
     }
 }
