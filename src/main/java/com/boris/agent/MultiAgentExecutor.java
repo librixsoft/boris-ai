@@ -239,7 +239,9 @@ public class MultiAgentExecutor {
                 
                 Guidelines:
                 - Execute the assigned subtask directly, concisely, and completely.
+                - Follow any shared contracts, class names, API signatures, and file naming conventions specified in your task.
                 - Use the available tools when you need to inspect or modify files or search the web.
+                - When assigned the 'integrator' or 'reviewer' role, inspect all interrelated files, reconcile discrepancies, link dependencies, and ensure complete end-to-end consistency.
                 - Deliver a clear and accurate final response with your findings, code, or answer.
                 """.formatted(role);
 

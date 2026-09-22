@@ -58,6 +58,57 @@ public final class ClipboardUtil {
         });
     }
 
+    public static String paste() {
+        try {
+            if (!java.awt.GraphicsEnvironment.isHeadless()) {
+                java.awt.datatransfer.Clipboard clipboard = java.awt.Toolkit.getDefaultToolkit().getSystemClipboard();
+                if (clipboard.isDataFlavorAvailable(java.awt.datatransfer.DataFlavor.stringFlavor)) {
+                    Object data = clipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor);
+                    if (data != null) {
+                        return data.toString();
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            String os = System.getProperty("os.name", "").toLowerCase();
+            if (os.contains("mac") || os.contains("darwin")) {
+                return readClipboardCommand(new String[]{"pbpaste"});
+            } else if (os.contains("win")) {
+                return readClipboardCommand(new String[]{"powershell.exe", "-NoProfile", "-Command", "Get-Clipboard"});
+            } else {
+                String text = readClipboardCommand(new String[]{"wl-paste"});
+                if (text == null) {
+                    text = readClipboardCommand(new String[]{"xclip", "-selection", "clipboard", "-o"});
+                }
+                if (text == null) {
+                    text = readClipboardCommand(new String[]{"xsel", "--clipboard", "--output"});
+                }
+                return text;
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    private static String readClipboardCommand(String[] command) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder(command);
+            Process process = pb.start();
+            try (java.io.InputStream is = process.getInputStream()) {
+                byte[] bytes = is.readAllBytes();
+                boolean finished = process.waitFor(1, TimeUnit.SECONDS);
+                if (finished && process.exitValue() == 0) {
+                    return new String(bytes, StandardCharsets.UTF_8);
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
     private static boolean copyViaAwt(String text) {
         try {
             if (!java.awt.GraphicsEnvironment.isHeadless()) {
