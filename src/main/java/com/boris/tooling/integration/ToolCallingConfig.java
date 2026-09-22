@@ -20,6 +20,7 @@ import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 import com.boris.tooling.tool.DeleteTool;
 import com.boris.tooling.tool.EditTool;
+import com.boris.tooling.tool.ExecuteCommandTool;
 import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
@@ -44,6 +45,7 @@ public class ToolCallingConfig {
     private final WebSearchTool webSearchTool;
     private final PdfGenerationTool pdfGenerationTool;
     private final OfficeDocumentTool officeDocumentTool;
+    private final ExecuteCommandTool executeCommandTool;
     private final Settings settings;
 
     public ToolCallingConfig() {
@@ -60,6 +62,7 @@ public class ToolCallingConfig {
         this.webSearchTool = new WebSearchTool();
         this.pdfGenerationTool = new PdfGenerationTool();
         this.officeDocumentTool = new OfficeDocumentTool();
+        this.executeCommandTool = new ExecuteCommandTool();
         this.settings = settings;
     }
 
@@ -238,5 +241,19 @@ public class ToolCallingConfig {
         params.put("content", content);
         params.put("customization", customization != null ? customization : new HashMap<>());
         return OfficeDocumentTool.execute(params);
+    }
+
+    @Tool(
+            name = "execute_command",
+            description = "Execute a shell or terminal command on the operating system (e.g. git commit, git push, mvn test, npm install) and return standard output, error, and exit code.")
+    public String execute_command(
+            @ToolParam(description = "The terminal command string to execute") String command,
+            @ToolParam(description = "Optional working directory path where the command should run") String workingDirectory) {
+        Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("command", command);
+        if (workingDirectory != null) {
+            args.put("workingDirectory", workingDirectory);
+        }
+        return executeCommandTool.execute(args);
     }
 }

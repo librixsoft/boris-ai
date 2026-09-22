@@ -43,6 +43,7 @@ class ToolCallingConfigTest {
         assertTrue(names.contains("list_files"));
         assertTrue(names.contains("get_system_info"));
         assertTrue(names.contains("generate_pdf"));
+        assertTrue(names.contains("execute_command"));
     }
 
     @Test
@@ -96,6 +97,23 @@ class ToolCallingConfigTest {
 
         assertNotNull(result);
         assertTrue(result.contains("success") || result.contains("error"));
+    }
+
+    @Test
+    void executeCommandTool_callbackCanBeInvoked() {
+        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
+
+        var execCb = java.util.Arrays.stream(callbacks)
+                .filter(cb -> "execute_command".equals(cb.getToolDefinition().name()))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals("execute_command", execCb.getToolDefinition().name());
+        String result = execCb.call("{\"command\":\"echo test\"}");
+
+        assertNotNull(result);
+        assertTrue(result.contains("success"));
+        assertTrue(result.contains("test"));
     }
 
 }
