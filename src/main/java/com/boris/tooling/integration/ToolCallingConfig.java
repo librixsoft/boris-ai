@@ -247,10 +247,10 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "spawn_subagent",
-            description = "Spawn an isolated subagent instance to execute a specific subtask or research task autonomously and return the result.")
+            description = "Spawn a dedicated autonomous subagent worker to execute a specific subtask, code file generation, research, or development task and return the result.")
     public String spawn_subagent(
             @ToolParam(description = "Detailed task description and instructions for the subagent to execute") String task,
-            @ToolParam(description = "Optional role or specialty for the subagent, e.g. 'code_reviewer', 'researcher', 'tester', 'writer'") String role) {
+            @ToolParam(description = "Optional role or specialty for the subagent, e.g. 'frontend_developer', 'designer', 'code_reviewer', 'researcher', 'tester'") String role) {
         if (multiAgentExecutor == null) {
             return "Multi-agent feature is not enabled. Add '\"multi-agent\": \"yes\"' in ~/.boris/settings.json to use subagents.";
         }
@@ -259,9 +259,9 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "run_parallel_tasks",
-            description = "Execute multiple independent tasks in parallel by spawning multiple agent instances simultaneously. Returns consolidated results from all worker agents.")
+            description = "Execute multiple tasks in parallel across concurrent worker agents. MUST be used whenever executing 2 or more independent tasks, creating multiple files, or when the user requests parallel/multi-agent execution. Returns consolidated results from all agents.")
     public String run_parallel_tasks(
-            @ToolParam(description = "List of task descriptions to execute concurrently in parallel") java.util.List<String> tasks) {
+            @ToolParam(description = "List of independent task description strings to execute concurrently in parallel") java.util.List<String> tasks) {
         if (multiAgentExecutor == null) {
             return "Multi-agent feature is not enabled. Add '\"multi-agent\": \"yes\"' in ~/.boris/settings.json to use parallel agents.";
         }
