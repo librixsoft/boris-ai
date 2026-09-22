@@ -31,15 +31,19 @@ public class TableRowRenderer {
     }
 
     public void renderRow(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean isHeader, List<Integer> columnWidths) {
+        renderRow(graphics, line, row, contentWidth, isHeader, columnWidths, false);
+    }
+
+    public void renderRow(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean isHeader, List<Integer> columnWidths, boolean isThinking) {
         String[] parts = line.split("\\|");
         int x = 0;
 
         if (isHeader) {
             graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
-            graphics.setForegroundColor(UiTheme.ACCENT);
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING_BOLD : UiTheme.ACCENT);
         } else {
             graphics.setBackgroundColor(UiTheme.BG);
-            graphics.setForegroundColor(UiTheme.FG);
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
         }
 
         graphics.putString(x, row, "│");

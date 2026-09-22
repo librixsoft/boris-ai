@@ -101,7 +101,7 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
                     isHeader = false;
                 }
 
-                tableRowRenderer.renderRow(graphics, line, i, contentWidth, isHeader, columnWidths);
+                tableRowRenderer.renderRow(graphics, line, i, contentWidth, isHeader, columnWidths, inThinking && thinkingEnabled);
             } else {
                 inTable = false;
                 isHeader = false;

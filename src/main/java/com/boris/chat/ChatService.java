@@ -30,7 +30,7 @@ public class ChatService {
     private String thinkingMode;
     private final String modelName;
     private String lastThinkingContent;
-    private static final Pattern THINKING_PATTERN = Pattern.compile("```(.*?)```", Pattern.DOTALL);
+    private static final Pattern THINKING_PATTERN = Pattern.compile("(?i)(?:<think>|<thinking>|<thought>|<reasoning>|```)(.*?)(?:</think>|</thinking>|</thought>|</reasoning>|```)", Pattern.DOTALL);
 
     public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory) {
         this(chatClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, true, "think", "");
@@ -86,7 +86,7 @@ public class ChatService {
                 trimHistory();
             }
             if (thinkingContent != null && !thinkingContent.isEmpty()) {
-                return "*%s* ```\n%s\n```\n%s".formatted(botName, thinkingContent, finalResponse != null ? finalResponse : "");
+                return "*%s*\n<thinking>\n%s\n</thinking>\n%s".formatted(botName, thinkingContent, finalResponse != null ? finalResponse : "");
             }
             return "*%s* %s".formatted(botName, finalResponse != null ? finalResponse : "");
         } catch (Exception e) {
@@ -127,11 +127,11 @@ public class ChatService {
                 conversationHistory.add(botName + ": " + finalResponse);
                 trimHistory();
             }
+            if (thinkingContent != null && !thinkingContent.isEmpty()) {
+                onChunk.accept("<thinking>\n" + thinkingContent + "\n</thinking>\n");
+            }
             if (finalResponse != null && !finalResponse.isEmpty()) {
                 onChunk.accept(finalResponse);
-            }
-            if (thinkingContent != null && !thinkingContent.isEmpty()) {
-                onChunk.accept("\n<thinking>\n" + thinkingContent + "\n</thinking>\n");
             }
             if (onComplete != null) {
                 onComplete.run();
