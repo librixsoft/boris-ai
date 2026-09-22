@@ -131,7 +131,7 @@ public class MultiAgentExecutor {
             return "Parallel task execution aborted.";
         }
 
-        emitStatus("[status] 🚀 [Multi-Agent] Desplegando " + tasks.size() + " subagentes en paralelo...");
+        emitStatus("[status] ▶ [Multi-Agent] Desplegando " + tasks.size() + " subagentes en paralelo...");
 
         List<CompletableFuture<WorkerResult>> futures = new ArrayList<>();
         for (int i = 0; i < tasks.size(); i++) {
@@ -142,7 +142,7 @@ public class MultiAgentExecutor {
                     emitStatus("[status] ✗ [Multi-Agent] Subagente #" + index + " abortado antes de iniciar.");
                     return new WorkerResult(index, taskDesc, "Aborted before execution.");
                 }
-                emitStatus("[status] 🤖 [Multi-Agent] Subagente #" + index + " iniciado para tarea: \"" + summarize(taskDesc) + "\"");
+                emitStatus("[status] ⚙ [Multi-Agent] Subagente #" + index + " iniciado para tarea: \"" + summarize(taskDesc) + "\"");
                 try {
                     String result = executeWorkerTask(taskDesc, "worker_" + index);
                     emitStatus("[status] ✓ [Multi-Agent] Subagente #" + index + " completó su tarea.");
@@ -165,7 +165,7 @@ public class MultiAgentExecutor {
                 output.append("Task: ").append(res.task()).append("\n");
                 output.append("Result:\n").append(res.output()).append("\n\n");
             } catch (TimeoutException te) {
-                emitStatus("[status] ⚠️ [Multi-Agent] Un subagente excedió el tiempo límite.");
+                emitStatus("[status] ⚠ [Multi-Agent] Un subagente excedió el tiempo límite.");
                 output.append("--- [Agent Worker Timed Out] ---\nError: Task exceeded timeout limit.\n\n");
             } catch (Exception e) {
                 emitStatus("[status] ✗ [Multi-Agent] Error en subagente: " + e.getMessage());
@@ -204,9 +204,9 @@ public class MultiAgentExecutor {
         }
 
         if (!allPaths.isEmpty()) {
-            emitStatus("[status] 🔗 [Multi-Agent] Iniciando fase de integración automática (" + allPaths.size() + " archivos detectados)...");
+            emitStatus("[status] ⇄ [Multi-Agent] Iniciando fase de integración automática (" + allPaths.size() + " archivos detectados)...");
         } else {
-            emitStatus("[status] 🔗 [Multi-Agent] Iniciando fase de integración automática (" + tasks.size() + " tareas en paralelo)...");
+            emitStatus("[status] ⇄ [Multi-Agent] Iniciando fase de integración automática (" + tasks.size() + " tareas en paralelo)...");
         }
 
         String integrationPrompt = buildIntegrationPrompt(allPaths, tasks);
@@ -312,8 +312,8 @@ public class MultiAgentExecutor {
         }
 
         String effectiveRole = (role != null && !role.isBlank()) ? role.trim() : "specialized_assistant";
-        emitStatus("[status] 🤖 [Multi-Agent] Desplegando nuevo subagente [rol: " + effectiveRole + "]...");
-        emitStatus("[status] ⚡ [Multi-Agent] Subagente [" + effectiveRole + "] ejecutando tarea: \"" + summarize(task) + "\"");
+        emitStatus("[status] ▶ [Multi-Agent] Desplegando nuevo subagente [rol: " + effectiveRole + "]...");
+        emitStatus("[status] ⚙ [Multi-Agent] Subagente [" + effectiveRole + "] ejecutando tarea: \"" + summarize(task) + "\"");
 
         try {
             String result = executeWorkerTask(task, effectiveRole);
@@ -327,11 +327,7 @@ public class MultiAgentExecutor {
 
     private static String summarize(String text) {
         if (text == null) return "";
-        String trimmed = text.replaceAll("\\s+", " ").trim();
-        if (trimmed.length() <= 60) {
-            return trimmed;
-        }
-        return trimmed.substring(0, 57) + "...";
+        return text.replaceAll("\\s+", " ").trim();
     }
 
     /**

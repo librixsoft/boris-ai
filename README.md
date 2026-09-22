@@ -2,13 +2,36 @@
 
 Asistente de linea de comandos en Java con colores y ASCII art.
 
-## Filosofía del proyecto
+## Landing Page Overview
 
-Este proyecto ha sido elaborado íntegramente con IA local.
+The landing page serves as the entry point for users to understand what the Boris CLI offers, how to get started, and what value it brings through multi-agent collaboration. It provides an intuitive overview of the platform's capabilities, key features, and how the multi-agent integration enhances productivity.
 
-La filosofía que lo guía es demostrar los alcances de la IA local e impulsar a los desarrolladores a preparar sus entornos de trabajo para desarrollos con IA local. Creemos que la IA local no es una alternativa de segunda clase a la nube, sino una vía con ventajas propias: privacidad total, cero dependencia de servicios externos, cero costo por uso y control absoluto sobre el modelo y los datos. Este proyecto es, en sí mismo, una prueba viva de que es posible construir software real, útil y funcional con una GPU propia y herramientas 100% locales.
+### Landing Page Content Structure
 
-El enfoque de este proyecto y de sus colaboraciones es exclusivo: solo líneas de código generadas con IA local a través de la GPU. Toda contribución debe seguir esa misma regla, de modo que cada línea escrita en este repositorio reafirme que la IA local está lista para el desarrollo serio y ayude a que más desarrolladores se animen a dar ese paso.
+1. **Welcome & Value Proposition**
+   - Brief introduction to Boris CLI as a multi-agent CLI assistant
+   - Key benefits: local AI, privacy, cost-free, full control
+   - One-sentence summary of what it does
+
+2. **Getting Started**
+   - Simple installation instructions
+   - Quick start examples
+   - Basic usage scenarios
+
+3. **Multi-Agent Collaboration**
+   - Explanation of how multiple agents work together
+   - Roles and responsibilities of each agent
+   - Benefits of collaborative approach
+
+4. **Core Features**
+   - Key capabilities demonstrated through agents
+   - How agents contribute to different tasks
+   - Example workflows
+
+5. **Getting Help & Support**
+   - How to find help
+   - Reporting issues
+   - Community resources
 
 ## Requisitos
 
@@ -94,7 +117,7 @@ The CLI uses a layered architecture where:
 
 3. **Code Generation**:
    - Agent A writes the main logic based on user requirements.
-   - Agent B adds unit tests, validation logic, and comprehensive error handling.
+   - Agent B adds unit tests, comprehensive error handling, and validation logic.
    - Agent C documents the implementation, provides usage examples, and summarizes key points.
    - The generated code is packaged and ready for integration with clear instructions.
 
