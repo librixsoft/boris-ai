@@ -45,7 +45,6 @@ public class SettingsManager {
         defaultSettings.setContextWindow(10000);
         defaultSettings.setThinkingEnabled(true);
         defaultSettings.setThinkingMode("think");
-        defaultSettings.setMultiAgent("yes");
 
         String defaultJson = MAPPER.writeValueAsString(defaultSettings);
         Files.writeString(path, defaultJson, StandardCharsets.UTF_8);

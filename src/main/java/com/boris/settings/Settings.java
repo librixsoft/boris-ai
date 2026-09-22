@@ -1,10 +1,8 @@
 package com.boris.settings;
 
 import java.util.Map;
-import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Settings {
@@ -18,9 +16,6 @@ public class Settings {
     private Integer contextWindow;
     private Boolean thinkingEnabled;
     private String thinkingMode;
-    @JsonProperty("multi-agent")
-    @JsonAlias({"multiAgent", "multi_agent"})
-    private Object multiAgent;
     private Map<String, Object> options;
 
     public Settings() {}
@@ -58,27 +53,6 @@ public class Settings {
 
     public String getThinkingMode() { return thinkingMode; }
     public void setThinkingMode(String thinkingMode) { this.thinkingMode = thinkingMode; }
-
-    public Object getMultiAgent() { return multiAgent; }
-    public void setMultiAgent(Object multiAgent) { this.multiAgent = multiAgent; }
-
-    @JsonIgnore
-    public boolean isMultiAgentEnabled() {
-        if (multiAgent == null) {
-            return false;
-        }
-        if (multiAgent instanceof Boolean b) {
-            return b;
-        }
-        if (multiAgent instanceof Number n) {
-            return n.intValue() == 1;
-        }
-        if (multiAgent instanceof String s) {
-            String val = s.trim().toLowerCase();
-            return val.equals("yes") || val.equals("true") || val.equals("1") || val.equals("enabled") || val.equals("y") || val.equals("si") || val.equals("sí");
-        }
-        return false;
-    }
 
     public Map<String, Object> getOptions() { return options; }
     public void setOptions(Map<String, Object> options) { this.options = options; }

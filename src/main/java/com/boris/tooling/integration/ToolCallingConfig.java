@@ -14,7 +14,6 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.ai.tool.definition.DefaultToolDefinition;
 import org.springframework.ai.tool.definition.ToolDefinition;
 
-import com.boris.agent.MultiAgentExecutor;
 import com.boris.exceptions.BorisException;
 import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
@@ -46,7 +45,6 @@ public class ToolCallingConfig {
     private final PdfGenerationTool pdfGenerationTool;
     private final OfficeDocumentTool officeDocumentTool;
     private final Settings settings;
-    private final MultiAgentExecutor multiAgentExecutor;
 
     public ToolCallingConfig() {
         this(null);
@@ -63,9 +61,6 @@ public class ToolCallingConfig {
         this.pdfGenerationTool = new PdfGenerationTool();
         this.officeDocumentTool = new OfficeDocumentTool();
         this.settings = settings;
-        this.multiAgentExecutor = (settings != null && settings.isMultiAgentEnabled())
-                ? new MultiAgentExecutor(settings)
-                : (settings != null ? new MultiAgentExecutor(settings) : null);
     }
 
     public static String loadSystemPrompt(Settings settings) {
@@ -243,28 +238,5 @@ public class ToolCallingConfig {
         params.put("content", content);
         params.put("customization", customization != null ? customization : new HashMap<>());
         return OfficeDocumentTool.execute(params);
-    }
-
-    @Tool(
-            name = "spawn_subagent",
-            description = "Spawn a dedicated autonomous subagent worker to execute a specific subtask, code file generation, research, or integration task (e.g. role 'integrator' to reconcile and link parallel artifacts).")
-    public String spawn_subagent(
-            @ToolParam(description = "Detailed task description and instructions for the subagent to execute, including any shared interfaces or contracts") String task,
-            @ToolParam(description = "Optional role or specialty for the subagent, e.g. 'frontend_developer', 'backend_developer', 'designer', 'code_reviewer', 'researcher', 'tester', 'integrator'") String role) {
-        if (multiAgentExecutor == null) {
-            return "Multi-agent feature is not enabled. Add '\"multi-agent\": \"yes\"' in ~/.boris/settings.json to use subagents.";
-        }
-        return multiAgentExecutor.spawnSubagent(task, role);
-    }
-
-    @Tool(
-            name = "run_parallel_tasks",
-            description = "Execute multiple tasks concurrently across worker agents. For interdependent tasks, define shared contracts/names first, include them in each task description, and perform an integration pass after completion.")
-    public String run_parallel_tasks(
-            @ToolParam(description = "List of task description strings containing clear specs and shared conventions to execute concurrently in parallel") java.util.List<String> tasks) {
-        if (multiAgentExecutor == null) {
-            return "Multi-agent feature is not enabled. Add '\"multi-agent\": \"yes\"' in ~/.boris/settings.json to use parallel agents.";
-        }
-        return multiAgentExecutor.runParallelTasks(tasks);
     }
 }
