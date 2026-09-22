@@ -2,11 +2,16 @@ package com.boris.agent;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiChatModel;
@@ -28,10 +33,18 @@ import com.boris.tooling.tool.WriteTool;
 /**
  * MultiAgentExecutor orchestrates concurrent execution of subtasks across multiple
  * autonomous worker agent instances.
+ *
+ * After parallel execution completes, an automatic integration phase inspects all
+ * generated files and reconciles them (e.g. linking CSS in HTML, synchronizing
+ * class names, verifying imports) to ensure end-to-end consistency.
  */
 public class MultiAgentExecutor {
 
     private static final List<Consumer<String>> GLOBAL_STATUS_LISTENERS = new CopyOnWriteArrayList<>();
+
+    /** Regex to extract absolute file paths from task descriptions. */
+    private static final Pattern FILE_PATH_PATTERN = Pattern.compile(
+            "(/[\\w.\\-/]+(?:\\.[a-zA-Z]{1,10}))");
 
     private final Settings settings;
     private final TaskAborter taskAborter;
@@ -103,9 +116,11 @@ public class MultiAgentExecutor {
 
     /**
      * Executes a list of tasks concurrently across multiple agent instances.
+     * After all workers complete, an automatic integration phase is triggered
+     * to reconcile and link all generated files.
      *
      * @param tasks List of task descriptions
-     * @return Consolidated results from all worker agents
+     * @return Consolidated results from all worker agents including integration
      */
     public String runParallelTasks(List<String> tasks) {
         if (tasks == null || tasks.isEmpty()) {
@@ -158,9 +173,121 @@ public class MultiAgentExecutor {
             }
         }
 
-        output.append("=== END PARALLEL EXECUTION ===");
+        output.append("=== END PARALLEL EXECUTION ===\n\n");
         emitStatus("[status] ✓ [Multi-Agent] Ejecución paralela completada (" + tasks.size() + " agentes finalizados).");
+
+        // --- AUTO-INTEGRATION PHASE ---
+        String integrationResult = runAutoIntegration(tasks);
+        if (integrationResult != null && !integrationResult.isBlank()) {
+            output.append(integrationResult);
+        }
+
         return output.toString().trim();
+    }
+
+    /**
+     * Automatically spawns an integrator subagent after parallel execution to
+     * reconcile, link, and verify consistency across all generated files.
+     *
+     * @param tasks The original task descriptions from the parallel execution
+     * @return Integration result string, or null if integration was not needed
+     */
+    protected String runAutoIntegration(List<String> tasks) {
+        if (taskAborter.isAborted()) {
+            return null;
+        }
+
+        // Extract all file paths mentioned across all tasks
+        Set<String> allPaths = new LinkedHashSet<>();
+        for (String task : tasks) {
+            allPaths.addAll(extractFilePaths(task));
+        }
+
+        // Need at least 2 files to have something to integrate
+        if (allPaths.size() < 2) {
+            return null;
+        }
+
+        emitStatus("[status] 🔗 [Multi-Agent] Iniciando fase de integración automática (" + allPaths.size() + " archivos detectados)...");
+
+        String integrationPrompt = buildIntegrationPrompt(allPaths, tasks);
+
+        try {
+            String result = executeWorkerTask(integrationPrompt, "integrator");
+            emitStatus("[status] ✓ [Multi-Agent] Fase de integración completada.");
+            StringBuilder sb = new StringBuilder();
+            sb.append("=== AUTO-INTEGRATION PHASE ===\n");
+            sb.append("Files integrated: ").append(String.join(", ", allPaths)).append("\n");
+            sb.append("Result:\n").append(result).append("\n");
+            sb.append("=== END AUTO-INTEGRATION ===");
+            return sb.toString();
+        } catch (Exception e) {
+            emitStatus("[status] ✗ [Multi-Agent] Fase de integración falló: " + e.getMessage());
+            return "=== AUTO-INTEGRATION PHASE ===\nError: " + e.getMessage() + "\n=== END AUTO-INTEGRATION ===";
+        }
+    }
+
+    /**
+     * Extracts absolute file paths from a task description string.
+     * Matches patterns like /path/to/file.ext
+     *
+     * @param text The task description text
+     * @return Set of extracted file paths
+     */
+    static Set<String> extractFilePaths(String text) {
+        if (text == null || text.isBlank()) {
+            return Collections.emptySet();
+        }
+        Set<String> paths = new LinkedHashSet<>();
+        Matcher matcher = FILE_PATH_PATTERN.matcher(text);
+        while (matcher.find()) {
+            String path = matcher.group(1);
+            // Filter out common false positives
+            if (!path.startsWith("/usr/") && !path.startsWith("/etc/")
+                    && !path.startsWith("/bin/") && !path.startsWith("/sbin/")
+                    && !path.startsWith("/dev/") && !path.startsWith("/proc/")
+                    && !path.startsWith("/sys/") && !path.startsWith("/tmp/")) {
+                paths.add(path);
+            }
+        }
+        return paths;
+    }
+
+    /**
+     * Builds a detailed integration prompt for the integrator subagent.
+     *
+     * @param filePaths Set of file paths to integrate
+     * @param originalTasks The original task descriptions for context
+     * @return The integration prompt
+     */
+    static String buildIntegrationPrompt(Set<String> filePaths, List<String> originalTasks) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("You are the INTEGRATOR agent. Multiple files were just created in parallel by separate agents. ");
+        prompt.append("Your job is to read ALL of these files, fix any inconsistencies, and ensure they work together as a unified whole.\n\n");
+
+        prompt.append("FILES TO INTEGRATE:\n");
+        for (String path : filePaths) {
+            prompt.append("- ").append(path).append("\n");
+        }
+
+        prompt.append("\nORIGINAL TASK CONTEXT:\n");
+        for (int i = 0; i < originalTasks.size(); i++) {
+            prompt.append("Task ").append(i + 1).append(": ").append(originalTasks.get(i)).append("\n");
+        }
+
+        prompt.append("\nINTEGRATION STEPS (execute ALL using tools):\n");
+        prompt.append("1. Use read_file to read EVERY file listed above.\n");
+        prompt.append("2. Check for cross-file dependencies:\n");
+        prompt.append("   - HTML files: Ensure they have <link rel=\"stylesheet\" href=\"...\"> for any CSS files, ");
+        prompt.append("<script src=\"...\"> for JS files. Use relative paths.\n");
+        prompt.append("   - CSS files: Ensure selectors (class names, IDs) match exactly what the HTML uses.\n");
+        prompt.append("   - JS files: Ensure function names, DOM selectors match the HTML structure.\n");
+        prompt.append("   - Backend + Frontend: Ensure API endpoint URLs, DTOs, and payload structures match.\n");
+        prompt.append("   - Config files: Ensure referenced paths, module names, and dependencies are consistent.\n");
+        prompt.append("3. Use apply_edit to fix any mismatches found (add missing links, rename selectors, fix imports).\n");
+        prompt.append("4. Report what you integrated and what changes you made.\n");
+
+        return prompt.toString();
     }
 
     /**
@@ -311,3 +438,4 @@ public class MultiAgentExecutor {
         }
     }
 }
+

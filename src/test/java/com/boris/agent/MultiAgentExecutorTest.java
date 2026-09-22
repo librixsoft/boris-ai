@@ -197,4 +197,104 @@ class MultiAgentExecutorTest {
 
         executor.shutdown();
     }
+
+    // --- Auto-Integration Tests ---
+
+    @Test
+    void extractFilePaths_findsAbsolutePaths() {
+        String text = "Create a landing page in /Users/dev/project/landing.html and styles in /Users/dev/project/styles.css";
+        java.util.Set<String> paths = MultiAgentExecutor.extractFilePaths(text);
+        assertEquals(2, paths.size());
+        assertTrue(paths.contains("/Users/dev/project/landing.html"));
+        assertTrue(paths.contains("/Users/dev/project/styles.css"));
+    }
+
+    @Test
+    void extractFilePaths_filtersOutSystemPaths() {
+        String text = "Read from /usr/local/bin/tool and /etc/config.json and write to /Users/dev/output.md";
+        java.util.Set<String> paths = MultiAgentExecutor.extractFilePaths(text);
+        assertEquals(1, paths.size());
+        assertTrue(paths.contains("/Users/dev/output.md"));
+    }
+
+    @Test
+    void extractFilePaths_returnsEmptyForNullOrBlank() {
+        assertTrue(MultiAgentExecutor.extractFilePaths(null).isEmpty());
+        assertTrue(MultiAgentExecutor.extractFilePaths("").isEmpty());
+        assertTrue(MultiAgentExecutor.extractFilePaths("   ").isEmpty());
+    }
+
+    @Test
+    void extractFilePaths_returnsEmptyWhenNoPathsFound() {
+        String text = "Just a simple task with no file paths mentioned";
+        assertTrue(MultiAgentExecutor.extractFilePaths(text).isEmpty());
+    }
+
+    @Test
+    void buildIntegrationPrompt_containsAllFilesAndTasks() {
+        java.util.Set<String> paths = new java.util.LinkedHashSet<>();
+        paths.add("/project/index.html");
+        paths.add("/project/styles.css");
+        List<String> tasks = List.of("Create HTML", "Create CSS");
+
+        String prompt = MultiAgentExecutor.buildIntegrationPrompt(paths, tasks);
+
+        assertTrue(prompt.contains("INTEGRATOR"));
+        assertTrue(prompt.contains("/project/index.html"));
+        assertTrue(prompt.contains("/project/styles.css"));
+        assertTrue(prompt.contains("Task 1: Create HTML"));
+        assertTrue(prompt.contains("Task 2: Create CSS"));
+        assertTrue(prompt.contains("read_file"));
+        assertTrue(prompt.contains("apply_edit"));
+        assertTrue(prompt.contains("link rel=\"stylesheet\""));
+    }
+
+    @Test
+    void runParallelTasks_withFilePaths_triggersAutoIntegration() {
+        MultiAgentExecutor executor = new MultiAgentExecutor(settingsEnabled);
+        java.util.List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
+        executor.addStatusListener(events::add);
+
+        String result = executor.runParallelTasks(List.of(
+                "Create landing page in /Users/dev/project/landing.html",
+                "Create styles in /Users/dev/project/styles.css"
+        ));
+
+        assertNotNull(result);
+        assertTrue(result.contains("PARALLEL MULTI-AGENT EXECUTION"));
+        assertTrue(result.contains("AUTO-INTEGRATION PHASE"));
+        assertTrue(events.stream().anyMatch(e -> e.contains("integración automática")));
+        executor.shutdown();
+    }
+
+    @Test
+    void runParallelTasks_withoutFilePaths_skipsAutoIntegration() {
+        MultiAgentExecutor executor = new MultiAgentExecutor(settingsEnabled);
+
+        String result = executor.runParallelTasks(List.of(
+                "Research topic alpha",
+                "Research topic beta"
+        ));
+
+        assertNotNull(result);
+        assertTrue(result.contains("PARALLEL MULTI-AGENT EXECUTION"));
+        assertFalse(result.contains("AUTO-INTEGRATION PHASE"));
+        executor.shutdown();
+    }
+
+    @Test
+    void runParallelTasks_withSingleFilePath_skipsAutoIntegration() {
+        MultiAgentExecutor executor = new MultiAgentExecutor(settingsEnabled);
+
+        String result = executor.runParallelTasks(List.of(
+                "Create landing page in /Users/dev/project/landing.html",
+                "Research best practices for landing pages"
+        ));
+
+        assertNotNull(result);
+        assertFalse(result.contains("AUTO-INTEGRATION PHASE"),
+                "Should not integrate when only 1 file path is detected");
+        executor.shutdown();
+    }
 }
+
