@@ -147,4 +147,54 @@ class MultiAgentExecutorTest {
         assertTrue(result.contains("Agent Worker #1"));
         executor.shutdown();
     }
+
+    @Test
+    void statusListeners_receiveStatusEventsOnSpawnSubagent() {
+        MultiAgentExecutor executor = new MultiAgentExecutor(settingsEnabled);
+        java.util.List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
+        executor.addStatusListener(events::add);
+
+        executor.spawnSubagent("search the docs", "researcher");
+
+        assertFalse(events.isEmpty());
+        assertTrue(events.stream().anyMatch(e -> e.contains("[status]") && e.contains("Desplegando nuevo subagente")));
+        assertTrue(events.stream().anyMatch(e -> e.contains("researcher")));
+        executor.shutdown();
+    }
+
+    @Test
+    void statusListeners_receiveStatusEventsOnRunParallelTasks() {
+        MultiAgentExecutor executor = new MultiAgentExecutor(settingsEnabled);
+        java.util.List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
+        executor.addStatusListener(events::add);
+
+        executor.runParallelTasks(List.of("task alpha", "task beta"));
+
+        assertFalse(events.isEmpty());
+        assertTrue(events.stream().anyMatch(e -> e.contains("[status]") && e.contains("Desplegando 2 subagentes en paralelo")));
+        assertTrue(events.stream().anyMatch(e -> e.contains("Subagente #1")));
+        assertTrue(events.stream().anyMatch(e -> e.contains("Subagente #2")));
+        executor.shutdown();
+    }
+
+    @Test
+    void globalStatusListener_receivesAndCanBeRemoved() {
+        java.util.List<String> globalEvents = new java.util.concurrent.CopyOnWriteArrayList<>();
+        java.util.function.Consumer<String> listener = globalEvents::add;
+        MultiAgentExecutor.addGlobalStatusListener(listener);
+
+        MultiAgentExecutor executor = new MultiAgentExecutor(settingsEnabled);
+        executor.spawnSubagent("quick test", "tester");
+
+        assertFalse(globalEvents.isEmpty());
+        assertTrue(globalEvents.stream().anyMatch(e -> e.contains("[status]")));
+
+        globalEvents.clear();
+        MultiAgentExecutor.removeGlobalStatusListener(listener);
+
+        executor.spawnSubagent("another test", "tester");
+        assertTrue(globalEvents.isEmpty());
+
+        executor.shutdown();
+    }
 }

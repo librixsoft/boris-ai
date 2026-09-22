@@ -21,6 +21,7 @@ import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 import com.googlecode.lanterna.terminal.MouseCaptureMode;
 import com.googlecode.lanterna.terminal.Terminal;
 
+import com.boris.agent.MultiAgentExecutor;
 import com.boris.chat.ChatService;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
@@ -101,6 +102,9 @@ public class BorisUI {
                 () -> window.close()
         );
 
+        java.util.function.Consumer<String> agentStatusListener = status -> transcript.appendLine(status);
+        MultiAgentExecutor.addGlobalStatusListener(agentStatusListener);
+
         window = new BorisWindow(chatPanel, SCROLL_STEP, delta -> uiExecutor.run(() -> chatPanel.scroll(delta)));
         window.setHints(Arrays.asList(Window.Hint.FULL_SCREEN, Window.Hint.NO_DECORATIONS));
         window.addWindowListener(new WindowListenerAdapter() {
@@ -140,6 +144,7 @@ public class BorisUI {
         try {
             window.waitUntilClosed();
         } finally {
+            MultiAgentExecutor.removeGlobalStatusListener(agentStatusListener);
             screen.stopScreen();
         }
     }

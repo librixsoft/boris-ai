@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiChatModel;
@@ -30,10 +31,55 @@ import com.boris.tooling.tool.WriteTool;
  */
 public class MultiAgentExecutor {
 
+    private static final List<Consumer<String>> GLOBAL_STATUS_LISTENERS = new CopyOnWriteArrayList<>();
+
     private final Settings settings;
     private final TaskAborter taskAborter;
     private final ExecutorService executorService;
     private final int maxParallelWorkers;
+    private final List<Consumer<String>> statusListeners = new CopyOnWriteArrayList<>();
+
+    public static void addGlobalStatusListener(Consumer<String> listener) {
+        if (listener != null) {
+            GLOBAL_STATUS_LISTENERS.add(listener);
+        }
+    }
+
+    public static void removeGlobalStatusListener(Consumer<String> listener) {
+        if (listener != null) {
+            GLOBAL_STATUS_LISTENERS.remove(listener);
+        }
+    }
+
+    public static void clearGlobalStatusListeners() {
+        GLOBAL_STATUS_LISTENERS.clear();
+    }
+
+    public void addStatusListener(Consumer<String> listener) {
+        if (listener != null) {
+            this.statusListeners.add(listener);
+        }
+    }
+
+    public void removeStatusListener(Consumer<String> listener) {
+        if (listener != null) {
+            this.statusListeners.remove(listener);
+        }
+    }
+
+    public void emitStatus(String status) {
+        if (status == null || status.isBlank()) return;
+        for (Consumer<String> listener : statusListeners) {
+            try {
+                listener.accept(status);
+            } catch (Exception ignored) {}
+        }
+        for (Consumer<String> listener : GLOBAL_STATUS_LISTENERS) {
+            try {
+                listener.accept(status);
+            } catch (Exception ignored) {}
+        }
+    }
 
     public MultiAgentExecutor(Settings settings) {
         this(settings, new TaskAborter(), Math.max(4, Runtime.getRuntime().availableProcessors()));
@@ -70,18 +116,24 @@ public class MultiAgentExecutor {
             return "Parallel task execution aborted.";
         }
 
+        emitStatus("[status] 🚀 [Multi-Agent] Desplegando " + tasks.size() + " subagentes en paralelo...");
+
         List<CompletableFuture<WorkerResult>> futures = new ArrayList<>();
         for (int i = 0; i < tasks.size(); i++) {
             final int index = i + 1;
             final String taskDesc = tasks.get(i);
             CompletableFuture<WorkerResult> future = CompletableFuture.supplyAsync(() -> {
                 if (taskAborter.isAborted()) {
+                    emitStatus("[status] ✗ [Multi-Agent] Subagente #" + index + " abortado antes de iniciar.");
                     return new WorkerResult(index, taskDesc, "Aborted before execution.");
                 }
+                emitStatus("[status] 🤖 [Multi-Agent] Subagente #" + index + " iniciado para tarea: \"" + summarize(taskDesc) + "\"");
                 try {
                     String result = executeWorkerTask(taskDesc, "worker_" + index);
+                    emitStatus("[status] ✓ [Multi-Agent] Subagente #" + index + " completó su tarea.");
                     return new WorkerResult(index, taskDesc, result);
                 } catch (Exception e) {
+                    emitStatus("[status] ✗ [Multi-Agent] Subagente #" + index + " falló: " + e.getMessage());
                     return new WorkerResult(index, taskDesc, "Error: " + e.getMessage());
                 }
             }, executorService);
@@ -98,13 +150,16 @@ public class MultiAgentExecutor {
                 output.append("Task: ").append(res.task()).append("\n");
                 output.append("Result:\n").append(res.output()).append("\n\n");
             } catch (TimeoutException te) {
+                emitStatus("[status] ⚠️ [Multi-Agent] Un subagente excedió el tiempo límite.");
                 output.append("--- [Agent Worker Timed Out] ---\nError: Task exceeded timeout limit.\n\n");
             } catch (Exception e) {
+                emitStatus("[status] ✗ [Multi-Agent] Error en subagente: " + e.getMessage());
                 output.append("--- [Agent Worker Error] ---\nError: ").append(e.getMessage()).append("\n\n");
             }
         }
 
         output.append("=== END PARALLEL EXECUTION ===");
+        emitStatus("[status] ✓ [Multi-Agent] Ejecución paralela completada (" + tasks.size() + " agentes finalizados).");
         return output.toString().trim();
     }
 
@@ -124,11 +179,26 @@ public class MultiAgentExecutor {
         }
 
         String effectiveRole = (role != null && !role.isBlank()) ? role.trim() : "specialized_assistant";
+        emitStatus("[status] 🤖 [Multi-Agent] Desplegando nuevo subagente [rol: " + effectiveRole + "]...");
+        emitStatus("[status] ⚡ [Multi-Agent] Subagente [" + effectiveRole + "] ejecutando tarea: \"" + summarize(task) + "\"");
+
         try {
-            return executeWorkerTask(task, effectiveRole);
+            String result = executeWorkerTask(task, effectiveRole);
+            emitStatus("[status] ✓ [Multi-Agent] Subagente [" + effectiveRole + "] completó la tarea.");
+            return result;
         } catch (Exception e) {
+            emitStatus("[status] ✗ [Multi-Agent] Subagente [" + effectiveRole + "] falló: " + e.getMessage());
             return "Subagent execution error: " + e.getMessage();
         }
+    }
+
+    private static String summarize(String text) {
+        if (text == null) return "";
+        String trimmed = text.replaceAll("\\s+", " ").trim();
+        if (trimmed.length() <= 60) {
+            return trimmed;
+        }
+        return trimmed.substring(0, 57) + "...";
     }
 
     /**
