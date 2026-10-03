@@ -46,7 +46,25 @@ mvn clean package
 
 ## Ejecutar
 
+### Con run.sh (recomendado)
+
 ```bash
+./run.sh
+```
+
+Opciones:
+- `./run.sh` — compila sin tests y ejecuta la aplicación.
+- `./run.sh --run-tests` — compila con tests y ejecuta la aplicación.
+- `./run.sh -- run.sh --run-tests` — compila sin tests y ejecuta la aplicación.
+- `./run.sh -- run.sh --run-tests` — compila con tests y ejecuta la aplicación.
+- `./run.sh -- <args>` — pasa argumentos a la aplicación.
+
+El script compila con `mvn clean package` (con `-q` para output quiet) y ejecuta el JAR resultante con `java -jar`.
+
+### Manual
+
+```bash
+mvn clean package
 java -jar target/boris-cli-1.0.0.jar
 ```
 
