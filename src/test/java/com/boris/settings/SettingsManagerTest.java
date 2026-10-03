@@ -32,7 +32,7 @@ class SettingsManagerTest {
         String content = Files.readString(settingsFile);
         assertNotNull(content);
         assertTrue(content.contains("\"model\""));
-        assertTrue(content.contains("qwen3.6-35b-64k"));
+        assertTrue(content.contains("granite4.2:8b"));
     }
 
     @Test
@@ -74,6 +74,38 @@ class SettingsManagerTest {
         String content = settingsManager.load(settingsFile.toString());
 
         assertNull(content);
+    }
+
+    @Test
+    void ensureExists_createsSettingsFromTemplate_validatingAllParameters() throws Exception {
+        Path settingsFile = tempDir.resolve("settings.json");
+        assertFalse(Files.exists(settingsFile));
+
+        settingsManager.ensureExists(settingsFile.toString());
+        assertTrue(Files.exists(settingsFile));
+
+        Settings settings = settingsManager.loadSettings(settingsFile.toString());
+        assertNotNull(settings);
+
+        // Validar parámetros del modelo
+        assertNotNull(settings.getModel(), "Model config should not be null");
+        assertEquals("http://localhost:8080", settings.getModel().getBaseUrl());
+        assertEquals("granite4.2:8b", settings.getModel().getName());
+        assertNotNull(settings.getModel().getOptions());
+        assertEquals("high", settings.getModel().getOptions().get("think"));
+
+        // Validar variables de entorno
+        assertNotNull(settings.getEnv());
+        assertEquals("ollama", settings.getEnv().get("OLLAMA_API_KEY"));
+
+        // Validar parámetros de configuración general
+        assertEquals(20, settings.getMaxHistorySize());
+        assertEquals(true, settings.getEnableHistory());
+        assertEquals(true, settings.getEnforceSequentialExecution());
+        assertEquals(0.7, settings.getTemperature());
+        assertEquals(10000, settings.getContextWindow());
+        assertEquals(true, settings.getThinkingEnabled());
+        assertEquals("think", settings.getThinkingMode());
     }
 
 }

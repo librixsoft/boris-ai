@@ -1,0 +1,19 @@
+{
+  "model": {
+    "baseUrl": "http://localhost:8080",
+    "name": "granite4.2:8b",
+    "options": {
+      "think": "high"
+    }
+  },
+  "env": {
+    "OLLAMA_API_KEY": "ollama"
+  },
+  "maxHistorySize": 20,
+  "enableHistory": true,
+  "enforceSequentialExecution": true,
+  "temperature": 0.7,
+  "contextWindow": 10000,
+  "thinkingEnabled": true,
+  "thinkingMode": "think"
+}
