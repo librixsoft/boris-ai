@@ -66,7 +66,7 @@ public class TokenCounter {
     }
 
     public String plainStatus() {
-        return "tokens: " + formatTokens(totalTokens()) + "/" + formatTokens(contextWindowLimit);
+        return "tokens: " + formatTokens(totalTokens()) + "/" + formatTokens(contextWindowLimit) + " " + progressBar();
     }
 
     public String statusText() {
@@ -74,6 +74,17 @@ public class TokenCounter {
             return " " + plainStatus() + " (límite alcanzado)";
         }
         return " " + plainStatus();
+    }
+
+    private String progressBar() {
+        int barWidth = 10;
+        double usedRatio = (double) totalTokens() / contextWindowLimit;
+        int remainingPercent = (int) Math.round((1.0 - usedRatio) * 100);
+        remainingPercent = Math.max(0, Math.min(100, remainingPercent));
+        int filledCount = (int) Math.round((1.0 - usedRatio) * barWidth);
+        filledCount = Math.max(0, Math.min(barWidth, filledCount));
+        int emptyCount = barWidth - filledCount;
+        return "[" + "█".repeat(filledCount) + "░".repeat(emptyCount) + "] " + remainingPercent + "%";
     }
 
     public String limitMessage() {

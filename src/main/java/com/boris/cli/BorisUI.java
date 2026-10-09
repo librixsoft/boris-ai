@@ -114,11 +114,11 @@ public class BorisUI {
         });
 
         Panel root = new Panel(new BorderLayout());
-        root.addComponent(new HeaderBar(), BorderLayout.Location.TOP);
+        String modelName = this.settings != null && this.settings.getModel() != null ? this.settings.getModel().getName() : null;
+        root.addComponent(new HeaderBar(modelName), BorderLayout.Location.TOP);
         root.addComponent(chatPanel.withBorder(Borders.singleLine()), BorderLayout.Location.CENTER);
 
         Panel footer = new Panel(new LinearLayout(Direction.VERTICAL));
-        footer.addComponent(new Separator(Direction.HORIZONTAL));
         footer.addComponent(statusBar);
 
         SkillManager skillManager = new SkillManager();

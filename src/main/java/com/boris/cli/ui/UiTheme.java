@@ -20,6 +20,8 @@ public final class UiTheme {
     public static final TextColor THINKING = new TextColor.RGB(180, 180, 180);
     public static final TextColor THINKING_BOLD = new TextColor.RGB(210, 210, 210);
     public static final TextColor THINKING_MUTED = new TextColor.RGB(140, 140, 140);
+    public static final TextColor DIFF_ADD = new TextColor.RGB(80, 220, 80);
+    public static final TextColor DIFF_REMOVE = new TextColor.RGB(220, 80, 80);
 
     private UiTheme() {
     }

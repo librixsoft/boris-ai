@@ -178,7 +178,9 @@ public class ChatController implements InputArea.InputListener {
             );
         } catch (Exception e) {
             waiting.set(false);
-            transcript.appendLine("[x] error: " + e.getMessage());
+            if (!taskAborter.isAborted()) {
+                transcript.appendLine("[x] error: " + e.getMessage());
+            }
             taskAborter.reset();
         }
     }

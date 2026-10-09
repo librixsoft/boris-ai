@@ -240,6 +240,27 @@ public class MarkdownLineRenderer {
             return;
         }
 
+        if (line.startsWith(":: ")) {
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.ACCENT);
+            graphics.putString(0, row, padOrTruncate(line, contentWidth));
+            return;
+        }
+
+        if (line.startsWith("- ") && !line.startsWith("- [ ]") && !line.startsWith("- [x]")) {
+            String trimmed = line.substring(2).trim();
+            if (!trimmed.isEmpty() && !trimmed.startsWith("[")) {
+                graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.DIFF_REMOVE);
+                graphics.putString(0, row, padOrTruncate(line, contentWidth));
+                return;
+            }
+        }
+
+        if (line.startsWith("+ ")) {
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.DIFF_ADD);
+            graphics.putString(0, row, padOrTruncate(line, contentWidth));
+            return;
+        }
+
         if (line.trim().startsWith("```") || line.trim().startsWith("``")) {
             graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.USERC);
             graphics.setBackgroundColor(UiTheme.BG_ELEVATED);

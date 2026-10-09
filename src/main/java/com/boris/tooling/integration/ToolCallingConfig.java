@@ -170,11 +170,11 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "apply_edit",
-            description = "Apply a surgical edit to an existing file by finding old_text and replacing it with new_text. Returns success status and message.")
+            description = "Apply a surgical edit to an existing file by finding old_text and replacing it with new_text. Returns success status, message, and a diff showing changes. IMPORTANT: Always display the diff to the user with lines starting with '- ' for removed and '+ ' for added content.")
     public String apply_edit(@ToolParam(description = "Absolute or relative file path") String path,
                              @ToolParam(description = "Exact text to find and replace in the file") String old_text,
                              @ToolParam(description = "Replacement text") String new_text) {
-        return editTool.apply_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
+        return EditTool.apply_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
     }
 
     @Tool(
@@ -182,7 +182,7 @@ public class ToolCallingConfig {
             description = "Apply multiple sequential edits to a file. Each edit replaces old_text with new_text. Returns success status and message.")
     public String multi_edit(@ToolParam(description = "Absolute or relative file path") String path,
                              @ToolParam(description = "Array of edit objects, each with old_text and new_text fields") java.util.List<java.util.Map<String, Object>> edits) {
-        return editTool.multi_edit(Map.of("path", path, "edits", edits));
+        return EditTool.multi_edit(Map.of("path", path, "edits", edits));
     }
 
     @Tool(
@@ -191,7 +191,7 @@ public class ToolCallingConfig {
     public String revert_edit(@ToolParam(description = "Absolute or relative file path") String path,
                               @ToolParam(description = "Exact text to find and replace with new_text (the original content)") String old_text,
                               @ToolParam(description = "Replacement text (original value to restore)") String new_text) {
-        return editTool.revert_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
+        return EditTool.revert_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
     }
 
     @Tool(

@@ -56,12 +56,13 @@ public class EditTool {
         try {
             String content = Files.readString(path);
             if (!content.contains(oldText)) {
-                return formatOutput(false, "Error: old_text not found in file");
+                return formatOutput(false, "Error: old_text not found in file", null);
             }
             String replacedContent = content.replaceFirst(java.util.regex.Pattern.quote(oldText), replaceEscaped(newText));
             Files.writeString(path, replacedContent);
             long size = Files.size(path);
-            return formatOutput(true, "File edited successfully: " + pathStr + " (" + size + " bytes)");
+            String diff = generateDiff(oldText, newText);
+            return formatOutput(true, "File edited successfully: " + pathStr + " (" + size + " bytes)", diff);
         } catch (IOException e) {
             throw new BorisException("Error editing file: " + pathStr, e);
         }
@@ -186,15 +187,36 @@ public class EditTool {
     }
 
     private static String formatOutput(boolean success, String message) {
+        return formatOutput(success, message, null);
+    }
+
+    private static String formatOutput(boolean success, String message, String diff) {
         try {
             var mapper = new ObjectMapper();
             var node = mapper.createObjectNode();
             node.put("success", success);
             node.put("message", message);
+            if (diff != null && !diff.isEmpty()) {
+                node.put("diff", diff);
+            }
             return mapper.writeValueAsString(node);
         } catch (IOException e) {
             throw new BorisException("Failed to format output", e);
         }
+    }
+
+    private static String generateDiff(String oldText, String newText) {
+        StringBuilder diff = new StringBuilder();
+        String[] oldLines = oldText.split("\n", -1);
+        String[] newLines = (newText != null ? newText : "").split("\n", -1);
+
+        for (String line : oldLines) {
+            diff.append("- ").append(line).append("\n");
+        }
+        for (String line : newLines) {
+            diff.append("+ ").append(line).append("\n");
+        }
+        return diff.toString().trim();
     }
 
     private static String replaceEscaped(String replacement) {
