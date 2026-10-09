@@ -25,7 +25,7 @@ public class Transcript {
     public void appendAssistantPrefix() {
         uiExecutor.run(() -> {
             if (raw.length() > 0) raw.append("\n");
-            raw.append("● ");
+            raw.append(":: ");
             renderWrapped();
             scrollToBottom();
         });

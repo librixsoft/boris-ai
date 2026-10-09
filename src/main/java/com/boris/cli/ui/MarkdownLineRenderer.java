@@ -234,7 +234,7 @@ public class MarkdownLineRenderer {
             return;
         }
 
-        if (line.trim().startsWith(">")) {
+        if (line.trim().startsWith("> ") && !line.trim().startsWith(">> ")) {
             graphics.setForegroundColor(isThinking ? UiTheme.THINKING_MUTED : UiTheme.MUTED);
             graphics.putString(0, row, padOrTruncate(line, contentWidth));
             return;

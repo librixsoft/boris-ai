@@ -53,6 +53,18 @@ public class CommandItem {
         list.add(new CommandItem("/exit", "Salir", List.of("/quit")));
         list.add(new CommandItem("/clear", "Limpiar historial", Collections.emptyList()));
         list.add(new CommandItem("/thinking", "Activar/desactivar razonamiento", List.of("/think", "/reasoning")));
+        list.add(new CommandItem("/skills", "Listar skills disponibles", Collections.emptyList()));
+        return list;
+    }
+
+    public static List<CommandItem> withSkills(com.boris.skill.SkillManager skillManager) {
+        List<CommandItem> list = new ArrayList<>(defaultCommands());
+        if (skillManager != null) {
+            for (com.boris.skill.Skill skill : skillManager.getSkills()) {
+                String desc = skill.getDescription() != null ? skill.getDescription() : "Skill";
+                list.add(new CommandItem("/" + skill.getName(), desc, Collections.emptyList()));
+            }
+        }
         return list;
     }
 }

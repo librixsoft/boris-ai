@@ -1,6 +1,8 @@
 package com.boris.cli.ui;
 
 import com.boris.chat.ChatService;
+import com.boris.skill.Skill;
+import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -18,6 +20,7 @@ public class ChatController implements InputArea.InputListener {
     private final AtomicBoolean waiting;
     private final AtomicBoolean wasAborted;
     private final Runnable onClose;
+    private final SkillManager skillManager;
 
     public ChatController(ChatService chatService,
                           CommandHistory commandHistory,
@@ -39,6 +42,11 @@ public class ChatController implements InputArea.InputListener {
         this.waiting = waiting;
         this.wasAborted = wasAborted;
         this.onClose = onClose;
+        this.skillManager = new SkillManager();
+    }
+
+    public SkillManager getSkillManager() {
+        return skillManager;
     }
 
     @Override
@@ -106,9 +114,21 @@ public class ChatController implements InputArea.InputListener {
             }
             chatPanel.setThinkingEnabled(newState);
             chatService.setThinkingEnabled(newState);
-            transcript.appendLine(newState ? "● Razonamiento (thinking) activado" : "● Razonamiento (thinking) desactivado");
+            transcript.appendLine(newState ? "* Razonamiento (thinking) activado" : "* Razonamiento (thinking) desactivado");
             transcript.rerender();
             return;
+        }
+        if (lower.equals("/skills")) {
+            listSkills();
+            return;
+        }
+        if (isValidCommand(trimmed)) {
+            String skillCmd = trimmed.substring(1);
+            String skillName = skillCmd.split("\\s+")[0];
+            if (skillManager.hasSkill(skillName)) {
+                executeSkill(skillName);
+                return;
+            }
         }
 
         if (tokenCounter.limitReached()) {
@@ -117,7 +137,8 @@ public class ChatController implements InputArea.InputListener {
         }
 
         commandHistory.record(text);
-        transcript.appendLine("❯ " + text);
+        tokenCounter.addInputTokens(text);
+        transcript.appendLine(">> " + text);
 
         wasAborted.set(false);
         taskAborter.reset();
@@ -146,7 +167,7 @@ public class ChatController implements InputArea.InputListener {
                             synchronized (assistantBuffer) {
                                 assistantBuffer.append(chunk);
                             }
-                            tokenCounter.addTokens(chunk.length());
+                            tokenCounter.addOutputTokens(chunk);
                             if (firstChunk.compareAndSet(true, false)) {
                                 transcript.appendAssistantPrefix();
                             }
@@ -157,7 +178,7 @@ public class ChatController implements InputArea.InputListener {
             );
         } catch (Exception e) {
             waiting.set(false);
-            transcript.appendLine("✗ error: " + e.getMessage());
+            transcript.appendLine("[x] error: " + e.getMessage());
             taskAborter.reset();
         }
     }
@@ -177,5 +198,52 @@ public class ChatController implements InputArea.InputListener {
             onClose.run();
         }
         taskAborter.reset();
+    }
+
+    private boolean isValidCommand(String text) {
+        if (text == null || !text.startsWith("/") || text.length() < 2) {
+            return false;
+        }
+        String cmd = text.substring(1).split("\\s+")[0].toLowerCase();
+        if (cmd.isEmpty() || cmd.contains("/") || cmd.contains(".")) {
+            return false;
+        }
+        if (!cmd.matches("^[a-z][a-z0-9_-]*$")) {
+            return false;
+        }
+        return isBuiltinCommand(cmd) || skillManager.hasSkill(cmd);
+    }
+
+    private boolean isBuiltinCommand(String cmd) {
+        return cmd.equals("exit") || cmd.equals("quit") || cmd.equals("clear") ||
+               cmd.equals("thinking") || cmd.equals("think") || cmd.equals("reasoning") ||
+               cmd.equals("skills");
+    }
+
+    private void listSkills() {
+        transcript.appendLine("Skills disponibles:");
+        for (Skill skill : skillManager.getSkills()) {
+            String desc = skill.getDescription() != null ? skill.getDescription() : "";
+            transcript.appendLine("  /" + skill.getName() + " - " + desc);
+        }
+    }
+
+    private void executeSkill(String skillName) {
+        Skill skill = skillManager.getSkill(skillName);
+        if (skill == null) {
+            transcript.appendLine("[x] Skill no encontrada: " + skillName);
+            return;
+        }
+
+        transcript.appendLine("[skill] Ejecutando /" + skillName + "...");
+
+        Thread skillThread = new Thread(() -> {
+            skillManager.execute(skillName, line -> {
+                transcript.appendLine(line);
+            });
+            transcript.appendLine("[skill] /" + skillName + " completado");
+        });
+        skillThread.setDaemon(true);
+        skillThread.start();
     }
 }

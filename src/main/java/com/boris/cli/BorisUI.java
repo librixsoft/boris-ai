@@ -22,13 +22,16 @@ import com.googlecode.lanterna.terminal.MouseCaptureMode;
 import com.googlecode.lanterna.terminal.Terminal;
 
 import com.boris.chat.ChatService;
+import com.boris.cli.ui.CommandItem;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
+import com.boris.skill.SkillManager;
 
 import com.boris.cli.ui.BorisWindow;
 import com.boris.cli.ui.ChatController;
 import com.boris.cli.ui.ChatPanel;
 import com.boris.cli.ui.CommandHistory;
+import com.boris.cli.ui.CommandMenu;
 import com.boris.cli.ui.HeaderBar;
 import com.boris.cli.ui.HintBar;
 import com.boris.cli.ui.InputArea;
@@ -118,8 +121,13 @@ public class BorisUI {
         footer.addComponent(new Separator(Direction.HORIZONTAL));
         footer.addComponent(statusBar);
 
+        SkillManager skillManager = new SkillManager();
+        CommandMenu commandMenu = new CommandMenu(CommandItem.withSkills(skillManager));
+        footer.addComponent(commandMenu);
+
         HintBar hintBar = new HintBar();
         InputArea inputArea = new InputArea(commandHistory, waiting, SCROLL_STEP, controller, hintBar);
+        inputArea.setCommandMenu(commandMenu);
         Border borderedInput = inputArea.withBorder(Borders.singleLine());
         borderedInput.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Fill));
         footer.addComponent(borderedInput);
@@ -133,8 +141,7 @@ public class BorisUI {
 
         ((SeparateTextGUIThread) gui.getGUIThread()).start();
 
-        transcript.appendLine("boris listo. Escribí un mensaje y Enter. "
-                + "Escribe / para ver comandos (/exit, /clear, /thinking), ESC para abortar tarea, Tab para mover el foco.");
+        transcript.appendLine("boris listo. Escribe tu mensaje.");
         statusBar.showTokenStatus(tokenCounter);
 
         try {

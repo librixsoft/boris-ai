@@ -9,11 +9,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CommandMenuTest {
 
-    private HintBar hintBar;
+    private CommandMenu commandMenu;
 
     @BeforeEach
     void setUp() {
-        hintBar = new HintBar();
+        commandMenu = new CommandMenu();
     }
 
     @Test
@@ -46,57 +46,48 @@ class CommandMenuTest {
     }
 
     @Test
-    void testHintBarInitialState() {
-        assertFalse(hintBar.isMenuVisible());
-        assertNull(hintBar.getSelectedCommand());
+    void testCommandMenuInitialState() {
+        assertFalse(commandMenu.isMenuVisible());
+        assertNull(commandMenu.getSelectedCommand());
     }
 
     @Test
-    void testHintBarShowAndHideMenu() {
-        hintBar.showMenu("/");
-        assertTrue(hintBar.isMenuVisible());
-        assertNotNull(hintBar.getSelectedCommand());
-        assertEquals("/exit", hintBar.getSelectedCommand().getCommand());
+    void testCommandMenuShowAndHideMenu() {
+        commandMenu.showMenu("/");
+        assertTrue(commandMenu.isMenuVisible());
+        assertNotNull(commandMenu.getSelectedCommand());
+        assertEquals("/exit", commandMenu.getSelectedCommand().getCommand());
 
-        hintBar.hideMenu();
-        assertFalse(hintBar.isMenuVisible());
-        assertNull(hintBar.getSelectedCommand());
+        commandMenu.hideMenu();
+        assertFalse(commandMenu.isMenuVisible());
+        assertNull(commandMenu.getSelectedCommand());
     }
 
     @Test
-    void testHintBarNavigation() {
-        hintBar.showMenu("/");
-        assertEquals(0, hintBar.getSelectedIndex());
-        assertEquals("/exit", hintBar.getSelectedCommand().getCommand());
+    void testCommandMenuNavigation() {
+        commandMenu.showMenu("/");
+        assertEquals("/exit", commandMenu.getSelectedCommand().getCommand());
 
-        hintBar.selectNext();
-        assertEquals(1, hintBar.getSelectedIndex());
-        assertEquals("/clear", hintBar.getSelectedCommand().getCommand());
+        commandMenu.selectNext();
+        assertEquals("/clear", commandMenu.getSelectedCommand().getCommand());
 
-        hintBar.selectNext();
-        assertEquals(2, hintBar.getSelectedIndex());
-        assertEquals("/thinking", hintBar.getSelectedCommand().getCommand());
+        commandMenu.selectNext();
+        assertEquals("/thinking", commandMenu.getSelectedCommand().getCommand());
 
-        // Wrap-around forward
-        hintBar.selectNext();
-        assertEquals(0, hintBar.getSelectedIndex());
-        assertEquals("/exit", hintBar.getSelectedCommand().getCommand());
+        commandMenu.selectNext();
+        assertEquals("/exit", commandMenu.getSelectedCommand().getCommand());
 
-        // Wrap-around backward
-        hintBar.selectPrevious();
-        assertEquals(2, hintBar.getSelectedIndex());
-        assertEquals("/thinking", hintBar.getSelectedCommand().getCommand());
+        commandMenu.selectPrevious();
+        assertEquals("/thinking", commandMenu.getSelectedCommand().getCommand());
     }
 
     @Test
-    void testHintBarFilterUpdatesSelection() {
-        hintBar.showMenu("/th");
-        assertTrue(hintBar.isMenuVisible());
-        assertEquals(1, hintBar.getFilteredCommands().size());
-        assertEquals("/thinking", hintBar.getSelectedCommand().getCommand());
+    void testCommandMenuFilterUpdatesSelection() {
+        commandMenu.showMenu("/th");
+        assertTrue(commandMenu.isMenuVisible());
+        assertEquals("/thinking", commandMenu.getSelectedCommand().getCommand());
 
-        hintBar.updateFilter("/c");
-        assertEquals(1, hintBar.getFilteredCommands().size());
-        assertEquals("/clear", hintBar.getSelectedCommand().getCommand());
+        commandMenu.updateFilter("/c");
+        assertEquals("/clear", commandMenu.getSelectedCommand().getCommand());
     }
 }

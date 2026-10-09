@@ -1,24 +1,53 @@
 package com.boris.cli.ui;
 
+import com.knuddels.jtokkit.Encodings;
+import com.knuddels.jtokkit.api.Encoding;
+import com.knuddels.jtokkit.api.EncodingRegistry;
+import com.knuddels.jtokkit.api.EncodingType;
+
 public class TokenCounter {
 
     private final int contextWindowLimit;
-    private volatile int generatedTokens;
+    private final Encoding encoding;
+    private volatile int inputTokens;
+    private volatile int outputTokens;
 
     public TokenCounter(int contextWindowLimit) {
         this.contextWindowLimit = contextWindowLimit;
+        EncodingRegistry registry = Encodings.newDefaultEncodingRegistry();
+        this.encoding = registry.getEncoding(EncodingType.CL100K_BASE);
     }
 
-    public void addTokens(int amount) {
-        generatedTokens += amount;
+    public int countTokens(String text) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+        return encoding.countTokens(text);
+    }
+
+    public void addInputTokens(String text) {
+        inputTokens += countTokens(text);
+    }
+
+    public void addOutputTokens(String text) {
+        outputTokens += countTokens(text);
     }
 
     public void resetSession() {
-        generatedTokens = 0;
+        inputTokens = 0;
+        outputTokens = 0;
     }
 
-    public int generated() {
-        return generatedTokens;
+    public int inputTokens() {
+        return inputTokens;
+    }
+
+    public int outputTokens() {
+        return outputTokens;
+    }
+
+    public int totalTokens() {
+        return inputTokens + outputTokens;
     }
 
     public int limit() {
@@ -26,18 +55,18 @@ public class TokenCounter {
     }
 
     public boolean limitReached() {
-        return generatedTokens >= contextWindowLimit;
+        return totalTokens() >= contextWindowLimit;
     }
 
     public String formatTokens(int tokens) {
         if (tokens >= 1000) {
-            return (tokens / 1000) + "k";
+            return String.format("%.1fk", tokens / 1000.0);
         }
         return String.valueOf(tokens);
     }
 
     public String plainStatus() {
-        return "tokens: " + formatTokens(generatedTokens) + "/" + formatTokens(contextWindowLimit);
+        return "tokens: " + formatTokens(totalTokens()) + "/" + formatTokens(contextWindowLimit);
     }
 
     public String statusText() {
@@ -48,7 +77,7 @@ public class TokenCounter {
     }
 
     public String limitMessage() {
-        return "✗ límite de tokens alcanzado (" + formatTokens(contextWindowLimit)
-                + "). No se pueden enviar más mensajes en esta sesión.";
+        return "[x] limite de tokens alcanzado (" + formatTokens(contextWindowLimit)
+                + "). No se pueden enviar mas mensajes en esta sesion.";
     }
 }

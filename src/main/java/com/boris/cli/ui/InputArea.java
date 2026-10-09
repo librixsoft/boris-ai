@@ -31,6 +31,7 @@ public class InputArea extends Panel {
     private final int scrollStep;
     private final InputListener listener;
     private HintBar hintBar;
+    private CommandMenu commandMenu;
 
     public InputArea(CommandHistory commandHistory, AtomicBoolean waiting, int scrollStep, InputListener listener) {
         this(commandHistory, waiting, scrollStep, listener, null);
@@ -44,7 +45,7 @@ public class InputArea extends Panel {
         this.listener = listener;
         this.hintBar = hintBar;
 
-        Label promptLabel = new Label("❯ ");
+        Label promptLabel = new Label("> ");
         promptLabel.setForegroundColor(UiTheme.USERC);
         addComponent(promptLabel, BorderLayout.Location.LEFT);
 
@@ -52,11 +53,11 @@ public class InputArea extends Panel {
         addComponent(inputBox, BorderLayout.Location.CENTER);
 
         inputBox.setTextChangeListener((newText, changedByUser) -> {
-            if (this.hintBar != null) {
-                if (newText != null && newText.startsWith("/")) {
-                    this.hintBar.showMenu(newText);
-                } else if (this.hintBar.isMenuVisible()) {
-                    this.hintBar.hideMenu();
+            if (this.commandMenu != null) {
+                if (newText != null && newText.startsWith("/") && looksLikeCommand(newText)) {
+                    this.commandMenu.showMenu(newText);
+                } else if (this.commandMenu.isMenuVisible()) {
+                    this.commandMenu.hideMenu();
                 }
             }
         });
@@ -68,8 +69,26 @@ public class InputArea extends Panel {
         this.hintBar = hintBar;
     }
 
+    public void setCommandMenu(CommandMenu commandMenu) {
+        this.commandMenu = commandMenu;
+    }
+
     public TextBox getTextBox() {
         return inputBox;
+    }
+
+    private boolean looksLikeCommand(String text) {
+        if (text == null || text.length() < 1) {
+            return false;
+        }
+        if (text.equals("/")) {
+            return true;
+        }
+        String afterSlash = text.length() > 1 ? text.substring(1) : "";
+        if (afterSlash.contains("/") || afterSlash.contains(".") || afterSlash.contains("~")) {
+            return false;
+        }
+        return true;
     }
 
     public void insertTextAtCaret(String toInsert) {
@@ -144,9 +163,9 @@ public class InputArea extends Panel {
 
         if (type == KeyType.Enter) {
             if (!waiting.get()) {
-                if (hintBar != null && hintBar.isMenuVisible()) {
-                    CommandItem selected = hintBar.getSelectedCommand();
-                    hintBar.hideMenu();
+                if (commandMenu != null && commandMenu.isMenuVisible()) {
+                    CommandItem selected = commandMenu.getSelectedCommand();
+                    commandMenu.hideMenu();
                     if (selected != null) {
                         inputBox.setText("");
                         listener.onSubmit(selected.getCommand());
@@ -157,8 +176,8 @@ public class InputArea extends Panel {
                 String text = inputBox.getText().trim();
                 if (!text.isEmpty()) {
                     inputBox.setText("");
-                    if (hintBar != null) {
-                        hintBar.hideMenu();
+                    if (commandMenu != null) {
+                        commandMenu.hideMenu();
                     }
                     listener.onSubmit(text);
                 }
@@ -167,8 +186,8 @@ public class InputArea extends Panel {
         }
 
         if (type == KeyType.Escape) {
-            if (hintBar != null && hintBar.isMenuVisible()) {
-                hintBar.hideMenu();
+            if (commandMenu != null && commandMenu.isMenuVisible()) {
+                commandMenu.hideMenu();
                 if (inputBox.getText().startsWith("/")) {
                     inputBox.setText("");
                 }
@@ -181,15 +200,15 @@ public class InputArea extends Panel {
         }
 
         if (type == KeyType.Tab) {
-            if (hintBar != null && hintBar.isMenuVisible()) {
-                hintBar.selectNext();
+            if (commandMenu != null && commandMenu.isMenuVisible()) {
+                commandMenu.selectNext();
                 return false;
             }
         }
 
         if (type == KeyType.ArrowUp) {
-            if (hintBar != null && hintBar.isMenuVisible()) {
-                hintBar.selectPrevious();
+            if (commandMenu != null && commandMenu.isMenuVisible()) {
+                commandMenu.selectPrevious();
                 return false;
             }
 
@@ -210,8 +229,8 @@ public class InputArea extends Panel {
         }
 
         if (type == KeyType.ArrowDown) {
-            if (hintBar != null && hintBar.isMenuVisible()) {
-                hintBar.selectNext();
+            if (commandMenu != null && commandMenu.isMenuVisible()) {
+                commandMenu.selectNext();
                 return false;
             }
 

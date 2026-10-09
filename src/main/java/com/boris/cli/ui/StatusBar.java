@@ -22,10 +22,11 @@ public class StatusBar extends Label {
 
     public void showThinking(String frame, int minutes, int seconds, TokenCounter tokens, boolean thinkingEnabled) {
         uiExecutor.run(() -> {
+            String time = minutes > 0 ? String.format("%dm%02ds", minutes, seconds) : String.format("%ds", seconds);
             if (thinkingEnabled) {
-                setText(" ⚡ Thinking: ON  " + frame + " pensando... " + minutes + "m " + seconds + "s   " + tokens.plainStatus());
+                setText(" [T] " + frame + " pensando... " + time + "   " + tokens.plainStatus());
             } else {
-                setText(" " + frame + " pensando... " + minutes + "m " + seconds + "s   " + tokens.plainStatus());
+                setText(" " + frame + " pensando... " + time + "   " + tokens.plainStatus());
             }
         });
     }
@@ -33,7 +34,7 @@ public class StatusBar extends Label {
     public void showThinkingState(boolean thinkingEnabled) {
         uiExecutor.run(() -> {
             if (thinkingEnabled) {
-                setText(" ⚡ Thinking: activado");
+                setText(" [T] Thinking: activado");
             }
         });
     }
