@@ -208,6 +208,31 @@ public class ChatService {
         return thinkingEnabled;
     }
 
+    public void setThinkingMode(String mode) {
+        if (mode == null || mode.isBlank()) {
+            this.thinkingMode = "low";
+            return;
+        }
+        String lower = mode.toLowerCase().trim();
+        this.thinkingMode = switch (lower) {
+            case "high", "alto", "max" -> "high";
+            case "medium", "medio", "med" -> "medium";
+            case "low", "bajo", "min" -> "low";
+            case "off", "none", "disabled" -> {
+                this.thinkingEnabled = false;
+                yield "none";
+            }
+            default -> "medium";
+        };
+        if (!lower.equals("off") && !lower.equals("none") && !lower.equals("disabled")) {
+            this.thinkingEnabled = true;
+        }
+    }
+
+    public String getThinkingMode() {
+        return thinkingMode;
+    }
+
     public void clearHistory() {
         conversationHistory.clear();
     }

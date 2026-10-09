@@ -20,12 +20,14 @@ class CommandMenuTest {
     void testDefaultCommandsListArrayContainsExpectedCommands() {
         List<CommandItem> commands = CommandItem.defaultCommands();
         assertNotNull(commands);
-        assertTrue(commands.size() >= 3);
+        assertTrue(commands.size() >= 5);
 
         List<String> cmdNames = commands.stream().map(CommandItem::getCommand).toList();
         assertTrue(cmdNames.contains("/exit"));
         assertTrue(cmdNames.contains("/clear"));
         assertTrue(cmdNames.contains("/thinking"));
+        assertTrue(cmdNames.contains("/effort"));
+        assertTrue(cmdNames.contains("/skills"));
     }
 
     @Test
@@ -75,10 +77,16 @@ class CommandMenuTest {
         assertEquals("/thinking", commandMenu.getSelectedCommand().getCommand());
 
         commandMenu.selectNext();
+        assertEquals("/effort", commandMenu.getSelectedCommand().getCommand());
+
+        commandMenu.selectNext();
+        assertEquals("/skills", commandMenu.getSelectedCommand().getCommand());
+
+        commandMenu.selectNext();
         assertEquals("/exit", commandMenu.getSelectedCommand().getCommand());
 
         commandMenu.selectPrevious();
-        assertEquals("/thinking", commandMenu.getSelectedCommand().getCommand());
+        assertEquals("/skills", commandMenu.getSelectedCommand().getCommand());
     }
 
     @Test

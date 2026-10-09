@@ -13,13 +13,9 @@ public class SkillManager {
     private final SkillExecutor executor;
     private final Map<String, Skill> skills;
 
-    public SkillManager() {
-        this(getDefaultSkillsDir(), getDefaultWorkspaceDir());
-    }
-
-    public SkillManager(Path skillsDir, Path workspaceDir) {
-        this.loader = new SkillLoader(skillsDir);
-        this.executor = new SkillExecutor(workspaceDir);
+    public SkillManager(SkillLoader loader, SkillExecutor executor) {
+        this.loader = loader;
+        this.executor = executor;
         this.skills = new HashMap<>();
         reload();
     }

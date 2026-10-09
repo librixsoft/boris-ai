@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ChatController implements InputArea.InputListener {
 
     private final ChatService chatService;
-    private final TaskAborter taskAborter = new TaskAborter();
+    private final TaskAborter taskAborter;
     private final CommandHistory commandHistory;
     private final TokenCounter tokenCounter;
     private final ThinkingSpinner spinner;
@@ -23,6 +23,8 @@ public class ChatController implements InputArea.InputListener {
     private final SkillManager skillManager;
 
     public ChatController(ChatService chatService,
+                          SkillManager skillManager,
+                          TaskAborter taskAborter,
                           CommandHistory commandHistory,
                           TokenCounter tokenCounter,
                           ThinkingSpinner spinner,
@@ -33,6 +35,8 @@ public class ChatController implements InputArea.InputListener {
                           AtomicBoolean wasAborted,
                           Runnable onClose) {
         this.chatService = chatService;
+        this.skillManager = skillManager;
+        this.taskAborter = taskAborter;
         this.commandHistory = commandHistory;
         this.tokenCounter = tokenCounter;
         this.spinner = spinner;
@@ -42,7 +46,6 @@ public class ChatController implements InputArea.InputListener {
         this.waiting = waiting;
         this.wasAborted = wasAborted;
         this.onClose = onClose;
-        this.skillManager = new SkillManager();
     }
 
     public SkillManager getSkillManager() {
@@ -118,6 +121,10 @@ public class ChatController implements InputArea.InputListener {
             transcript.rerender();
             return;
         }
+        if (lower.equals("/effort") || lower.startsWith("/effort ") || lower.equals("/esfuerzo") || lower.startsWith("/esfuerzo ")) {
+            handleEffortCommand(trimmed);
+            return;
+        }
         if (lower.equals("/skills")) {
             listSkills();
             return;
@@ -155,8 +162,6 @@ public class ChatController implements InputArea.InputListener {
 
     private void runStream(String text, StringBuilder assistantBuffer, AtomicBoolean firstChunk) {
         try {
-            taskAborter.startTask(Thread.currentThread());
-
             chatService.sendMessageStream(
                     text,
                     chunk -> {
@@ -219,7 +224,7 @@ public class ChatController implements InputArea.InputListener {
     private boolean isBuiltinCommand(String cmd) {
         return cmd.equals("exit") || cmd.equals("quit") || cmd.equals("clear") ||
                cmd.equals("thinking") || cmd.equals("think") || cmd.equals("reasoning") ||
-               cmd.equals("skills");
+               cmd.equals("skills") || cmd.equals("effort") || cmd.equals("esfuerzo");
     }
 
     private void listSkills() {
@@ -247,5 +252,72 @@ public class ChatController implements InputArea.InputListener {
         });
         skillThread.setDaemon(true);
         skillThread.start();
+    }
+
+    private void handleEffortCommand(String text) {
+        String[] parts = text.split("\\s+", 2);
+
+        if (parts.length < 2) {
+            String currentMode = chatService.getThinkingMode();
+            boolean enabled = chatService.isThinkingEnabled();
+            StringBuilder help = new StringBuilder();
+            help.append("📊 Nivel de esfuerzo actual: ");
+            if (!enabled) {
+                help.append("desactivado");
+            } else {
+                help.append(currentMode != null ? currentMode : "medium");
+            }
+            help.append("\n\nUso: /effort <nivel>\n");
+            help.append("Niveles disponibles:\n");
+            help.append("  • high (alto)  - Razonamiento profundo, más lento\n");
+            help.append("  • medium (medio) - Balance entre velocidad y profundidad\n");
+            help.append("  • low (bajo)   - Respuestas rápidas, menos reflexión\n");
+            help.append("  • off (none)   - Desactivar razonamiento extendido\n");
+            transcript.appendLine(help.toString());
+            transcript.rerender();
+            return;
+        }
+
+        String level = parts[1].toLowerCase().trim();
+        String normalizedLevel = switch (level) {
+            case "high", "alto", "max", "máximo" -> "high";
+            case "medium", "medio", "med", "normal" -> "medium";
+            case "low", "bajo", "min", "mínimo" -> "low";
+            case "off", "none", "disabled", "desactivado" -> "off";
+            default -> null;
+        };
+
+        if (normalizedLevel == null) {
+            transcript.appendLine("[x] Nivel no válido: " + level + ". Usa: high, medium, low, off");
+            return;
+        }
+
+        chatService.setThinkingMode(normalizedLevel);
+
+        String emoji = switch (normalizedLevel) {
+            case "high" -> "🧠";
+            case "medium" -> "💭";
+            case "low" -> "⚡";
+            case "off" -> "🔇";
+            default -> "📊";
+        };
+
+        String message = switch (normalizedLevel) {
+            case "high" -> "Esfuerzo ALTO - Razonamiento profundo activado";
+            case "medium" -> "Esfuerzo MEDIO - Balance activado";
+            case "low" -> "Esfuerzo BAJO - Respuestas rápidas";
+            case "off" -> "Razonamiento extendido DESACTIVADO";
+            default -> "Nivel configurado: " + normalizedLevel;
+        };
+
+        transcript.appendLine(emoji + " " + message);
+
+        if (normalizedLevel.equals("off")) {
+            chatPanel.setThinkingEnabled(false);
+        } else {
+            chatPanel.setThinkingEnabled(true);
+        }
+
+        transcript.rerender();
     }
 }

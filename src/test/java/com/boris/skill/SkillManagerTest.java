@@ -20,6 +20,8 @@ class SkillManagerTest {
 
     private Path skillsDir;
     private Path workspaceDir;
+    private SkillLoader skillLoader;
+    private SkillExecutor skillExecutor;
 
     @BeforeEach
     void setUp() throws IOException {
@@ -27,11 +29,13 @@ class SkillManagerTest {
         workspaceDir = tempDir.resolve("workspace");
         Files.createDirectories(skillsDir);
         Files.createDirectories(workspaceDir);
+        skillLoader = new SkillLoader(skillsDir);
+        skillExecutor = new SkillExecutor(workspaceDir);
     }
 
     @Test
     void testLoadEmptySkillsDir() {
-        SkillManager manager = new SkillManager(skillsDir, workspaceDir);
+        SkillManager manager = new SkillManager(skillLoader, skillExecutor);
         assertTrue(manager.getSkills().isEmpty());
     }
 
@@ -56,7 +60,7 @@ class SkillManagerTest {
 
         Files.writeString(skillsDir.resolve("TEST.md"), skillContent);
 
-        SkillManager manager = new SkillManager(skillsDir, workspaceDir);
+        SkillManager manager = new SkillManager(skillLoader, skillExecutor);
 
         assertEquals(1, manager.getSkills().size());
         assertTrue(manager.hasSkill("testSkill"));
@@ -70,7 +74,7 @@ class SkillManagerTest {
 
     @Test
     void testSkillNotFound() {
-        SkillManager manager = new SkillManager(skillsDir, workspaceDir);
+        SkillManager manager = new SkillManager(skillLoader, skillExecutor);
 
         assertFalse(manager.hasSkill("noExiste"));
         assertNull(manager.getSkill("noExiste"));
@@ -97,7 +101,7 @@ class SkillManagerTest {
 
         Files.writeString(skillsDir.resolve("ECHO.md"), skillContent);
 
-        SkillManager manager = new SkillManager(skillsDir, workspaceDir);
+        SkillManager manager = new SkillManager(skillLoader, skillExecutor);
 
         List<String> output = new ArrayList<>();
         manager.execute("echoSkill", line -> output.add(line));
@@ -133,7 +137,7 @@ class SkillManagerTest {
 
         Files.writeString(skillsDir.resolve("ARGS.md"), skillContent);
 
-        SkillManager manager = new SkillManager(skillsDir, workspaceDir);
+        SkillManager manager = new SkillManager(skillLoader, skillExecutor);
 
         List<String> output = new ArrayList<>();
         manager.execute("argsSkill", Map.of("message", "hola mundo"), line -> output.add(line));
@@ -144,7 +148,7 @@ class SkillManagerTest {
 
     @Test
     void testExecuteNonExistentSkill() {
-        SkillManager manager = new SkillManager(skillsDir, workspaceDir);
+        SkillManager manager = new SkillManager(skillLoader, skillExecutor);
 
         List<String> output = new ArrayList<>();
         manager.execute("noExiste", line -> output.add(line));
@@ -155,7 +159,7 @@ class SkillManagerTest {
 
     @Test
     void testReloadSkills() throws IOException {
-        SkillManager manager = new SkillManager(skillsDir, workspaceDir);
+        SkillManager manager = new SkillManager(skillLoader, skillExecutor);
         assertTrue(manager.getSkills().isEmpty());
 
         String skillContent = """
@@ -205,7 +209,7 @@ class SkillManagerTest {
 
         Files.writeString(skillsDir.resolve("PARAMS.md"), skillContent);
 
-        SkillManager manager = new SkillManager(skillsDir, workspaceDir);
+        SkillManager manager = new SkillManager(skillLoader, skillExecutor);
         Skill skill = manager.getSkill("paramsSkill");
 
         assertNotNull(skill);
@@ -236,7 +240,7 @@ class SkillManagerTest {
         Files.writeString(skillsDir.resolve("AGENT.md"), agentContent);
         Files.writeString(skillsDir.resolve("REAL.md"), skillContent);
 
-        SkillManager manager = new SkillManager(skillsDir, workspaceDir);
+        SkillManager manager = new SkillManager(skillLoader, skillExecutor);
 
         assertEquals(1, manager.getSkills().size());
         assertTrue(manager.hasSkill("realSkill"));
@@ -257,7 +261,7 @@ class SkillManagerTest {
 
         Files.writeString(skillsDir.resolve("MY.md"), skillContent);
 
-        SkillManager manager = new SkillManager(skillsDir, workspaceDir);
+        SkillManager manager = new SkillManager(skillLoader, skillExecutor);
 
         assertTrue(manager.hasSkill("MySkill"));
         assertTrue(manager.hasSkill("myskill"));

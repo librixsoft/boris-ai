@@ -7,12 +7,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.model.function.FunctionCallback;
 import org.springframework.ai.tool.ToolCallbacks;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
-import org.springframework.ai.tool.definition.DefaultToolDefinition;
-import org.springframework.ai.tool.definition.ToolDefinition;
 
 import com.boris.exceptions.BorisException;
 import com.boris.llm.LlmClient;
@@ -28,6 +25,7 @@ import com.boris.tooling.tool.ReadFileTool;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
+import com.boris.task.decomposition.TaskPlannerTool;
 
 public class ToolCallingConfig {
 
@@ -46,30 +44,38 @@ public class ToolCallingConfig {
     private final PdfGenerationTool pdfGenerationTool;
     private final OfficeDocumentTool officeDocumentTool;
     private final ExecuteCommandTool executeCommandTool;
+    private final TaskPlannerTool taskPlannerTool;
     private final Settings settings;
 
-    public ToolCallingConfig() {
-        this(null);
-    }
-
-    public ToolCallingConfig(Settings settings) {
-        this.readFileTool = new ReadFileTool();
-        this.writeTool = new WriteTool();
-        this.deleteTool = new DeleteTool();
-        this.listFilesTool = new ListFilesTool();
-        this.editTool = new EditTool();
-        this.systemInfoTool = new SystemInfoTool();
-        this.webSearchTool = new WebSearchTool();
-        this.pdfGenerationTool = new PdfGenerationTool();
-        this.officeDocumentTool = new OfficeDocumentTool();
-        this.executeCommandTool = new ExecuteCommandTool();
+    public ToolCallingConfig(ReadFileTool readFileTool,
+                            WriteTool writeTool,
+                            DeleteTool deleteTool,
+                            ListFilesTool listFilesTool,
+                            EditTool editTool,
+                            SystemInfoTool systemInfoTool,
+                            WebSearchTool webSearchTool,
+                            PdfGenerationTool pdfGenerationTool,
+                            OfficeDocumentTool officeDocumentTool,
+                            ExecuteCommandTool executeCommandTool,
+                            TaskPlannerTool taskPlannerTool,
+                            Settings settings) {
+        this.readFileTool = readFileTool;
+        this.writeTool = writeTool;
+        this.deleteTool = deleteTool;
+        this.listFilesTool = listFilesTool;
+        this.editTool = editTool;
+        this.systemInfoTool = systemInfoTool;
+        this.webSearchTool = webSearchTool;
+        this.pdfGenerationTool = pdfGenerationTool;
+        this.officeDocumentTool = officeDocumentTool;
+        this.executeCommandTool = executeCommandTool;
+        this.taskPlannerTool = taskPlannerTool;
         this.settings = settings;
     }
 
     public static String loadSystemPrompt(Settings settings) {
         StringBuilder prompt = new StringBuilder();
-        
-        // Load default system prompt from resources
+
         String defaultPrompt = loadDefaultSystemPrompt();
         prompt.append(defaultPrompt.trim());
 
@@ -90,18 +96,16 @@ public class ToolCallingConfig {
 
     private static String loadDefaultSystemPrompt() {
         try {
-            // Load from resources directory
             Path resourcePath = Path.of("src/main/resources/prompts/core/default-system-prompt.md");
             if (Files.exists(resourcePath)) {
                 return Files.readString(resourcePath);
             }
-            
-            // Fallback to classpath resource
+
             var resource = ToolCallingConfig.class.getClassLoader().getResourceAsStream("prompts/core/default-system-prompt.md");
             if (resource != null) {
                 return new String(resource.readAllBytes());
             }
-            
+
             throw new BorisException("Default system prompt file not found: src/main/resources/prompts/core/default-system-prompt.md");
         } catch (IOException e) {
             throw new BorisException("Failed to load default system prompt: " + e.getMessage(), e);
@@ -114,7 +118,7 @@ public class ToolCallingConfig {
         SettingsManager mgr = new SettingsManager();
         Settings s = mgr.loadSettings(settingsPath);
         String prompt = loadSystemPrompt(s);
-        ToolCallingConfig config = new ToolCallingConfig(s);
+        ToolCallingConfig config = createDefaultConfig(s);
         return ChatClient.builder(chatModel)
                 .defaultSystem(prompt)
                 .defaultTools(ToolCallbacks.from(config))
@@ -126,8 +130,25 @@ public class ToolCallingConfig {
     }
 
     public static org.springframework.ai.tool.ToolCallback[] buildNativeToolCallbacks(Settings settings) {
-        ToolCallingConfig config = new ToolCallingConfig(settings);
+        ToolCallingConfig config = createDefaultConfig(settings);
         return ToolCallbacks.from(config);
+    }
+
+    private static ToolCallingConfig createDefaultConfig(Settings settings) {
+        return new ToolCallingConfig(
+                new ReadFileTool(),
+                new WriteTool(),
+                new DeleteTool(),
+                new ListFilesTool(),
+                new EditTool(),
+                new SystemInfoTool(),
+                new WebSearchTool(),
+                new PdfGenerationTool(),
+                new OfficeDocumentTool(),
+                new ExecuteCommandTool(),
+                new TaskPlannerTool(),
+                settings
+        );
     }
 
     @SuppressWarnings("unchecked")
@@ -255,5 +276,52 @@ public class ToolCallingConfig {
             args.put("workingDirectory", workingDirectory);
         }
         return executeCommandTool.execute(args);
+    }
+
+    // ========== Task Decomposition Tools ==========
+
+    @Tool(
+            name = "plan_task",
+            description = "Analyze a complex task and decompose it into ordered microtasks. Use this BEFORE starting tasks that involve multiple files, new components, or architectural changes. Returns a plan ID and list of steps to execute.")
+    public String plan_task(
+            @ToolParam(description = "The task to analyze and decompose into microtasks") String task_description,
+            @ToolParam(description = "Maximum number of microtasks to generate (default: 10)") Integer max_steps) {
+        Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("task_description", task_description);
+        if (max_steps != null) {
+            args.put("max_steps", max_steps);
+        }
+        return taskPlannerTool.executePlanTask(args);
+    }
+
+    @Tool(
+            name = "get_plan",
+            description = "Get the current status and progress of a task plan.")
+    public String get_plan(
+            @ToolParam(description = "The ID of the plan to retrieve") String plan_id) {
+        return taskPlannerTool.executeGetPlan(Map.of("plan_id", plan_id));
+    }
+
+    @Tool(
+            name = "complete_microtask",
+            description = "Mark a microtask as completed and get the next task to execute. Call this after finishing each step in a plan.")
+    public String complete_microtask(
+            @ToolParam(description = "The ID of the plan") String plan_id,
+            @ToolParam(description = "The order number of the completed microtask") Integer task_order,
+            @ToolParam(description = "Summary of what was accomplished") String result) {
+        Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("plan_id", plan_id);
+        args.put("task_order", task_order);
+        if (result != null) {
+            args.put("result", result);
+        }
+        return taskPlannerTool.executeCompleteMicrotask(args);
+    }
+
+    @Tool(
+            name = "list_active_plans",
+            description = "List all active task plans and their progress.")
+    public String list_active_plans() {
+        return taskPlannerTool.executeListActivePlans(Map.of());
     }
 }

@@ -53,6 +53,7 @@ public class CommandItem {
         list.add(new CommandItem("/exit", "Salir", List.of("/quit")));
         list.add(new CommandItem("/clear", "Limpiar historial", Collections.emptyList()));
         list.add(new CommandItem("/thinking", "Activar/desactivar razonamiento", List.of("/think", "/reasoning")));
+        list.add(new CommandItem("/effort", "Nivel de esfuerzo (high/medium/low/off)", List.of("/esfuerzo")));
         list.add(new CommandItem("/skills", "Listar skills disponibles", Collections.emptyList()));
         return list;
     }

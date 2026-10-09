@@ -12,7 +12,6 @@ import com.googlecode.lanterna.gui2.LinearLayout;
 import com.googlecode.lanterna.gui2.MultiWindowTextGUI;
 import com.googlecode.lanterna.gui2.Panel;
 import com.googlecode.lanterna.gui2.SeparateTextGUIThread;
-import com.googlecode.lanterna.gui2.Separator;
 import com.googlecode.lanterna.gui2.Window;
 import com.googlecode.lanterna.gui2.WindowListenerAdapter;
 import com.googlecode.lanterna.screen.Screen;
@@ -24,8 +23,8 @@ import com.googlecode.lanterna.terminal.Terminal;
 import com.boris.chat.ChatService;
 import com.boris.cli.ui.CommandItem;
 import com.boris.settings.Settings;
-import com.boris.settings.SettingsManager;
 import com.boris.skill.SkillManager;
+import com.boris.task.TaskAborter;
 
 import com.boris.cli.ui.BorisWindow;
 import com.boris.cli.ui.ChatController;
@@ -47,17 +46,23 @@ public class BorisUI {
     private static final int SCROLL_STEP = 3;
 
     private final ChatService chatService;
+    private final SkillManager skillManager;
+    private final TaskAborter taskAborter;
     private final TokenCounter tokenCounter;
+    private final Settings settings;
 
     private Screen screen;
     private MultiWindowTextGUI gui;
     private Window window;
-    private final Settings settings;
 
-    public BorisUI(String settingsPath) throws Exception {
-        this.chatService = ChatService.withTools(settingsPath, "boris");
-        SettingsManager mgr = new SettingsManager();
-        this.settings = mgr.loadSettings(settingsPath);
+    public BorisUI(ChatService chatService,
+                   SkillManager skillManager,
+                   TaskAborter taskAborter,
+                   Settings settings) {
+        this.chatService = chatService;
+        this.skillManager = skillManager;
+        this.taskAborter = taskAborter;
+        this.settings = settings;
         int contextWindowLimit = 10000;
         if (this.settings != null && this.settings.getContextWindow() != null) {
             contextWindowLimit = this.settings.getContextWindow();
@@ -91,8 +96,11 @@ public class BorisUI {
         Transcript transcript = new Transcript(chatPanel, uiExecutor);
         StatusBar statusBar = new StatusBar(uiExecutor);
         ThinkingSpinner spinner = new ThinkingSpinner(statusBar, tokenCounter, waiting, wasAborted, () -> chatPanel.isThinkingEnabled());
+
         ChatController controller = new ChatController(
                 chatService,
+                skillManager,
+                taskAborter,
                 commandHistory,
                 tokenCounter,
                 spinner,
@@ -121,7 +129,6 @@ public class BorisUI {
         Panel footer = new Panel(new LinearLayout(Direction.VERTICAL));
         footer.addComponent(statusBar);
 
-        SkillManager skillManager = new SkillManager();
         CommandMenu commandMenu = new CommandMenu(CommandItem.withSkills(skillManager));
         footer.addComponent(commandMenu);
 

@@ -41,3 +41,38 @@ TEXT STYLES: fontFamily, headerFontSize, bodyFontSize, footerFontSize (integers)
 SPACING: marginTop, marginBottom, marginLeft, marginRight, paddingHeader, paddingContent, paddingFooter (pixels), lineSpacing (1.0, 1.5, 2.0)
 DESIGN: layout ("oneColumn", "twoColumn", "threeColumn", "grid"), style ("corporate", "modern", "minimal", "colorful"), headerStyle ("solid", "gradient", "banner"), borderStyle ("solid", "dashed", "dotted", "none"), borderWidth (1-5), shadowEffect (true/false)
 
+===== TASK DECOMPOSITION (IMPORTANT) =====
+Before executing any task, analyze its complexity:
+
+**SIMPLE tasks** (1-2 tool calls): Execute directly without planning.
+Examples: read a file, make a small edit, run a command.
+
+**MEDIUM tasks** (3-5 tool calls): Briefly list steps, then execute sequentially.
+Examples: add a feature to one file, fix a bug with tests, update a configuration.
+
+**COMPLEX tasks** (6+ tool calls, multiple files, architectural changes):
+1. STOP and use `plan_task` tool to create a structured plan
+2. Execute one microtask at a time
+3. After each microtask, call `complete_microtask` to track progress
+4. If the task involves >10 steps, ask user for confirmation between phases
+
+Complexity indicators (use plan_task if 2+ apply):
+- Multiple files need modification
+- New components/services to create
+- Integration with external systems
+- Database schema changes
+- Refactoring across modules
+- User explicitly asks for a "complete" or "full" implementation
+
+===== TASK PLANNING TOOLS =====
+- plan_task(task_description, max_steps): Analyze and decompose a complex task into ordered microtasks. Returns a plan ID and list of steps.
+- get_plan(plan_id): Get current status and progress of a task plan.
+- complete_microtask(plan_id, task_order, result): Mark a microtask as done and get the next one.
+- list_active_plans(): Show all active plans and their progress.
+
+When working on a planned task:
+- Start each response with the current progress: "[Step X/Y] Description"
+- Focus on ONE microtask per response
+- Report completion before moving to the next step
+- If blocked, explain why and suggest alternatives
+
