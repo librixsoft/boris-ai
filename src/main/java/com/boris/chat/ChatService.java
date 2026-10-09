@@ -227,14 +227,12 @@ public class ChatService {
             return currentMessage;
         }
         StringBuilder promptBuilder = new StringBuilder();
-        promptBuilder.append("===== CONTEXTO DE LA CONVERSACIÓN ANTERIOR =====\n");
-        promptBuilder.append("IMPORTANTE: Mantén el contexto de lo que estamos trabajando. Si estábamos en medio de una tarea, continúa desde donde nos quedamos.\n\n");
+        promptBuilder.append("===== CONVERSATION HISTORY =====\n");
         for (String message : conversationHistory) {
             promptBuilder.append(message).append("\n");
         }
-        promptBuilder.append("\n===== FIN DEL CONTEXTO =====\n");
-        promptBuilder.append("MENSAJE ACTUAL: ").append(currentMessage);
-        promptBuilder.append("\n\nINSTRUCCIÓN: Si esto es una continuación de una tarea anterior, continúa secuencialmente desde donde nos quedamos. No empieces de nuevo ni saltes pasos.");
+        promptBuilder.append("===== END HISTORY =====\n\n");
+        promptBuilder.append(currentMessage);
         return promptBuilder.toString();
     }
 
