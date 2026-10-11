@@ -2,6 +2,16 @@
 
 > **Autonomous Terminal AI Agent Exclusively for Local LLMs**
 
+---
+
+### Built with Local AI
+
+**70% of this project has been developed using local AI models** running on consumer hardware. This demonstrates what's possible with open-source LLMs and local inference.
+
+We are grateful to **AWS** and **NVIDIA** for their support and credits, which will allow us to continue developing Boris with enhanced capabilities, faster iteration, and a more professional infrastructure. This sponsorship enables us to move beyond the hardware limitations we faced during initial development.
+
+---
+
 **Boris** is an autonomous terminal-based AI development assistant built with Java 21, Spring AI, Lanterna (TUI), and Picocli. 
 
 **Boris is designed exclusively for running local AI models** (such as Ollama, llama.cpp, or local OpenAI-compatible inference servers running on your machine or private network). It does **not** use or rely on third-party cloud AI APIs, ensuring complete data privacy, offline capability, zero subscription fees, and total ownership over your code and prompts.
