@@ -61,14 +61,14 @@ public class TestConfiguration {
 
     @Bean
     @Primary
-    public SkillExecutor skillExecutor(Path workspaceDirectory) {
-        return new SkillExecutor(workspaceDirectory);
+    public SkillExecutor skillExecutor(Path workspaceDirectory, TaskAborter taskAborter) {
+        return new SkillExecutor(workspaceDirectory, taskAborter);
     }
 
     @Bean
     @Primary
-    public SkillManager skillManager(SkillLoader skillLoader, SkillExecutor skillExecutor) {
-        return new SkillManager(skillLoader, skillExecutor);
+    public SkillManager skillManager(SkillLoader skillLoader, SkillExecutor skillExecutor, TaskAborter taskAborter) {
+        return new SkillManager(skillLoader, skillExecutor, taskAborter);
     }
 
     @Bean

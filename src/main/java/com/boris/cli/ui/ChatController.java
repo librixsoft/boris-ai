@@ -9,6 +9,7 @@ import com.boris.task.TaskAborter;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ChatController implements InputArea.InputListener {
 
@@ -28,6 +29,7 @@ public class ChatController implements InputArea.InputListener {
     private final HeaderBar headerBar;
     private final SettingsManager settingsManager;
     private final Runnable onModelSelected;
+    private final AtomicLong sessionEpoch = new AtomicLong(0);
 
     public ChatController(ChatService chatService,
                           SkillManager skillManager,
@@ -153,10 +155,7 @@ public class ChatController implements InputArea.InputListener {
             return;
         }
         if (lower.equals("/clear")) {
-            chatService.clearHistory();
-            tokenCounter.resetSession();
-            transcript.clear();
-            statusBar.clear();
+            handleClearCommand();
             return;
         }
         if (lower.equals("/thinking") || lower.equals("/think") || lower.equals("/reasoning")
@@ -214,17 +213,66 @@ public class ChatController implements InputArea.InputListener {
         StringBuilder assistantBuffer = new StringBuilder();
         AtomicBoolean firstChunk = new AtomicBoolean(true);
 
-        Thread task = new Thread(() -> runStream(text, assistantBuffer, firstChunk));
+        // Capture current epoch for validation
+        long taskEpoch = sessionEpoch.get();
+
+        Thread task = new Thread(() -> runStream(text, assistantBuffer, firstChunk, taskEpoch));
         task.setDaemon(true);
+        taskAborter.startTask(task);
         task.start();
     }
 
-    private void runStream(String text, StringBuilder assistantBuffer, AtomicBoolean firstChunk) {
+    /**
+     * Handle /clear command with full transparency: clear UI immediately, abort tasks in background.
+     */
+    private void handleClearCommand() {
+        // Phase 1: Increment epoch to invalidate any pending callbacks
+        sessionEpoch.incrementAndGet();
+
+        // Reset waiting state - this also stops the thinking spinner
+        waiting.set(false);
+        wasAborted.set(false);
+
+        // Clear model and context
+        chatService.clearHistory();
+
+        // Clear UI immediately (synchronous)
+        tokenCounter.resetSession();
+        transcript.clear();
+        chatPanel.clear();
+        statusBar.clear();
+
+        // Phase 2: Abort tasks silently in background
+        Thread abortThread = new Thread(() -> {
+            try {
+                // Abort active tasks
+                taskAborter.abort();
+
+                // Clear any abort hooks
+                taskAborter.clearAbortHooks();
+
+                // Brief delay then reset
+                Thread.sleep(100);
+                taskAborter.reset();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                // Silently ignore - this is a cleanup operation
+            } finally {
+                taskAborter.reset();
+            }
+        });
+        abortThread.setDaemon(true);
+        abortThread.start();
+    }
+
+    private void runStream(String text, StringBuilder assistantBuffer, AtomicBoolean firstChunk, long taskEpoch) {
         try {
             chatService.sendMessageStream(
                     text,
                     chunk -> {
-                        if (taskAborter.isAborted()) {
+                        // Epoch guard: discard if session was cleared
+                        if (taskEpoch != sessionEpoch.get() || taskAborter.isAborted()) {
                             return;
                         }
                         if (chunk != null && !chunk.isEmpty()) {
@@ -238,18 +286,32 @@ public class ChatController implements InputArea.InputListener {
                             transcript.appendChunk(chunk);
                         }
                     },
-                    () -> finishResponse(assistantBuffer)
+                    () -> {
+                        // Epoch guard in completion callback
+                        if (taskEpoch != sessionEpoch.get() || taskAborter.isAborted()) {
+                            return;
+                        }
+                        finishResponse(assistantBuffer);
+                    }
             );
         } catch (Exception e) {
             waiting.set(false);
-            if (!taskAborter.isAborted()) {
+            // Only show error if session is still active
+            if (taskEpoch == sessionEpoch.get() && !taskAborter.isAborted()) {
                 transcript.appendLine("[x] error: " + e.getMessage());
             }
             taskAborter.reset();
+        } finally {
+            // Unregister task
+            taskAborter.unregisterTask(Thread.currentThread());
         }
     }
 
     private void finishResponse(StringBuilder assistantBuffer) {
+        // Epoch guard: don't finalize if session was cleared
+        if (wasAborted.get() || taskAborter.isAborted()) {
+            return;
+        }
         waiting.set(false);
         transcript.endAssistantResponse();
 

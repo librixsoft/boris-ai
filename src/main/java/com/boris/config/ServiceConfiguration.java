@@ -30,13 +30,13 @@ public class ServiceConfiguration {
     }
 
     @Bean
-    public SkillExecutor skillExecutor(Path workspaceDirectory) {
-        return new SkillExecutor(workspaceDirectory);
+    public SkillExecutor skillExecutor(Path workspaceDirectory, TaskAborter taskAborter) {
+        return new SkillExecutor(workspaceDirectory, taskAborter);
     }
 
     @Bean
-    public SkillManager skillManager(SkillLoader skillLoader, SkillExecutor skillExecutor) {
-        return new SkillManager(skillLoader, skillExecutor);
+    public SkillManager skillManager(SkillLoader skillLoader, SkillExecutor skillExecutor, TaskAborter taskAborter) {
+        return new SkillManager(skillLoader, skillExecutor, taskAborter);
     }
 
     @Bean

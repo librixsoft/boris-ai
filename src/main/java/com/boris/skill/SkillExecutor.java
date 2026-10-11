@@ -7,14 +7,18 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import com.boris.task.TaskAborter;
+
 public class SkillExecutor {
 
     private final Path workingDir;
     private final boolean isWindows;
+    private final TaskAborter taskAborter;
 
-    public SkillExecutor(Path workingDir) {
+    public SkillExecutor(Path workingDir, TaskAborter taskAborter) {
         this.workingDir = workingDir;
         this.isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+        this.taskAborter = taskAborter;
     }
 
     public void execute(Skill skill, Map<String, String> args, Consumer<String> output) {
@@ -45,6 +49,10 @@ public class SkillExecutor {
             }
 
             Process process = pb.start();
+            // Register process for cleanup on /clear
+            if (taskAborter != null) {
+                taskAborter.registerProcess(process);
+            }
 
             Thread reader = new Thread(() -> {
                 try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
@@ -65,6 +73,10 @@ public class SkillExecutor {
             }
 
             reader.join(1000);
+            // Unregister process after completion
+            if (taskAborter != null) {
+                taskAborter.unregisterProcess(process);
+            }
 
         } catch (Exception e) {
             output.accept("[error] " + e.getMessage());

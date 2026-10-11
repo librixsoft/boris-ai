@@ -114,6 +114,13 @@ public class ChatPanel extends AbstractComponent<ChatPanel> {
         return scrollOffset;
     }
 
+    public void clear() {
+        lines = new ArrayList<>();
+        scrollOffset = 0;
+        cancelSelection();
+        invalidate();
+    }
+
     public boolean isSelecting() {
         return selecting;
     }

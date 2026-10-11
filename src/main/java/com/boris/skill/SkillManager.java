@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import com.boris.task.TaskAborter;
+
 public class SkillManager {
 
     private final SkillLoader loader;
@@ -14,6 +16,10 @@ public class SkillManager {
     private final Map<String, Skill> skills;
 
     public SkillManager(SkillLoader loader, SkillExecutor executor) {
+        this(loader, executor, null);
+    }
+
+    public SkillManager(SkillLoader loader, SkillExecutor executor, TaskAborter taskAborter) {
         this.loader = loader;
         this.executor = executor;
         this.skills = new HashMap<>();
