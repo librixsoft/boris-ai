@@ -5,8 +5,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class SettingsManager {
 
@@ -99,6 +101,35 @@ public class SettingsManager {
                 throw new IOException("Template AGENTS.md not found on classpath");
             }
             Files.copy(in, agentsFile);
+        }
+    }
+
+    /**
+     * Update the model name in settings.json at the default path.
+     */
+    public void updateModelName(String modelName) throws IOException {
+        updateModelName(DEFAULT_SETTINGS_PATH, modelName);
+    }
+
+    /**
+     * Update the model name in a specific settings file.
+     * Preserves all other fields (baseUrl, options, env, etc.).
+     */
+    public void updateModelName(String path, String modelName) throws IOException {
+        Path settingsFile = Paths.get(path);
+        ensureExists(path);
+        java.io.File settingsFileObj = settingsFile.toFile();
+        JsonNode root = MAPPER.readTree(settingsFileObj);
+        if (root instanceof ObjectNode objectNode) {
+            JsonNode modelNode = objectNode.get("model");
+            if (modelNode instanceof ObjectNode modelObjNode) {
+                modelObjNode.put("name", modelName);
+            } else {
+                ObjectNode newModel = MAPPER.createObjectNode();
+                newModel.put("name", modelName);
+                objectNode.set("model", newModel);
+            }
+            MAPPER.writeValue(settingsFileObj, objectNode);
         }
     }
 }

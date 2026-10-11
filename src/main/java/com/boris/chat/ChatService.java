@@ -28,7 +28,7 @@ public class ChatService {
     private final boolean enableHistory;
     private boolean thinkingEnabled;
     private String thinkingMode;
-    private final String modelName;
+    private volatile String modelName;
     private String lastThinkingContent;
     private static final Pattern THINKING_PATTERN = Pattern.compile("(?i)(?:<think>|<thinking>|<thought>|<reasoning>|```)(.*?)(?:</think>|</thinking>|</thought>|</reasoning>|```)", Pattern.DOTALL);
 
@@ -231,6 +231,14 @@ public class ChatService {
 
     public String getThinkingMode() {
         return thinkingMode;
+    }
+
+    public void setModelName(String modelName) {
+        this.modelName = modelName;
+    }
+
+    public String getModelName() {
+        return modelName;
     }
 
     public void clearHistory() {

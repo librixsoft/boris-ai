@@ -46,6 +46,8 @@ import com.boris.cli.ui.Transcript;
 import com.boris.cli.ui.UiExecutor;
 import com.boris.cli.ui.UiTheme;
 
+import com.boris.settings.SettingsManager;
+
 public class BorisUI {
 
     private static final int SCROLL_STEP = 3;
@@ -112,6 +114,11 @@ public class BorisUI {
         StatusBar statusBar = new StatusBar(uiExecutor);
         ThinkingSpinner spinner = new ThinkingSpinner(statusBar, tokenCounter, waiting, wasAborted, () -> chatPanel.isThinkingEnabled());
 
+        // Create HeaderBar and SettingsManager upfront so we can wire them to ChatController
+        String modelName = this.settings != null && this.settings.getModel() != null ? this.settings.getModel().getName() : null;
+        HeaderBar headerBar = new HeaderBar(modelName);
+        SettingsManager settingsManager = new SettingsManager();
+
         ChatController controller = new ChatController(
                 chatService,
                 skillManager,
@@ -125,7 +132,9 @@ public class BorisUI {
                 waiting,
                 wasAborted,
                 () -> window.close(),
-                ollamaModelService
+                ollamaModelService,
+                headerBar,
+                settingsManager
         );
 
         window = new BorisWindow(chatPanel, SCROLL_STEP, delta -> uiExecutor.run(() -> chatPanel.scroll(delta)));
@@ -138,8 +147,7 @@ public class BorisUI {
         });
 
         Panel root = new Panel(new BorderLayout());
-        String modelName = this.settings != null && this.settings.getModel() != null ? this.settings.getModel().getName() : null;
-        root.addComponent(new HeaderBar(modelName), BorderLayout.Location.TOP);
+        root.addComponent(headerBar, BorderLayout.Location.TOP);
         root.addComponent(chatPanel.withBorder(Borders.singleLine()), BorderLayout.Location.CENTER);
 
         Panel footer = new Panel(new LinearLayout(Direction.VERTICAL));
@@ -155,11 +163,10 @@ public class BorisUI {
                         ? ollamaModelService.getModels() 
                         : new ArrayList<>(),
                 () -> {
-                    // When a model is selected via Enter
+                    // When a model is selected via Enter (legacy callback - now handled by InputArea)
                     String selectedModel = modelSelectorHolder[0].getSelectedModel();
-                    if (selectedModel != null && ollamaModelService != null) {
-                        ollamaModelService.selectModel(selectedModel);
-                        controller.setChatModel(selectedModel);
+                    if (selectedModel != null) {
+                        controller.applyModelSelection(selectedModel);
                     }
                 }
         );

@@ -8,4 +8,8 @@ public class HeaderBar extends Label {
         super(" boris  ·  terminal agent  ·  " + (modelName != null ? modelName : "unknown"));
         setForegroundColor(UiTheme.ACCENT);
     }
+
+    public void updateModel(String modelName) {
+        setText(" boris  ·  terminal agent  ·  " + (modelName != null && !modelName.isBlank() ? modelName : "unknown"));
+    }
 }

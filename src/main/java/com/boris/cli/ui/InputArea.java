@@ -196,7 +196,10 @@ public class InputArea extends Panel {
                     modelSelector.hideSelector();
                     if (selectedModel != null) {
                         inputBox.setText("");
-                        listener.onSubmit("/model " + selectedModel);
+                        // Apply model selection directly through ChatController
+                        if (listener instanceof ChatController cc) {
+                            cc.applyModelSelection(selectedModel);
+                        }
                         return false;
                     }
                 }
