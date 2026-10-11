@@ -107,7 +107,17 @@ public class BorisUI {
 
         ToolResultNotifier.addListener(result -> {
             if (result.diff() != null && !result.diff().isEmpty()) {
-                transcript.appendLine("\n" + result.diff());
+                String diff = result.diff();
+                // Strip markdown code fences for terminal display
+                if (diff.startsWith("```diff\n")) {
+                    diff = diff.substring(8);
+                }
+                if (diff.endsWith("\n```")) {
+                    diff = diff.substring(0, diff.length() - 4);
+                } else if (diff.endsWith("```")) {
+                    diff = diff.substring(0, diff.length() - 3);
+                }
+                transcript.appendLine("\n" + diff);
             }
         });
 
