@@ -1,10 +1,12 @@
 package com.boris.cli.ui;
 
 import com.boris.chat.ChatService;
+import com.boris.llm.ollama.OllamaModelService;
 import com.boris.skill.Skill;
 import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ChatController implements InputArea.InputListener {
@@ -21,6 +23,7 @@ public class ChatController implements InputArea.InputListener {
     private final AtomicBoolean wasAborted;
     private final Runnable onClose;
     private final SkillManager skillManager;
+    private final OllamaModelService ollamaModelService;
 
     public ChatController(ChatService chatService,
                           SkillManager skillManager,
@@ -33,7 +36,8 @@ public class ChatController implements InputArea.InputListener {
                           ChatPanel chatPanel,
                           AtomicBoolean waiting,
                           AtomicBoolean wasAborted,
-                          Runnable onClose) {
+                          Runnable onClose,
+                          OllamaModelService ollamaModelService) {
         this.chatService = chatService;
         this.skillManager = skillManager;
         this.taskAborter = taskAborter;
@@ -46,6 +50,7 @@ public class ChatController implements InputArea.InputListener {
         this.waiting = waiting;
         this.wasAborted = wasAborted;
         this.onClose = onClose;
+        this.ollamaModelService = ollamaModelService;
     }
 
     public SkillManager getSkillManager() {
@@ -127,6 +132,10 @@ public class ChatController implements InputArea.InputListener {
         }
         if (lower.equals("/skills")) {
             listSkills();
+            return;
+        }
+        if (lower.equals("/model") || lower.equals("/models")) {
+            handleModelCommand();
             return;
         }
         if (isValidCommand(trimmed)) {
@@ -224,7 +233,34 @@ public class ChatController implements InputArea.InputListener {
     private boolean isBuiltinCommand(String cmd) {
         return cmd.equals("exit") || cmd.equals("quit") || cmd.equals("clear") ||
                cmd.equals("thinking") || cmd.equals("think") || cmd.equals("reasoning") ||
-               cmd.equals("skills") || cmd.equals("effort") || cmd.equals("esfuerzo");
+               cmd.equals("skills") || cmd.equals("effort") || cmd.equals("esfuerzo") ||
+               cmd.equals("model") || cmd.equals("models");
+    }
+
+    private void handleModelCommand() {
+        if (ollamaModelService == null || !ollamaModelService.isOllamaAvailable()) {
+            transcript.appendLine("[x] Ollama no está disponible. Asegúrate de que Ollama esté corriendo.");
+            transcript.rerender();
+            return;
+        }
+
+        List<String> models = ollamaModelService.getModels();
+        if (models.isEmpty()) {
+            transcript.appendLine("[x] No se encontraron modelos en Ollama.");
+            transcript.rerender();
+            return;
+        }
+
+        // Mostrar interfaz de selección de modelos
+        transcript.appendLine("Modelos disponibles en Ollama:");
+        for (int i = 0; i < Math.min(models.size(), 10); i++) {
+            transcript.appendLine("  " + (i + 1) + ". " + models.get(i));
+        }
+        if (models.size() > 10) {
+            transcript.appendLine("  ... y " + (models.size() - 10) + " más");
+        }
+        transcript.appendLine("Usa: /model <nombre_del_modelo>");
+        transcript.rerender();
     }
 
     private void listSkills() {

@@ -22,6 +22,7 @@ import com.googlecode.lanterna.terminal.Terminal;
 
 import com.boris.chat.ChatService;
 import com.boris.cli.ui.CommandItem;
+import com.boris.llm.ollama.OllamaModelService;
 import com.boris.settings.Settings;
 import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
@@ -51,6 +52,7 @@ public class BorisUI {
     private final TaskAborter taskAborter;
     private final TokenCounter tokenCounter;
     private final Settings settings;
+    private final OllamaModelService ollamaModelService;
 
     private Screen screen;
     private MultiWindowTextGUI gui;
@@ -59,11 +61,13 @@ public class BorisUI {
     public BorisUI(ChatService chatService,
                    SkillManager skillManager,
                    TaskAborter taskAborter,
-                   Settings settings) {
+                   Settings settings,
+                   OllamaModelService ollamaModelService) {
         this.chatService = chatService;
         this.skillManager = skillManager;
         this.taskAborter = taskAborter;
         this.settings = settings;
+        this.ollamaModelService = ollamaModelService;
         int contextWindowLimit = 10000;
         if (this.settings != null && this.settings.getContextWindow() != null) {
             contextWindowLimit = this.settings.getContextWindow();
@@ -117,7 +121,8 @@ public class BorisUI {
                 chatPanel,
                 waiting,
                 wasAborted,
-                () -> window.close()
+                () -> window.close(),
+                ollamaModelService
         );
 
         window = new BorisWindow(chatPanel, SCROLL_STEP, delta -> uiExecutor.run(() -> chatPanel.scroll(delta)));

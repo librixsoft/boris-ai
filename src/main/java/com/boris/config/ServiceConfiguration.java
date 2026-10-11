@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Lazy;
 
 import com.boris.chat.ChatService;
 import com.boris.chat.DecomposableChatService;
+import com.boris.llm.ollama.OllamaModelService;
 import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.settings.Settings;
 import com.boris.skill.SkillExecutor;
@@ -100,5 +101,10 @@ public class ServiceConfiguration {
                 System.out::println,
                 DecompositionConfig.defaults()
         );
+    }
+
+    @Bean
+    public OllamaModelService ollamaModelService() {
+        return new OllamaModelService();
     }
 }
