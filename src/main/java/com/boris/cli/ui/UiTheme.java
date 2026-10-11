@@ -28,6 +28,18 @@ public final class UiTheme {
     public static final TextColor DIFF_HEADER = new TextColor.RGB(130, 180, 220);
     public static final TextColor DIFF_BORDER = new TextColor.RGB(70, 70, 70);
 
+    // Syntax highlighting colors for code in diffs
+    public static final TextColor SYNTAX_KEYWORD = new TextColor.RGB(225, 140, 255);
+    public static final TextColor SYNTAX_TYPE = new TextColor.RGB(90, 225, 230);
+    public static final TextColor SYNTAX_STRING = new TextColor.RGB(255, 220, 115);
+    public static final TextColor SYNTAX_NUMBER = new TextColor.RGB(255, 165, 90);
+    public static final TextColor SYNTAX_COMMENT = new TextColor.RGB(155, 175, 185);
+    public static final TextColor SYNTAX_ANNOTATION = new TextColor.RGB(255, 210, 70);
+    public static final TextColor SYNTAX_FUNCTION = new TextColor.RGB(125, 195, 255);
+    public static final TextColor SYNTAX_OPERATOR = new TextColor.RGB(215, 220, 230);
+    public static final TextColor SYNTAX_BOOLEAN = new TextColor.RGB(255, 130, 160);
+    public static final TextColor SYNTAX_TEXT = new TextColor.RGB(240, 240, 240);
+
     private UiTheme() {
     }
 

@@ -1,5 +1,6 @@
 package com.boris.cli.ui;
 
+import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.TextGUIGraphics;
 
 import java.util.ArrayList;
@@ -271,15 +272,13 @@ public class MarkdownLineRenderer {
         if (line.startsWith("- ") && !line.startsWith("- [ ]") && !line.startsWith("- [x]")) {
             String trimmed = line.substring(2).trim();
             if (!trimmed.isEmpty() && !trimmed.startsWith("[")) {
-                graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.DIFF_REMOVE);
-                graphics.putString(0, row, padOrTruncate(line, contentWidth));
+                renderSimpleDiffLine(graphics, line, row, contentWidth, isThinking, false);
                 return;
             }
         }
 
         if (line.startsWith("+ ")) {
-            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.DIFF_ADD);
-            graphics.putString(0, row, padOrTruncate(line, contentWidth));
+            renderSimpleDiffLine(graphics, line, row, contentWidth, isThinking, true);
             return;
         }
 
@@ -541,12 +540,28 @@ public class MarkdownLineRenderer {
         String remaining = codeContent.startsWith(" ") ? codeContent.substring(1) : codeContent;
         int availableWidth = contentWidth - x;
         if (remaining.length() > availableWidth) {
-            remaining = remaining.substring(0, availableWidth);
+            remaining = RenderUtils.truncateWithEllipsis(remaining, availableWidth);
         }
-        graphics.putString(x, row, remaining);
-        x += remaining.length();
+
+        List<SyntaxHighlighter.SyntaxToken> tokens = SyntaxHighlighter.tokenizeLine(remaining);
+        TextColor bgColor = isThinking ? UiTheme.BG : (isAdd ? UiTheme.DIFF_ADD_BG : UiTheme.DIFF_REMOVE_BG);
+        graphics.setBackgroundColor(bgColor);
+
+        for (SyntaxHighlighter.SyntaxToken token : tokens) {
+            if (x >= contentWidth) break;
+            TextColor fgColor = isThinking ? UiTheme.THINKING : token.color();
+            graphics.setForegroundColor(fgColor);
+            String tokenText = token.text();
+            int spaceLeft = contentWidth - x;
+            if (tokenText.length() > spaceLeft) {
+                tokenText = tokenText.substring(0, spaceLeft);
+            }
+            graphics.putString(x, row, tokenText);
+            x += tokenText.length();
+        }
 
         if (x < contentWidth) {
+            graphics.setBackgroundColor(bgColor);
             graphics.putString(x, row, padOrTruncate("", contentWidth - x));
         }
     }
@@ -595,6 +610,41 @@ public class MarkdownLineRenderer {
         graphics.setForegroundColor(isThinking ? UiTheme.THINKING_MUTED : UiTheme.DIFF_BORDER);
         graphics.putString(x, row, suffix);
         x += suffix.length();
+
+        if (x < contentWidth) {
+            graphics.putString(x, row, padOrTruncate("", contentWidth - x));
+        }
+    }
+
+    private void renderSimpleDiffLine(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean isThinking, boolean isAdd) {
+        TextColor bgColor = isThinking ? UiTheme.BG : (isAdd ? UiTheme.DIFF_ADD_BG : UiTheme.DIFF_REMOVE_BG);
+        TextColor symbolColor = isThinking ? UiTheme.THINKING : (isAdd ? UiTheme.DIFF_ADD : UiTheme.DIFF_REMOVE);
+
+        graphics.setBackgroundColor(bgColor);
+        graphics.setForegroundColor(symbolColor);
+
+        String prefix = line.substring(0, 2);
+        graphics.putString(0, row, prefix);
+        int x = 2;
+
+        String code = line.substring(2);
+        int availableWidth = contentWidth - x;
+        if (code.length() > availableWidth) {
+            code = RenderUtils.truncateWithEllipsis(code, availableWidth);
+        }
+
+        List<SyntaxHighlighter.SyntaxToken> tokens = SyntaxHighlighter.tokenizeLine(code);
+        for (SyntaxHighlighter.SyntaxToken token : tokens) {
+            if (x >= contentWidth) break;
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : token.color());
+            String tokenText = token.text();
+            int spaceLeft = contentWidth - x;
+            if (tokenText.length() > spaceLeft) {
+                tokenText = tokenText.substring(0, spaceLeft);
+            }
+            graphics.putString(x, row, tokenText);
+            x += tokenText.length();
+        }
 
         if (x < contentWidth) {
             graphics.putString(x, row, padOrTruncate("", contentWidth - x));

@@ -20,4 +20,17 @@ public final class RenderUtils {
         }
         return sb.toString();
     }
+
+    public static String truncateWithEllipsis(String text, int maxWidth) {
+        if (text == null || maxWidth <= 0) {
+            return "";
+        }
+        if (text.length() <= maxWidth) {
+            return text;
+        }
+        if (maxWidth <= 3) {
+            return text.substring(0, maxWidth);
+        }
+        return text.substring(0, maxWidth - 3) + "...";
+    }
 }
