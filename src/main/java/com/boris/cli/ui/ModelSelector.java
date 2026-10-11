@@ -7,18 +7,21 @@ import com.googlecode.lanterna.gui2.Panel;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 public class ModelSelector extends Panel {
 
-    private final List<String> models;
+    private final Supplier<List<String>> modelsSupplier;
+    private List<String> models;
     private final List<Label> itemLabels;
     private int selectedIndex = 0;
     private boolean visible = false;
     private final Runnable onModelSelected;
 
-    public ModelSelector(List<String> models, Runnable onModelSelected) {
+    public ModelSelector(Supplier<List<String>> modelsSupplier, Runnable onModelSelected) {
         super(new LinearLayout(Direction.VERTICAL));
-        this.models = models != null ? new ArrayList<>(models) : new ArrayList<>();
+        this.modelsSupplier = modelsSupplier;
+        this.models = modelsSupplier != null ? modelsSupplier.get() : new ArrayList<>();
         this.itemLabels = new ArrayList<>();
         this.onModelSelected = onModelSelected;
         setVisible(false);
@@ -32,6 +35,10 @@ public class ModelSelector extends Panel {
         this.visible = true;
         setVisible(true);
         selectedIndex = 0;
+        // Refresh models from supplier each time selector is shown
+        if (modelsSupplier != null) {
+            this.models = modelsSupplier.get();
+        }
         renderSelector();
     }
 

@@ -24,6 +24,7 @@ public class ChatController implements InputArea.InputListener {
     private final Runnable onClose;
     private final SkillManager skillManager;
     private final OllamaModelService ollamaModelService;
+    private final Runnable onModelSelected;
 
     public ChatController(ChatService chatService,
                           SkillManager skillManager,
@@ -38,6 +39,23 @@ public class ChatController implements InputArea.InputListener {
                           AtomicBoolean wasAborted,
                           Runnable onClose,
                           OllamaModelService ollamaModelService) {
+        this(chatService, skillManager, taskAborter, commandHistory, tokenCounter, spinner, statusBar, transcript, chatPanel, waiting, wasAborted, onClose, ollamaModelService, null);
+    }
+
+    public ChatController(ChatService chatService,
+                          SkillManager skillManager,
+                          TaskAborter taskAborter,
+                          CommandHistory commandHistory,
+                          TokenCounter tokenCounter,
+                          ThinkingSpinner spinner,
+                          StatusBar statusBar,
+                          Transcript transcript,
+                          ChatPanel chatPanel,
+                          AtomicBoolean waiting,
+                          AtomicBoolean wasAborted,
+                          Runnable onClose,
+                          OllamaModelService ollamaModelService,
+                          Runnable onModelSelected) {
         this.chatService = chatService;
         this.skillManager = skillManager;
         this.taskAborter = taskAborter;
@@ -51,10 +69,17 @@ public class ChatController implements InputArea.InputListener {
         this.wasAborted = wasAborted;
         this.onClose = onClose;
         this.ollamaModelService = ollamaModelService;
+        this.onModelSelected = onModelSelected != null ? onModelSelected : () -> {};
     }
 
     public SkillManager getSkillManager() {
         return skillManager;
+    }
+
+    public void setChatModel(String modelName) {
+        if (ollamaModelService != null) {
+            ollamaModelService.selectModel(modelName);
+        }
     }
 
     @Override
@@ -134,8 +159,8 @@ public class ChatController implements InputArea.InputListener {
             listSkills();
             return;
         }
-        if (lower.equals("/model") || lower.equals("/models")) {
-            handleModelCommand();
+        if (lower.startsWith("/model")) {
+            handleModelCommand(trimmed);
             return;
         }
         if (isValidCommand(trimmed)) {
@@ -237,7 +262,15 @@ public class ChatController implements InputArea.InputListener {
                cmd.equals("model") || cmd.equals("models");
     }
 
-    private void handleModelCommand() {
+    private void handleModelCommand(String text) {
+        String trimmed = text.trim();
+        // If command is exactly /model or /models, the InputArea shows the ModelSelector
+        // This method only handles /model <modelname> syntax
+        if (trimmed.equals("/model") || trimmed.equals("/models")) {
+            // Model selector is handled by InputArea
+            return;
+        }
+
         if (ollamaModelService == null || !ollamaModelService.isOllamaAvailable()) {
             transcript.appendLine("[x] Ollama no está disponible. Asegúrate de que Ollama esté corriendo.");
             transcript.rerender();
@@ -251,15 +284,24 @@ public class ChatController implements InputArea.InputListener {
             return;
         }
 
-        // Mostrar interfaz de selección de modelos
-        transcript.appendLine("Modelos disponibles en Ollama:");
-        for (int i = 0; i < Math.min(models.size(), 10); i++) {
-            transcript.appendLine("  " + (i + 1) + ". " + models.get(i));
+        // Check if the provided model name matches any available model
+        String requestedModel = trimmed;
+        boolean found = false;
+        for (String model : models) {
+            if (model.equals(requestedModel) || model.contains(requestedModel)) {
+                ollamaModelService.selectModel(requestedModel);
+                transcript.appendLine("[✓] Modelo cambiado a: " + requestedModel);
+                found = true;
+                break;
+            }
         }
-        if (models.size() > 10) {
-            transcript.appendLine("  ... y " + (models.size() - 10) + " más");
+        if (!found) {
+            transcript.appendLine("[x] Modelo no encontrado: " + requestedModel);
+            transcript.appendLine("Modelos disponibles:");
+            for (int i = 0; i < Math.min(models.size(), 10); i++) {
+                transcript.appendLine("  " + (i + 1) + ". " + models.get(i));
+            }
         }
-        transcript.appendLine("Usa: /model <nombre_del_modelo>");
         transcript.rerender();
     }
 

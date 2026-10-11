@@ -32,6 +32,7 @@ public class InputArea extends Panel {
     private final InputListener listener;
     private HintBar hintBar;
     private CommandMenu commandMenu;
+    private ModelSelector modelSelector;
 
     public InputArea(CommandHistory commandHistory, AtomicBoolean waiting, int scrollStep, InputListener listener) {
         this(commandHistory, waiting, scrollStep, listener, null);
@@ -53,9 +54,32 @@ public class InputArea extends Panel {
         addComponent(inputBox, BorderLayout.Location.CENTER);
 
         inputBox.setTextChangeListener((newText, changedByUser) -> {
+            if (this.modelSelector != null && this.modelSelector.isSelectorVisible()) {
+                // Keep model selector visible if text starts with /model or /models
+                // Hide it only if the text no longer relates to model selection
+                if (newText == null) {
+                    this.modelSelector.hideSelector();
+                } else {
+                    String trimmed = newText.trim();
+                    boolean isModelCommand = trimmed.startsWith("/model") || trimmed.startsWith("/models");
+                    if (!isModelCommand) {
+                        this.modelSelector.hideSelector();
+                    }
+                }
+                return;
+            }
             if (this.commandMenu != null) {
                 if (newText != null && newText.startsWith("/") && looksLikeCommand(newText)) {
-                    this.commandMenu.showMenu(newText);
+                    // If user types exactly /model or /models, show model selector instead of command menu
+                    String trimmed = newText.trim();
+                    if ("/model".equals(trimmed) || "/models".equals(trimmed)) {
+                        this.commandMenu.hideMenu();
+                        if (this.modelSelector != null) {
+                            this.modelSelector.showSelector();
+                        }
+                    } else {
+                        this.commandMenu.showMenu(newText);
+                    }
                 } else if (this.commandMenu.isMenuVisible()) {
                     this.commandMenu.hideMenu();
                 }
@@ -71,6 +95,10 @@ public class InputArea extends Panel {
 
     public void setCommandMenu(CommandMenu commandMenu) {
         this.commandMenu = commandMenu;
+    }
+
+    public void setModelSelector(ModelSelector modelSelector) {
+        this.modelSelector = modelSelector;
     }
 
     public TextBox getTextBox() {
@@ -163,6 +191,15 @@ public class InputArea extends Panel {
 
         if (type == KeyType.Enter) {
             if (!waiting.get()) {
+                if (modelSelector != null && modelSelector.isSelectorVisible()) {
+                    String selectedModel = modelSelector.getSelectedModel();
+                    modelSelector.hideSelector();
+                    if (selectedModel != null) {
+                        inputBox.setText("");
+                        listener.onSubmit("/model " + selectedModel);
+                        return false;
+                    }
+                }
                 if (commandMenu != null && commandMenu.isMenuVisible()) {
                     CommandItem selected = commandMenu.getSelectedCommand();
                     commandMenu.hideMenu();
@@ -186,6 +223,13 @@ public class InputArea extends Panel {
         }
 
         if (type == KeyType.Escape) {
+            if (modelSelector != null && modelSelector.isSelectorVisible()) {
+                modelSelector.hideSelector();
+                if (inputBox.getText().startsWith("/")) {
+                    inputBox.setText("");
+                }
+                return false;
+            }
             if (commandMenu != null && commandMenu.isMenuVisible()) {
                 commandMenu.hideMenu();
                 if (inputBox.getText().startsWith("/")) {
@@ -200,6 +244,10 @@ public class InputArea extends Panel {
         }
 
         if (type == KeyType.Tab) {
+            if (modelSelector != null && modelSelector.isSelectorVisible()) {
+                modelSelector.selectNext();
+                return false;
+            }
             if (commandMenu != null && commandMenu.isMenuVisible()) {
                 commandMenu.selectNext();
                 return false;
@@ -207,6 +255,10 @@ public class InputArea extends Panel {
         }
 
         if (type == KeyType.ArrowUp) {
+            if (modelSelector != null && modelSelector.isSelectorVisible()) {
+                modelSelector.selectPrevious();
+                return false;
+            }
             if (commandMenu != null && commandMenu.isMenuVisible()) {
                 commandMenu.selectPrevious();
                 return false;
@@ -229,6 +281,10 @@ public class InputArea extends Panel {
         }
 
         if (type == KeyType.ArrowDown) {
+            if (modelSelector != null && modelSelector.isSelectorVisible()) {
+                modelSelector.selectNext();
+                return false;
+            }
             if (commandMenu != null && commandMenu.isMenuVisible()) {
                 commandMenu.selectNext();
                 return false;

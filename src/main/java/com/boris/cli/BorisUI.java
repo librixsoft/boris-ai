@@ -1,6 +1,8 @@
 package com.boris.cli;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.googlecode.lanterna.TerminalSize;
@@ -33,6 +35,7 @@ import com.boris.cli.ui.ChatController;
 import com.boris.cli.ui.ChatPanel;
 import com.boris.cli.ui.CommandHistory;
 import com.boris.cli.ui.CommandMenu;
+import com.boris.cli.ui.ModelSelector;
 import com.boris.cli.ui.HeaderBar;
 import com.boris.cli.ui.HintBar;
 import com.boris.cli.ui.InputArea;
@@ -145,9 +148,28 @@ public class BorisUI {
         CommandMenu commandMenu = new CommandMenu(CommandItem.withSkills(skillManager));
         footer.addComponent(commandMenu);
 
+        // Create ModelSelector with supplier to fetch models dynamically
+        final ModelSelector[] modelSelectorHolder = new ModelSelector[1];
+        modelSelectorHolder[0] = new ModelSelector(
+                () -> ollamaModelService != null && ollamaModelService.isOllamaAvailable() 
+                        ? ollamaModelService.getModels() 
+                        : new ArrayList<>(),
+                () -> {
+                    // When a model is selected via Enter
+                    String selectedModel = modelSelectorHolder[0].getSelectedModel();
+                    if (selectedModel != null && ollamaModelService != null) {
+                        ollamaModelService.selectModel(selectedModel);
+                        controller.setChatModel(selectedModel);
+                    }
+                }
+        );
+        ModelSelector modelSelector = modelSelectorHolder[0];
+        footer.addComponent(modelSelector);
+
         HintBar hintBar = new HintBar();
         InputArea inputArea = new InputArea(commandHistory, waiting, SCROLL_STEP, controller, hintBar);
         inputArea.setCommandMenu(commandMenu);
+        inputArea.setModelSelector(modelSelector);
         Border borderedInput = inputArea.withBorder(Borders.singleLine());
         borderedInput.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Fill));
         footer.addComponent(borderedInput);

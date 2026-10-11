@@ -83,10 +83,13 @@ class CommandMenuTest {
         assertEquals("/skills", commandMenu.getSelectedCommand().getCommand());
 
         commandMenu.selectNext();
+        assertEquals("/model", commandMenu.getSelectedCommand().getCommand());
+
+        commandMenu.selectNext();
         assertEquals("/exit", commandMenu.getSelectedCommand().getCommand());
 
         commandMenu.selectPrevious();
-        assertEquals("/skills", commandMenu.getSelectedCommand().getCommand());
+        assertEquals("/model", commandMenu.getSelectedCommand().getCommand());
     }
 
     @Test
