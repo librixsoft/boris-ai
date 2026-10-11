@@ -1,5 +1,7 @@
 package com.boris.cli.ui;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.knuddels.jtokkit.Encodings;
 import com.knuddels.jtokkit.api.Encoding;
 import com.knuddels.jtokkit.api.EncodingRegistry;
@@ -9,8 +11,8 @@ public class TokenCounter {
 
     private final int contextWindowLimit;
     private final Encoding encoding;
-    private volatile int inputTokens;
-    private volatile int outputTokens;
+    private final AtomicInteger inputTokens = new AtomicInteger(0);
+    private final AtomicInteger outputTokens = new AtomicInteger(0);
 
     public TokenCounter(int contextWindowLimit) {
         this.contextWindowLimit = contextWindowLimit;
@@ -26,28 +28,28 @@ public class TokenCounter {
     }
 
     public void addInputTokens(String text) {
-        inputTokens += countTokens(text);
+        inputTokens.addAndGet(countTokens(text));
     }
 
     public void addOutputTokens(String text) {
-        outputTokens += countTokens(text);
+        outputTokens.addAndGet(countTokens(text));
     }
 
     public void resetSession() {
-        inputTokens = 0;
-        outputTokens = 0;
+        inputTokens.set(0);
+        outputTokens.set(0);
     }
 
     public int inputTokens() {
-        return inputTokens;
+        return inputTokens.get();
     }
 
     public int outputTokens() {
-        return outputTokens;
+        return outputTokens.get();
     }
 
     public int totalTokens() {
-        return inputTokens + outputTokens;
+        return inputTokens.get() + outputTokens.get();
     }
 
     public int limit() {
