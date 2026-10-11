@@ -73,7 +73,7 @@ public class BorisUI {
         this.taskAborter = taskAborter;
         this.settings = settings;
         this.ollamaModelService = ollamaModelService;
-        int contextWindowLimit = 10000;
+        int contextWindowLimit = 262000;
         if (this.settings != null && this.settings.getContextWindow() != null) {
             contextWindowLimit = this.settings.getContextWindow();
         }

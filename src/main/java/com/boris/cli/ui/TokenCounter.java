@@ -31,8 +31,16 @@ public class TokenCounter {
         inputTokens.addAndGet(countTokens(text));
     }
 
+    public void addInputTokens(int count) {
+        inputTokens.addAndGet(count);
+    }
+
     public void addOutputTokens(String text) {
         outputTokens.addAndGet(countTokens(text));
+    }
+
+    public void addOutputTokens(int count) {
+        outputTokens.addAndGet(count);
     }
 
     public void resetSession() {

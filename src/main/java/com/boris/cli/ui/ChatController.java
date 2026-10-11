@@ -8,6 +8,7 @@ import com.boris.settings.SettingsManager;
 import com.boris.skill.Skill;
 import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
+import com.boris.tooling.ToolResultNotifier;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -103,6 +104,15 @@ public class ChatController implements InputArea.InputListener {
 
         this.messageQueue = new MessageQueueService();
         initializeMessageQueue();
+        initializeToolTokenListener();
+    }
+
+    private void initializeToolTokenListener() {
+        ToolResultNotifier.addTokenListener(usage -> {
+            tokenCounter.addInputTokens(usage.inputTokens());
+            tokenCounter.addOutputTokens(usage.outputTokens());
+            statusBar.showTokenStatus(tokenCounter);
+        });
     }
 
     private void initializeMessageQueue() {
@@ -122,6 +132,7 @@ public class ChatController implements InputArea.InputListener {
                             assistantBuffer.append(chunk);
                         }
                         tokenCounter.addOutputTokens(chunk);
+                        statusBar.showTokenStatus(tokenCounter);
                         if (firstChunk.compareAndSet(true, false)) {
                             transcript.appendAssistantPrefix();
                         }
@@ -283,6 +294,7 @@ public class ChatController implements InputArea.InputListener {
 
         commandHistory.record(text);
         tokenCounter.addInputTokens(text);
+        statusBar.showTokenStatus(tokenCounter);
 
         int queueSize = messageQueue.getQueueSize();
         if (queueSize > 0 || messageQueue.isProcessing()) {

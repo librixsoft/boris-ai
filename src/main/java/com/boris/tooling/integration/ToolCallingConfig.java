@@ -11,6 +11,11 @@ import org.springframework.ai.tool.ToolCallbacks;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 
+import com.knuddels.jtokkit.Encodings;
+import com.knuddels.jtokkit.api.Encoding;
+import com.knuddels.jtokkit.api.EncodingRegistry;
+import com.knuddels.jtokkit.api.EncodingType;
+
 import com.boris.exceptions.BorisException;
 import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
@@ -35,6 +40,27 @@ public class ToolCallingConfig {
         "~/.boris/AGENTS.md",
         "src/main/resources/prompts/init/AGENTS.md"
     };
+
+    private static final Encoding TOKEN_ENCODING;
+    static {
+        EncodingRegistry registry = Encodings.newDefaultEncodingRegistry();
+        TOKEN_ENCODING = registry.getEncoding(EncodingType.CL100K_BASE);
+    }
+
+    private static int countTokens(String text) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+        return TOKEN_ENCODING.countTokens(text);
+    }
+
+    private static void notifyToolTokens(String toolName, String input, String output) {
+        int inputTokens = countTokens(input);
+        int outputTokens = countTokens(output);
+        if (inputTokens > 0 || outputTokens > 0) {
+            ToolResultNotifier.notifyTokenUsage(toolName, inputTokens, outputTokens);
+        }
+    }
 
     private final ReadFileTool readFileTool;
     private final WriteTool writeTool;
@@ -168,7 +194,9 @@ public class ToolCallingConfig {
             name = "read_file",
             description = "Read the contents of a file at the given path. Returns the file content as a string.")
     public String read_file(@ToolParam(description = "Absolute or relative path to the file to read") String path) {
-        return readFileTool.execute(Map.of("path", path));
+        String result = readFileTool.execute(Map.of("path", path));
+        notifyToolTokens("read_file", path, result);
+        return result;
     }
 
     @Tool(
@@ -176,21 +204,28 @@ public class ToolCallingConfig {
             description = "Create a new file or overwrite an existing one with the given content.")
     public String write_file(@ToolParam(description = "Absolute or relative path for the file to create/overwrite") String path,
                              @ToolParam(description = "Full text content to write into the file") String content) {
-        return writeTool.execute(Map.of("path", path, "content", content));
+        String inputText = path + "\n" + content;
+        String result = writeTool.execute(Map.of("path", path, "content", content));
+        notifyToolTokens("write_file", inputText, result);
+        return result;
     }
 
     @Tool(
             name = "delete_file",
             description = "Delete a file at the given path. Returns success status and message.")
     public String delete_file(@ToolParam(description = "Absolute or relative path to the file to delete") String path) {
-        return deleteTool.execute(Map.of("path", path));
+        String result = deleteTool.execute(Map.of("path", path));
+        notifyToolTokens("delete_file", path, result);
+        return result;
     }
 
     @Tool(
             name = "list_files",
             description = "List files and directories in the given directory. Returns a formatted listing.")
     public String list_files(@ToolParam(description = "Directory path to list contents of") String path) {
-        return listFilesTool.execute(Map.of("path", path));
+        String result = listFilesTool.execute(Map.of("path", path));
+        notifyToolTokens("list_files", path, result);
+        return result;
     }
 
     @Tool(
@@ -199,7 +234,9 @@ public class ToolCallingConfig {
     public String apply_edit(@ToolParam(description = "Absolute or relative file path") String path,
                              @ToolParam(description = "Exact text to find and replace in the file") String old_text,
                              @ToolParam(description = "Replacement text") String new_text) {
+        String inputText = path + "\n" + old_text + "\n" + new_text;
         String result = EditTool.apply_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
+        notifyToolTokens("apply_edit", inputText, result);
         try {
             var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             var node = mapper.readTree(result);
@@ -217,7 +254,13 @@ public class ToolCallingConfig {
             description = "Apply multiple sequential edits to a file. Each edit replaces old_text with new_text. Returns success status and message.")
     public String multi_edit(@ToolParam(description = "Absolute or relative file path") String path,
                              @ToolParam(description = "Array of edit objects, each with old_text and new_text fields") java.util.List<java.util.Map<String, Object>> edits) {
-        return EditTool.multi_edit(Map.of("path", path, "edits", edits));
+        StringBuilder inputBuilder = new StringBuilder(path);
+        for (var edit : edits) {
+            inputBuilder.append("\n").append(edit.get("old_text")).append("\n").append(edit.get("new_text"));
+        }
+        String result = EditTool.multi_edit(Map.of("path", path, "edits", edits));
+        notifyToolTokens("multi_edit", inputBuilder.toString(), result);
+        return result;
     }
 
     @Tool(
@@ -226,14 +269,19 @@ public class ToolCallingConfig {
     public String revert_edit(@ToolParam(description = "Absolute or relative file path") String path,
                               @ToolParam(description = "Exact text to find and replace with new_text (the original content)") String old_text,
                               @ToolParam(description = "Replacement text (original value to restore)") String new_text) {
-        return EditTool.revert_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
+        String inputText = path + "\n" + old_text + "\n" + new_text;
+        String result = EditTool.revert_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
+        notifyToolTokens("revert_edit", inputText, result);
+        return result;
     }
 
     @Tool(
             name = "get_system_info",
             description = "Get system information including OS name, memory, CPU cores, and hostname.")
     public String get_system_info() {
-        return systemInfoTool.get_system_info(Map.of());
+        String result = systemInfoTool.get_system_info(Map.of());
+        notifyToolTokens("get_system_info", "", result);
+        return result;
     }
 
     @Tool(
@@ -244,7 +292,9 @@ public class ToolCallingConfig {
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("query", query);
         if (count != null) args.put("count", count);
-        return WebSearchTool.execute(args);
+        String result = WebSearchTool.execute(args);
+        notifyToolTokens("web_search", query, result);
+        return result;
     }
 
     @Tool(
@@ -257,7 +307,10 @@ public class ToolCallingConfig {
         args.put("content", content);
         args.put("outputPath", outputPath);
         args.put("contentType", contentType);
-        return pdfGenerationTool.execute(args);
+        String inputText = outputPath + "\n" + content;
+        String result = pdfGenerationTool.execute(args);
+        notifyToolTokens("generate_pdf", inputText, result);
+        return result;
     }
 
     @Tool(
@@ -275,7 +328,10 @@ public class ToolCallingConfig {
         params.put("title", title);
         params.put("content", content);
         params.put("customization", customization != null ? customization : new HashMap<>());
-        return OfficeDocumentTool.execute(params);
+        String inputText = documentType + "\n" + outputPath + "\n" + title + "\n" + content;
+        String result = OfficeDocumentTool.execute(params);
+        notifyToolTokens("create_office_document", inputText, result);
+        return result;
     }
 
     @Tool(
@@ -289,7 +345,9 @@ public class ToolCallingConfig {
         if (workingDirectory != null) {
             args.put("workingDirectory", workingDirectory);
         }
-        return executeCommandTool.execute(args);
+        String result = executeCommandTool.execute(args);
+        notifyToolTokens("execute_command", command, result);
+        return result;
     }
 
     // ========== Task Decomposition Tools ==========
@@ -305,7 +363,9 @@ public class ToolCallingConfig {
         if (max_steps != null) {
             args.put("max_steps", max_steps);
         }
-        return taskPlannerTool.executePlanTask(args);
+        String result = taskPlannerTool.executePlanTask(args);
+        notifyToolTokens("plan_task", task_description, result);
+        return result;
     }
 
     @Tool(
@@ -313,7 +373,9 @@ public class ToolCallingConfig {
             description = "Get the current status and progress of a task plan.")
     public String get_plan(
             @ToolParam(description = "The ID of the plan to retrieve") String plan_id) {
-        return taskPlannerTool.executeGetPlan(Map.of("plan_id", plan_id));
+        String result = taskPlannerTool.executeGetPlan(Map.of("plan_id", plan_id));
+        notifyToolTokens("get_plan", plan_id, result);
+        return result;
     }
 
     @Tool(
@@ -322,20 +384,25 @@ public class ToolCallingConfig {
     public String complete_microtask(
             @ToolParam(description = "The ID of the plan") String plan_id,
             @ToolParam(description = "The order number of the completed microtask") Integer task_order,
-            @ToolParam(description = "Summary of what was accomplished") String result) {
+            @ToolParam(description = "Summary of what was accomplished") String resultSummary) {
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("plan_id", plan_id);
         args.put("task_order", task_order);
-        if (result != null) {
-            args.put("result", result);
+        if (resultSummary != null) {
+            args.put("result", resultSummary);
         }
-        return taskPlannerTool.executeCompleteMicrotask(args);
+        String inputText = plan_id + "\n" + task_order + "\n" + (resultSummary != null ? resultSummary : "");
+        String result = taskPlannerTool.executeCompleteMicrotask(args);
+        notifyToolTokens("complete_microtask", inputText, result);
+        return result;
     }
 
     @Tool(
             name = "list_active_plans",
             description = "List all active task plans and their progress.")
     public String list_active_plans() {
-        return taskPlannerTool.executeListActivePlans(Map.of());
+        String result = taskPlannerTool.executeListActivePlans(Map.of());
+        notifyToolTokens("list_active_plans", "", result);
+        return result;
     }
 }
