@@ -126,9 +126,6 @@ public class ToolCallingConfig {
                 .defaultTools(ToolCallbacks.from(config))
                 .build();
 
-        // Inicializar segunda iteración de calidad
-        QualityIteratorHolder.initialize(client);
-
         return client;
     }
 

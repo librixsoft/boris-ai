@@ -10,8 +10,6 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.tooling.ToolDefinition;
-import com.boris.tooling.quality.QualityIteratorHolder;
-
 public class WriteTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -46,11 +44,8 @@ public class WriteTool {
 
         Path path = Paths.get(pathStr);
         try {
-            // Segunda iteración de calidad antes de escribir
-            String reviewedContent = QualityIteratorHolder.iterateIfEnabled(content, pathStr);
-
             Files.createDirectories(path.getParent());
-            Files.writeString(path, reviewedContent);
+            Files.writeString(path, content);
             long size = Files.size(path);
             return formatOutput(true, "File written successfully: " + pathStr + " (" + size + " bytes)");
         } catch (IOException e) {

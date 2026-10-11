@@ -26,10 +26,11 @@ public class QualityIteratorHolder {
         return instance;
     }
 
+    /**
+     * Passthrough neutral - no ejecuta ninguna revisión LLM.
+     * La verificación de calidad se realiza en la fase de planificación del chat.
+     */
     public static String iterateIfEnabled(String content, String filePath) {
-        if (instance != null && instance.isEnabled()) {
-            return instance.iterate(content, filePath);
-        }
         return content;
     }
 

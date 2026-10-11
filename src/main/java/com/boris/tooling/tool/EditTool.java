@@ -10,8 +10,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.exceptions.BorisException;
 import com.boris.tooling.ToolDefinition;
-import com.boris.tooling.quality.QualityIteratorHolder;
-
 public class EditTool {
 
     public static ToolDefinition apply_edit() {
@@ -60,14 +58,11 @@ public class EditTool {
                 return formatOutput(false, "Error: old_text not found in file", null);
             }
 
-            // Segunda iteración de calidad sobre el nuevo código
-            String reviewedNewText = QualityIteratorHolder.iterateIfEnabled(newText, pathStr);
-
             int startLine = findLineNumber(content, oldText);
-            String replacedContent = content.replaceFirst(java.util.regex.Pattern.quote(oldText), replaceEscaped(reviewedNewText));
+            String replacedContent = content.replaceFirst(java.util.regex.Pattern.quote(oldText), replaceEscaped(newText));
             Files.writeString(path, replacedContent);
             long size = Files.size(path);
-            String diff = generateDiff(oldText, reviewedNewText, startLine, pathStr);
+            String diff = generateDiff(oldText, newText, startLine, pathStr);
             return formatOutput(true, "File edited successfully: " + pathStr + " (" + size + " bytes)", diff);
         } catch (IOException e) {
             throw new BorisException("Error editing file: " + pathStr, e);
@@ -128,9 +123,7 @@ public class EditTool {
                     return formatOutput(false, "Error: old_text not found in file at edit index: " + editsList.indexOf(edit));
                 }
 
-                // Segunda iteración de calidad sobre el nuevo código
-                String reviewedNewText = QualityIteratorHolder.iterateIfEnabled(newText, pathStr);
-                content = content.replaceFirst(java.util.regex.Pattern.quote(oldText), replaceEscaped(reviewedNewText != null ? reviewedNewText : ""));
+                content = content.replaceFirst(java.util.regex.Pattern.quote(oldText), replaceEscaped(newText != null ? newText : ""));
                 totalReplacements++;
             }
             Files.writeString(path, content);
