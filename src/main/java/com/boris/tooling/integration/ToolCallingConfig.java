@@ -25,6 +25,7 @@ import com.boris.tooling.tool.ReadFileTool;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
+import com.boris.tooling.ToolResultNotifier;
 import com.boris.task.decomposition.TaskPlannerTool;
 
 public class ToolCallingConfig {
@@ -195,7 +196,17 @@ public class ToolCallingConfig {
     public String apply_edit(@ToolParam(description = "Absolute or relative file path") String path,
                              @ToolParam(description = "Exact text to find and replace in the file") String old_text,
                              @ToolParam(description = "Replacement text") String new_text) {
-        return EditTool.apply_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
+        String result = EditTool.apply_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
+        try {
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            var node = mapper.readTree(result);
+            boolean success = node.has("success") && node.get("success").asBoolean();
+            String diff = node.has("diff") ? node.get("diff").asText() : null;
+            if (diff != null && !diff.isEmpty()) {
+                ToolResultNotifier.notifyEdit(path, diff, success);
+            }
+        } catch (Exception ignored) {}
+        return result;
     }
 
     @Tool(

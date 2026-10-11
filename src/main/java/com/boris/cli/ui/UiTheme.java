@@ -22,6 +22,11 @@ public final class UiTheme {
     public static final TextColor THINKING_MUTED = new TextColor.RGB(140, 140, 140);
     public static final TextColor DIFF_ADD = new TextColor.RGB(80, 220, 80);
     public static final TextColor DIFF_REMOVE = new TextColor.RGB(220, 80, 80);
+    public static final TextColor DIFF_ADD_BG = new TextColor.RGB(20, 50, 20);
+    public static final TextColor DIFF_REMOVE_BG = new TextColor.RGB(50, 20, 20);
+    public static final TextColor LINE_NUMBER = new TextColor.RGB(100, 100, 100);
+    public static final TextColor DIFF_HEADER = new TextColor.RGB(130, 180, 220);
+    public static final TextColor DIFF_BORDER = new TextColor.RGB(70, 70, 70);
 
     private UiTheme() {
     }

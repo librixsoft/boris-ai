@@ -58,10 +58,11 @@ public class EditTool {
             if (!content.contains(oldText)) {
                 return formatOutput(false, "Error: old_text not found in file", null);
             }
+            int startLine = findLineNumber(content, oldText);
             String replacedContent = content.replaceFirst(java.util.regex.Pattern.quote(oldText), replaceEscaped(newText));
             Files.writeString(path, replacedContent);
             long size = Files.size(path);
-            String diff = generateDiff(oldText, newText);
+            String diff = generateDiff(oldText, newText, startLine, pathStr);
             return formatOutput(true, "File edited successfully: " + pathStr + " (" + size + " bytes)", diff);
         } catch (IOException e) {
             throw new BorisException("Error editing file: " + pathStr, e);
@@ -206,17 +207,64 @@ public class EditTool {
     }
 
     private static String generateDiff(String oldText, String newText) {
+        return generateDiff(oldText, newText, -1, null);
+    }
+
+    private static String generateDiff(String oldText, String newText, int startLineNumber, String filePath) {
         StringBuilder diff = new StringBuilder();
         String[] oldLines = oldText.split("\n", -1);
         String[] newLines = (newText != null ? newText : "").split("\n", -1);
 
+        int removedCount = oldLines.length;
+        int addedCount = newLines.length;
+        if (oldLines.length == 1 && oldLines[0].isEmpty()) removedCount = 0;
+        if (newLines.length == 1 && newLines[0].isEmpty()) addedCount = 0;
+
+        int maxLineNum = startLineNumber > 0 ? startLineNumber + Math.max(removedCount, addedCount) : Math.max(removedCount, addedCount);
+        int lineNumWidth = String.valueOf(maxLineNum).length();
+        if (lineNumWidth < 3) lineNumWidth = 3;
+
+        diff.append("```diff\n");
+        if (filePath != null) {
+            diff.append("@@@ ").append(filePath).append(" @@@\n");
+        }
+
+        int lineNum = startLineNumber > 0 ? startLineNumber : 1;
         for (String line : oldLines) {
-            diff.append("- ").append(line).append("\n");
+            if (removedCount > 0 || !line.isEmpty()) {
+                diff.append(String.format("%" + lineNumWidth + "d │- ", lineNum));
+                diff.append(line).append("\n");
+            }
+            lineNum++;
         }
+
+        lineNum = startLineNumber > 0 ? startLineNumber : 1;
         for (String line : newLines) {
-            diff.append("+ ").append(line).append("\n");
+            if (addedCount > 0 || !line.isEmpty()) {
+                diff.append(String.format("%" + lineNumWidth + "d │+ ", lineNum));
+                diff.append(line).append("\n");
+            }
+            lineNum++;
         }
-        return diff.toString().trim();
+
+        String statsLine = String.format("─── +%d -%d ───", addedCount, removedCount);
+        diff.append(statsLine).append("\n");
+        diff.append("```");
+
+        return diff.toString();
+    }
+
+    private static int findLineNumber(String content, String searchText) {
+        if (content == null || searchText == null) return -1;
+        int index = content.indexOf(searchText);
+        if (index < 0) return -1;
+        int lineNumber = 1;
+        for (int i = 0; i < index; i++) {
+            if (content.charAt(i) == '\n') {
+                lineNumber++;
+            }
+        }
+        return lineNumber;
     }
 
     private static String replaceEscaped(String replacement) {

@@ -25,6 +25,7 @@ import com.boris.cli.ui.CommandItem;
 import com.boris.settings.Settings;
 import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
+import com.boris.tooling.ToolResultNotifier;
 
 import com.boris.cli.ui.BorisWindow;
 import com.boris.cli.ui.ChatController;
@@ -94,6 +95,13 @@ public class BorisUI {
         ChatPanel chatPanel = new ChatPanel();
         boolean thinkingEnabled = this.settings != null && this.settings.getThinkingEnabled() != null ? this.settings.getThinkingEnabled() : true;
         Transcript transcript = new Transcript(chatPanel, uiExecutor);
+
+        ToolResultNotifier.addListener(result -> {
+            if (result.diff() != null && !result.diff().isEmpty()) {
+                transcript.appendLine("\n" + result.diff());
+            }
+        });
+
         StatusBar statusBar = new StatusBar(uiExecutor);
         ThinkingSpinner spinner = new ThinkingSpinner(statusBar, tokenCounter, waiting, wasAborted, () -> chatPanel.isThinkingEnabled());
 

@@ -246,6 +246,28 @@ public class MarkdownLineRenderer {
             return;
         }
 
+        if (line.matches("^\\s*\\d+\\s*│-\\s.*") || line.matches("^\\s*\\d+\\s*\\|-\\s.*")) {
+            renderDiffLineWithNumber(graphics, line, row, contentWidth, isThinking, false);
+            return;
+        }
+
+        if (line.matches("^\\s*\\d+\\s*│\\+\\s.*") || line.matches("^\\s*\\d+\\s*\\|\\+\\s.*")) {
+            renderDiffLineWithNumber(graphics, line, row, contentWidth, isThinking, true);
+            return;
+        }
+
+        if (line.startsWith("@@@") && line.endsWith("@@@")) {
+            graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.DIFF_HEADER);
+            graphics.putString(0, row, padOrTruncate(line, contentWidth));
+            return;
+        }
+
+        if (line.matches("^─+\\s*\\+\\d+\\s+-\\d+\\s*─+$")) {
+            renderDiffStats(graphics, line, row, contentWidth, isThinking);
+            return;
+        }
+
         if (line.startsWith("- ") && !line.startsWith("- [ ]") && !line.startsWith("- [x]")) {
             String trimmed = line.substring(2).trim();
             if (!trimmed.isEmpty() && !trimmed.startsWith("[")) {
@@ -474,6 +496,108 @@ public class MarkdownLineRenderer {
                 graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
             }
             graphics.putString(x, row, padOrTruncate(current.toString(), contentWidth - x));
+        }
+    }
+
+    private void renderDiffLineWithNumber(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean isThinking, boolean isAdd) {
+        int x = 0;
+        int separatorIdx = line.indexOf("│");
+        if (separatorIdx < 0) separatorIdx = line.indexOf("|");
+        if (separatorIdx < 0) {
+            graphics.setForegroundColor(isAdd ? UiTheme.DIFF_ADD : UiTheme.DIFF_REMOVE);
+            graphics.putString(0, row, padOrTruncate(line, contentWidth));
+            return;
+        }
+
+        String lineNumPart = line.substring(0, separatorIdx).trim();
+        String rest = line.substring(separatorIdx);
+
+        graphics.setBackgroundColor(UiTheme.BG);
+        graphics.setForegroundColor(isThinking ? UiTheme.THINKING_MUTED : UiTheme.LINE_NUMBER);
+        String numFormatted = String.format("%4s", lineNumPart);
+        graphics.putString(x, row, numFormatted);
+        x += numFormatted.length();
+
+        graphics.setForegroundColor(isThinking ? UiTheme.THINKING_MUTED : UiTheme.DIFF_BORDER);
+        graphics.putString(x, row, " │");
+        x += 2;
+
+        if (isAdd) {
+            graphics.setBackgroundColor(isThinking ? UiTheme.BG : UiTheme.DIFF_ADD_BG);
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.DIFF_ADD);
+        } else {
+            graphics.setBackgroundColor(isThinking ? UiTheme.BG : UiTheme.DIFF_REMOVE_BG);
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.DIFF_REMOVE);
+        }
+
+        String codeContent = rest.length() > 2 ? rest.substring(2) : "";
+        String symbol = isAdd ? "+" : "-";
+        graphics.putString(x, row, symbol);
+        x += 1;
+
+        graphics.putString(x, row, " ");
+        x += 1;
+
+        String remaining = codeContent.startsWith(" ") ? codeContent.substring(1) : codeContent;
+        int availableWidth = contentWidth - x;
+        if (remaining.length() > availableWidth) {
+            remaining = remaining.substring(0, availableWidth);
+        }
+        graphics.putString(x, row, remaining);
+        x += remaining.length();
+
+        if (x < contentWidth) {
+            graphics.putString(x, row, padOrTruncate("", contentWidth - x));
+        }
+    }
+
+    private void renderDiffStats(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean isThinking) {
+        graphics.setBackgroundColor(UiTheme.BG);
+        int x = 0;
+
+        int plusIdx = line.indexOf('+');
+        int minusIdx = line.indexOf('-');
+
+        if (plusIdx < 0 || minusIdx < 0) {
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING_MUTED : UiTheme.DIFF_BORDER);
+            graphics.putString(0, row, padOrTruncate(line, contentWidth));
+            return;
+        }
+
+        String prefix = line.substring(0, plusIdx);
+        graphics.setForegroundColor(isThinking ? UiTheme.THINKING_MUTED : UiTheme.DIFF_BORDER);
+        graphics.putString(x, row, prefix);
+        x += prefix.length();
+
+        int spaceAfterPlus = line.indexOf(' ', plusIdx);
+        if (spaceAfterPlus < 0) spaceAfterPlus = minusIdx;
+        String addPart = line.substring(plusIdx, spaceAfterPlus);
+        graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.DIFF_ADD);
+        graphics.putString(x, row, addPart);
+        x += addPart.length();
+
+        String middle = line.substring(spaceAfterPlus, minusIdx);
+        graphics.setForegroundColor(isThinking ? UiTheme.THINKING_MUTED : UiTheme.DIFF_BORDER);
+        graphics.putString(x, row, middle);
+        x += middle.length();
+
+        int endOfMinus = minusIdx + 1;
+        while (endOfMinus < line.length() && (Character.isDigit(line.charAt(endOfMinus)) || line.charAt(endOfMinus) == ' ')) {
+            if (line.charAt(endOfMinus) == ' ' && endOfMinus > minusIdx + 1) break;
+            endOfMinus++;
+        }
+        String removePart = line.substring(minusIdx, endOfMinus);
+        graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.DIFF_REMOVE);
+        graphics.putString(x, row, removePart);
+        x += removePart.length();
+
+        String suffix = line.substring(endOfMinus);
+        graphics.setForegroundColor(isThinking ? UiTheme.THINKING_MUTED : UiTheme.DIFF_BORDER);
+        graphics.putString(x, row, suffix);
+        x += suffix.length();
+
+        if (x < contentWidth) {
+            graphics.putString(x, row, padOrTruncate("", contentWidth - x));
         }
     }
 }
