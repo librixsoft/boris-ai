@@ -59,7 +59,8 @@ public class CommandMenu extends Panel {
                     .filter(cmd -> cmd.matches(prefix))
                     .collect(Collectors.toList());
             if (filteredCommands.isEmpty()) {
-                filteredCommands = new ArrayList<>(allCommands);
+                hideMenu();
+                return;
             }
         }
 

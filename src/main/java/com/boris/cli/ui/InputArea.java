@@ -69,7 +69,8 @@ public class InputArea extends Panel {
                 return;
             }
             if (this.commandMenu != null) {
-                if (newText != null && newText.startsWith("/") && looksLikeCommand(newText)) {
+                // Mostrar menú solo cuando hay más de "/"
+                if (newText != null && newText.startsWith("/") && newText.length() > 1 && looksLikeCommand(newText)) {
                     // If user types exactly /model or /models, show model selector instead of command menu
                     String trimmed = newText.trim();
                     if ("/model".equals(trimmed) || "/models".equals(trimmed)) {
@@ -106,11 +107,11 @@ public class InputArea extends Panel {
     }
 
     private boolean looksLikeCommand(String text) {
-        if (text == null || text.length() < 1) {
+        if (text == null || text.length() < 2) {
             return false;
         }
         if (text.equals("/")) {
-            return true;
+            return false;
         }
         String afterSlash = text.length() > 1 ? text.substring(1) : "";
         if (afterSlash.contains("/") || afterSlash.contains(".") || afterSlash.contains("~")) {
