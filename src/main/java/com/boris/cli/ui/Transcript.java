@@ -22,6 +22,29 @@ public class Transcript {
         });
     }
 
+    public void appendQueuedMessage(String text, int queuePosition) {
+        uiExecutor.run(() -> {
+            if (raw.length() > 0) raw.append("\n");
+            raw.append(">> ").append(text).append(" <queued:#").append(queuePosition).append(">");
+            renderWrapped();
+            scrollToBottom();
+        });
+    }
+
+    public void activateQueuedMessage(String messageContent) {
+        uiExecutor.run(() -> {
+            String current = raw.toString();
+            String pattern = ">> " + messageContent + " <queued:#\\d+>";
+            String replacement = ">> " + messageContent;
+            String updated = current.replaceFirst(pattern, replacement);
+            if (!updated.equals(current)) {
+                raw.setLength(0);
+                raw.append(updated);
+                renderWrapped();
+            }
+        });
+    }
+
     public void appendAssistantPrefix() {
         uiExecutor.run(() -> {
             if (raw.length() > 0) raw.append("\n");

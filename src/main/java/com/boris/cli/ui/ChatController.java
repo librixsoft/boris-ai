@@ -2,6 +2,8 @@ package com.boris.cli.ui;
 
 import com.boris.chat.ChatService;
 import com.boris.llm.ollama.OllamaModelService;
+import com.boris.queue.ChatMessage;
+import com.boris.queue.MessageQueueService;
 import com.boris.settings.SettingsManager;
 import com.boris.skill.Skill;
 import com.boris.skill.SkillManager;
@@ -30,6 +32,7 @@ public class ChatController implements InputArea.InputListener {
     private final SettingsManager settingsManager;
     private final Runnable onModelSelected;
     private final AtomicLong sessionEpoch = new AtomicLong(0);
+    private final MessageQueueService messageQueue;
 
     public ChatController(ChatService chatService,
                           SkillManager skillManager,
@@ -97,6 +100,83 @@ public class ChatController implements InputArea.InputListener {
         this.headerBar = headerBar;
         this.settingsManager = settingsManager;
         this.onModelSelected = onModelSelected != null ? onModelSelected : () -> {};
+
+        this.messageQueue = new MessageQueueService();
+        initializeMessageQueue();
+    }
+
+    private void initializeMessageQueue() {
+        messageQueue.setProcessor((message, onChunk, onComplete) -> {
+            StringBuilder assistantBuffer = new StringBuilder();
+            AtomicBoolean firstChunk = new AtomicBoolean(true);
+            long taskEpoch = sessionEpoch.get();
+
+            chatService.sendMessageStream(
+                message.content(),
+                chunk -> {
+                    if (taskEpoch != sessionEpoch.get() || taskAborter.isAborted()) {
+                        return;
+                    }
+                    if (chunk != null && !chunk.isEmpty()) {
+                        synchronized (assistantBuffer) {
+                            assistantBuffer.append(chunk);
+                        }
+                        tokenCounter.addOutputTokens(chunk);
+                        if (firstChunk.compareAndSet(true, false)) {
+                            transcript.appendAssistantPrefix();
+                        }
+                        transcript.appendChunk(chunk);
+                    }
+                },
+                () -> {
+                    if (taskEpoch != sessionEpoch.get() || taskAborter.isAborted()) {
+                        onComplete.run();
+                        return;
+                    }
+                    finishResponse(assistantBuffer);
+                    onComplete.run();
+                }
+            );
+        });
+
+        messageQueue.addListener(new MessageQueueService.QueueListener() {
+            @Override
+            public void onMessageEnqueued(ChatMessage message, int queueSize) {
+                if (queueSize > 1) {
+                    statusBar.showQueueStatus(queueSize);
+                }
+            }
+
+            @Override
+            public void onMessageStarted(ChatMessage message) {
+                transcript.activateQueuedMessage(message.content());
+                waiting.set(true);
+                spinner.start();
+            }
+
+            @Override
+            public void onMessageCompleted(ChatMessage message) {
+                if (!messageQueue.hasMessages()) {
+                    waiting.set(false);
+                }
+            }
+
+            @Override
+            public void onMessageFailed(ChatMessage message, Exception error) {
+                transcript.appendLine("[x] error: " + error.getMessage());
+                if (!messageQueue.hasMessages()) {
+                    waiting.set(false);
+                }
+            }
+
+            @Override
+            public void onQueueEmpty() {
+                waiting.set(false);
+                statusBar.showTokenStatus(tokenCounter);
+            }
+        });
+
+        messageQueue.start();
     }
 
     public SkillManager getSkillManager() {
@@ -203,23 +283,18 @@ public class ChatController implements InputArea.InputListener {
 
         commandHistory.record(text);
         tokenCounter.addInputTokens(text);
-        transcript.appendLine(">> " + text);
+
+        int queueSize = messageQueue.getQueueSize();
+        if (queueSize > 0 || messageQueue.isProcessing()) {
+            transcript.appendQueuedMessage(text, queueSize + 1);
+        } else {
+            transcript.appendLine(">> " + text);
+        }
 
         wasAborted.set(false);
         taskAborter.reset();
-        waiting.set(true);
-        spinner.start();
 
-        StringBuilder assistantBuffer = new StringBuilder();
-        AtomicBoolean firstChunk = new AtomicBoolean(true);
-
-        // Capture current epoch for validation
-        long taskEpoch = sessionEpoch.get();
-
-        Thread task = new Thread(() -> runStream(text, assistantBuffer, firstChunk, taskEpoch));
-        task.setDaemon(true);
-        taskAborter.startTask(task);
-        task.start();
+        messageQueue.enqueue(text);
     }
 
     /**
@@ -232,6 +307,9 @@ public class ChatController implements InputArea.InputListener {
         // Reset waiting state - this also stops the thinking spinner
         waiting.set(false);
         wasAborted.set(false);
+
+        // Clear message queue
+        messageQueue.clear();
 
         // Clear model and context
         chatService.clearHistory();
@@ -264,47 +342,6 @@ public class ChatController implements InputArea.InputListener {
         });
         abortThread.setDaemon(true);
         abortThread.start();
-    }
-
-    private void runStream(String text, StringBuilder assistantBuffer, AtomicBoolean firstChunk, long taskEpoch) {
-        try {
-            chatService.sendMessageStream(
-                    text,
-                    chunk -> {
-                        // Epoch guard: discard if session was cleared
-                        if (taskEpoch != sessionEpoch.get() || taskAborter.isAborted()) {
-                            return;
-                        }
-                        if (chunk != null && !chunk.isEmpty()) {
-                            synchronized (assistantBuffer) {
-                                assistantBuffer.append(chunk);
-                            }
-                            tokenCounter.addOutputTokens(chunk);
-                            if (firstChunk.compareAndSet(true, false)) {
-                                transcript.appendAssistantPrefix();
-                            }
-                            transcript.appendChunk(chunk);
-                        }
-                    },
-                    () -> {
-                        // Epoch guard in completion callback
-                        if (taskEpoch != sessionEpoch.get() || taskAborter.isAborted()) {
-                            return;
-                        }
-                        finishResponse(assistantBuffer);
-                    }
-            );
-        } catch (Exception e) {
-            waiting.set(false);
-            // Only show error if session is still active
-            if (taskEpoch == sessionEpoch.get() && !taskAborter.isAborted()) {
-                transcript.appendLine("[x] error: " + e.getMessage());
-            }
-            taskAborter.reset();
-        } finally {
-            // Unregister task
-            taskAborter.unregisterTask(Thread.currentThread());
-        }
     }
 
     private void finishResponse(StringBuilder assistantBuffer) {

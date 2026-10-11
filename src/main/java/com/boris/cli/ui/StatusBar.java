@@ -42,4 +42,8 @@ public class StatusBar extends Label {
     public void showAborted() {
         uiExecutor.run(() -> setText(" aborted"));
     }
+
+    public void showQueueStatus(int queueSize) {
+        uiExecutor.run(() -> setText(" cola: " + queueSize + " mensajes pendientes"));
+    }
 }

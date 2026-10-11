@@ -119,20 +119,6 @@ public class InputArea extends Panel {
         return true;
     }
 
-    private boolean isPriorityCommand(String text) {
-        if (text == null || text.isEmpty()) return false;
-        String lower = text.toLowerCase().trim();
-        return lower.equals("/clear") || lower.equals("/exit") || lower.equals("/quit");
-    }
-
-    private boolean isPriorityCommand(CommandItem item) {
-        if (item == null) return false;
-        String cmd = item.getCommand();
-        if (cmd == null || cmd.isEmpty()) return false;
-        String lower = cmd.toLowerCase().trim();
-        return lower.equals("/clear") || lower.equals("/exit") || lower.equals("/quit");
-    }
-
     public void insertTextAtCaret(String toInsert) {
         if (toInsert == null || toInsert.isEmpty()) {
             return;
@@ -205,11 +191,9 @@ public class InputArea extends Panel {
 
         if (type == KeyType.Enter) {
             String currentText = inputBox.getText().trim();
-            boolean isPriorityCommand = isPriorityCommand(currentText) || 
-                (commandMenu != null && commandMenu.isMenuVisible() && isPriorityCommand(commandMenu.getSelectedCommand()));
             boolean isPriorityModelCommand = (modelSelector != null && modelSelector.isSelectorVisible());
-            
-            if (!waiting.get() || isPriorityCommand || isPriorityModelCommand) {
+
+            {
                 if (modelSelector != null && modelSelector.isSelectorVisible()) {
                     String selectedModel = modelSelector.getSelectedModel();
                     modelSelector.hideSelector();

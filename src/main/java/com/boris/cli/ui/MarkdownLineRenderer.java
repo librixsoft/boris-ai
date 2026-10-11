@@ -173,9 +173,20 @@ public class MarkdownLineRenderer {
         render(graphics, line, row, contentWidth, inThinking, true);
     }
 
+    private static final java.util.regex.Pattern QUEUED_PATTERN = java.util.regex.Pattern.compile("<queued:#(\\d+)>");
+
     public void render(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean inThinking, boolean thinkingEnabled) {
         if (line == null) {
             line = "";
+        }
+
+        java.util.regex.Matcher queuedMatcher = QUEUED_PATTERN.matcher(line);
+        if (queuedMatcher.find()) {
+            String displayLine = queuedMatcher.replaceFirst("[QUEUED]");
+            graphics.setBackgroundColor(UiTheme.BG);
+            graphics.setForegroundColor(UiTheme.QUEUED);
+            graphics.putString(0, row, padOrTruncate(displayLine, contentWidth));
+            return;
         }
 
         List<TextSegment> segments = parseLineSegments(line, inThinking);

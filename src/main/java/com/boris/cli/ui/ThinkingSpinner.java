@@ -1,6 +1,7 @@
 package com.boris.cli.ui;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ThinkingSpinner {
 
@@ -11,6 +12,8 @@ public class ThinkingSpinner {
     private final AtomicBoolean waiting;
     private final AtomicBoolean wasAborted;
     private final java.util.function.BooleanSupplier thinkingEnabledSupplier;
+    private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicLong messageStartTime = new AtomicLong(0);
 
     public ThinkingSpinner(StatusBar statusBar, TokenCounter tokenCounter, AtomicBoolean waiting, AtomicBoolean wasAborted) {
         this(statusBar, tokenCounter, waiting, wasAborted, () -> true);
@@ -24,33 +27,41 @@ public class ThinkingSpinner {
         this.thinkingEnabledSupplier = thinkingEnabledSupplier;
     }
 
+    public void resetTimer() {
+        messageStartTime.set(System.currentTimeMillis());
+    }
+
     public void start() {
-        Thread thread = new Thread(() -> {
-            int i = 0;
-            long startTime = System.currentTimeMillis();
+        resetTimer();
 
-            while (waiting.get() && !wasAborted.get()) {
-                String frame = FRAMES[i % FRAMES.length];
+        if (running.compareAndSet(false, true)) {
+            Thread thread = new Thread(() -> {
+                int i = 0;
 
-                long elapsed = System.currentTimeMillis() - startTime;
-                int seconds = (int) (elapsed / 1000) % 60;
-                int minutes = (int) (elapsed / 1000) / 60;
+                while (waiting.get() && !wasAborted.get()) {
+                    String frame = FRAMES[i % FRAMES.length];
 
-                statusBar.showThinking(frame, minutes, seconds, tokenCounter, thinkingEnabledSupplier.getAsBoolean());
-                i++;
+                    long elapsed = System.currentTimeMillis() - messageStartTime.get();
+                    int seconds = (int) (elapsed / 1000) % 60;
+                    int minutes = (int) (elapsed / 1000) / 60;
 
-                try {
-                    Thread.sleep(80);
-                } catch (InterruptedException ignored) {
-                    break;
+                    statusBar.showThinking(frame, minutes, seconds, tokenCounter, thinkingEnabledSupplier.getAsBoolean());
+                    i++;
+
+                    try {
+                        Thread.sleep(80);
+                    } catch (InterruptedException ignored) {
+                        break;
+                    }
                 }
-            }
 
-            if (!wasAborted.get()) {
-                statusBar.showTokenStatus(tokenCounter);
-            }
-        });
-        thread.setDaemon(true);
-        thread.start();
+                running.set(false);
+                if (!wasAborted.get()) {
+                    statusBar.showTokenStatus(tokenCounter);
+                }
+            });
+            thread.setDaemon(true);
+            thread.start();
+        }
     }
 }
