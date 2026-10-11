@@ -15,6 +15,10 @@ public final class TextWrap {
                 out.append('\n');
                 continue;
             }
+            if (isDiffLine(rawLine)) {
+                out.append(truncate(rawLine, width)).append('\n');
+                continue;
+            }
             List<String> pieces = wrapLine(rawLine, width);
             for (String piece : pieces) {
                 out.append(piece).append('\n');
@@ -24,6 +28,29 @@ public final class TextWrap {
             out.setLength(out.length() - 1);
         }
         return out.toString();
+    }
+
+    private static boolean isDiffLine(String line) {
+        if (line.matches("^\\s*\\d+\\s*│[+-]\\s.*") || line.matches("^\\s*\\d+\\s*\\|[+-]\\s.*")) {
+            return true;
+        }
+        if (line.startsWith("+ ") || (line.startsWith("- ") && !line.startsWith("- [ ]") && !line.startsWith("- [x]"))) {
+            return true;
+        }
+        if (line.startsWith("@@@") && line.endsWith("@@@")) {
+            return true;
+        }
+        if (line.matches("^─+\\s*\\+\\d+\\s+-\\d+\\s*─+$")) {
+            return true;
+        }
+        return false;
+    }
+
+    private static String truncate(String line, int width) {
+        if (line.length() <= width) {
+            return line;
+        }
+        return line.substring(0, width);
     }
 
     public static List<String> wrapLine(String line, int width) {
