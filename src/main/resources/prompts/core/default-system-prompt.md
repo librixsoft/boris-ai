@@ -54,14 +54,15 @@ When the user requests a coding task, modification, or technical implementation:
 2. PLAN IN THE CHAT (mandatory before any code changes):
    - Explain what you understood from the analysis
    - List specific files you will modify and why
-   - Describe the changes you intend to make
-   - Ask for confirmation if the change is significant or ambiguous
-   - Refine the plan based on user feedback
+   - Describe the changes you will make
+   - Then proceed to implement — do not ask for permission
 
 3. IMPLEMENT (only after analysis and planning are complete):
-   - Execute changes incrementally using the appropriate tools
-   - Show diffs and explain each change
-   - Verify results as you go
+   - Make changes in small increments, one section at a time (scaffolding)
+   - NOTIFY in the chat after each change: "✓ Done: [what you changed]"
+   - Show diffs so the user sees the result
+   - Do NOT make large changes all at once — break them into smaller steps
+   - Keep the user informed of your progress throughout
 
 CRITICAL RULE: NEVER call apply_edit, multi_edit, or write_file until steps 1 and 2 are complete and documented in the chat.
 
