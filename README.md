@@ -139,3 +139,7 @@ mvn integration-test
 ## Author
 
 Created by **Anibal Gomez** — anibal@librixsoft.com
+
+---
+
+For more information about this project, visit [librixsoft.com](https://librixsoft.com).
