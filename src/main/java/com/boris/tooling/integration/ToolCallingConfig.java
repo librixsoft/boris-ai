@@ -26,6 +26,7 @@ import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
 import com.boris.tooling.ToolResultNotifier;
+import com.boris.tooling.quality.QualityIteratorHolder;
 import com.boris.task.decomposition.TaskPlannerTool;
 
 public class ToolCallingConfig {
@@ -120,10 +121,15 @@ public class ToolCallingConfig {
         Settings s = mgr.loadSettings(settingsPath);
         String prompt = loadSystemPrompt(s);
         ToolCallingConfig config = createDefaultConfig(s);
-        return ChatClient.builder(chatModel)
+        ChatClient client = ChatClient.builder(chatModel)
                 .defaultSystem(prompt)
                 .defaultTools(ToolCallbacks.from(config))
                 .build();
+
+        // Inicializar segunda iteración de calidad
+        QualityIteratorHolder.initialize(client);
+
+        return client;
     }
 
     public static org.springframework.ai.tool.ToolCallback[] buildNativeToolCallbacks() {
