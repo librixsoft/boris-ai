@@ -524,7 +524,7 @@ public class ToolCallingConfig {
     public String batch_read_files(
             @ToolParam(description = "List of absolute or relative file paths to read") java.util.List<String> paths,
             @ToolParam(description = "Optional maximum lines to read per file (default: all)") Integer max_lines_per_file) {
-        ToolProgressNotifier.notify("batch_read_files", "Leyendo " + (paths != null ? paths.size() : 0) + " archivos en paralelo...");
+        
         String result = batchReadFileTool.execute(paths, max_lines_per_file);
         String pathsStr = (paths != null && !paths.isEmpty()) ? String.join(", ", paths) : "empty";
         notifyToolTokens("batch_read_files", pathsStr, result);
