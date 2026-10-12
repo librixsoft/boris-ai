@@ -12,7 +12,7 @@ import com.boris.task.TaskAborter;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
-@Command(name = "boris", mixinStandardHelpOptions = true, version = "1.0.0",
+@Command(name = "boris", mixinStandardHelpOptions = true, version = "2.2.0",
          description = "Boris CLI - Asistente de linea de comandos")
 public class BorisApp implements Runnable {
 
