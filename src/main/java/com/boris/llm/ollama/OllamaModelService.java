@@ -86,10 +86,6 @@ public class OllamaModelService {
                     String[] parts = line.split("\\s+");
                     if (parts.length > 0) {
                         String modelName = parts[0];
-                        // Limpiar tag si existe (ej: "qwen2.5:latest" -> "qwen2.5")
-                        if (modelName.contains(":")) {
-                            modelName = modelName.substring(0, modelName.indexOf(":"));
-                        }
                         models.add(modelName);
                     }
                 }
@@ -142,10 +138,6 @@ public class OllamaModelService {
                 int nameEnd = arrayContent.indexOf("\"", nameStart);
                 if (nameStart > 0 && nameEnd > nameStart) {
                     String name = arrayContent.substring(nameStart, nameEnd);
-                    // Limpiar tag
-                    if (name.contains(":")) {
-                        name = name.substring(0, name.indexOf(":"));
-                    }
                     models.add(name);
                 }
                 pos = nameEnd;

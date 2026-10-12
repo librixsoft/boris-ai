@@ -30,6 +30,8 @@ public class ChatService {
     private String thinkingMode;
     private volatile String modelName;
     private String lastThinkingContent;
+    private volatile ChatClient currentClient;
+    private volatile Settings currentSettings;
     private static final Pattern THINKING_PATTERN = Pattern.compile("(?i)(?:<think>|<thinking>|<thought>|<reasoning>|```)(.*?)(?:</think>|</thinking>|</thought>|</reasoning>|```)", Pattern.DOTALL);
 
     public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory) {
@@ -67,10 +69,7 @@ public class ChatService {
         if ("q".equals(lower) || "exit".equals(lower)) {
             return EXIT_COMMAND;
         }
-        ChatClient client = chatClientSupplier.get();
-        if (client == null) {
-            throw new IllegalStateException("Spring AI ChatClient is required");
-        }
+        ChatClient client = getActiveClient();
         try {
             String fullMessage = buildPromptWithHistory(userMessage);
             if (enableHistory) {
@@ -109,10 +108,7 @@ public class ChatService {
         if ("q".equals(lower) || "exit".equals(lower)) {
             return;
         }
-        ChatClient client = chatClientSupplier.get();
-        if (client == null) {
-            throw new IllegalStateException("Spring AI ChatClient is required");
-        }
+        ChatClient client = getActiveClient();
         String effectiveThink = thinkingEnabled ? resolveThinkMode() : null;
         try {
             String fullMessage = buildPromptWithHistory(userMessage);
@@ -193,7 +189,9 @@ public class ChatService {
         int historySize = s.getMaxHistorySize();
         boolean enableHistory = s.getEnableHistory() != null ? s.getEnableHistory() : true;
         TaskAborter aborter = new TaskAborter();
-        return new ChatService(() -> client, botName, aborter, historySize, enableHistory, thinkingEnabled, thinkingMode, modelName);
+        ChatService service = new ChatService(() -> client, botName, aborter, historySize, enableHistory, thinkingEnabled, thinkingMode, modelName);
+        service.setSettings(s);
+        return service;
     }
 
     public TaskAborter getTaskAborter() {
@@ -239,6 +237,41 @@ public class ChatService {
 
     public String getModelName() {
         return modelName;
+    }
+
+    public void setSettings(Settings settings) {
+        this.currentSettings = settings;
+    }
+
+    public Settings getSettings() {
+        return currentSettings;
+    }
+
+    private ChatClient getActiveClient() {
+        if (currentClient != null) {
+            return currentClient;
+        }
+        ChatClient client = chatClientSupplier.get();
+        if (client == null) {
+            throw new IllegalStateException("Spring AI ChatClient is required");
+        }
+        return client;
+    }
+
+    public void rebuildClient(String newModelName) {
+        if (currentSettings == null) {
+            throw new IllegalStateException("Settings not available for client rebuild");
+        }
+        this.modelName = newModelName;
+        currentSettings.getModel().setName(newModelName);
+        String thinkMode = OllamaThinkSpringAiFactory.resolveThinkMode(currentSettings);
+        this.thinkingEnabled = thinkMode != null;
+        this.thinkingMode = thinkMode != null ? thinkMode : "low";
+        try {
+            this.currentClient = OllamaThinkSpringAiFactory.createChatClient(currentSettings, thinkingEnabled ? thinkingMode : null);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to rebuild ChatClient for model " + newModelName + ": " + e.getMessage(), e);
+        }
     }
 
     public void clearHistory() {

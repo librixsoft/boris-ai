@@ -399,13 +399,19 @@ public class ChatController implements InputArea.InputListener {
     }
 
     /**
-     * Apply model selection: update ChatService, OllamaModelService, HeaderBar, and persist to settings.
+     * Apply model selection: rebuild ChatClient, update services, HeaderBar, and persist to settings.
      */
     public void applyModelSelection(String selectedModel) {
         if (selectedModel == null || selectedModel.isBlank()) return;
 
-        // 1. Update ChatService
-        chatService.setModelName(selectedModel);
+        // 1. Rebuild ChatClient with new model (this also updates modelName)
+        try {
+            chatService.rebuildClient(selectedModel);
+        } catch (Exception e) {
+            transcript.appendLine("[x] Error al cambiar modelo: " + e.getMessage());
+            transcript.rerender();
+            return;
+        }
 
         // 2. Update OllamaModelService if available
         if (ollamaModelService != null) {

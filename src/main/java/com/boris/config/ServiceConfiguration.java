@@ -74,7 +74,7 @@ public class ServiceConfiguration {
         int historySize = settings.getMaxHistorySize() != null ? settings.getMaxHistorySize() : 10;
         boolean enableHistory = settings.getEnableHistory() != null ? settings.getEnableHistory() : true;
 
-        return new ChatService(
+        ChatService service = new ChatService(
                 chatClientSupplier,
                 "boris",
                 taskAborter,
@@ -84,6 +84,8 @@ public class ServiceConfiguration {
                 thinkingMode,
                 modelName
         );
+        service.setSettings(settings);
+        return service;
     }
 
     @Bean
