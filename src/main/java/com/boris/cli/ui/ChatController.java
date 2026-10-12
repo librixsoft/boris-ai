@@ -121,10 +121,15 @@ public class ChatController implements InputArea.InputListener {
             AtomicBoolean firstChunk = new AtomicBoolean(true);
             long taskEpoch = sessionEpoch.get();
 
+            if (taskAborter.isAborted() || messageQueue.isAborted()) {
+                onComplete.run();
+                return;
+            }
+
             chatService.sendMessageStream(
                 message.content(),
                 chunk -> {
-                    if (taskEpoch != sessionEpoch.get() || taskAborter.isAborted()) {
+                    if (taskEpoch != sessionEpoch.get() || taskAborter.isAborted() || messageQueue.isAborted()) {
                         return;
                     }
                     if (chunk != null && !chunk.isEmpty()) {
@@ -140,7 +145,7 @@ public class ChatController implements InputArea.InputListener {
                     }
                 },
                 () -> {
-                    if (taskEpoch != sessionEpoch.get() || taskAborter.isAborted()) {
+                    if (taskEpoch != sessionEpoch.get() || taskAborter.isAborted() || messageQueue.isAborted()) {
                         onComplete.run();
                         return;
                     }
@@ -305,55 +310,49 @@ public class ChatController implements InputArea.InputListener {
 
         wasAborted.set(false);
         taskAborter.reset();
+        messageQueue.resetAbort();
 
         messageQueue.enqueue(text);
     }
 
     /**
-     * Handle /clear command with full transparency: clear UI immediately, abort tasks in background.
+     * Handle /clear command: abort everything, clear all state, start fresh.
      */
     private void handleClearCommand() {
-        // Phase 1: Increment epoch to invalidate any pending callbacks
-        sessionEpoch.incrementAndGet();
+        // Phase 1: Increment epoch FIRST to invalidate any pending callbacks
+        long newEpoch = sessionEpoch.incrementAndGet();
 
-        // Reset waiting state - this also stops the thinking spinner
-        waiting.set(false);
-        wasAborted.set(false);
+        // Phase 2: Abort immediately (synchronous)
+        taskAborter.abort();
+        wasAborted.set(true);
 
-        // Clear message queue
+        // Phase 3: Abort message queue (interrupts current processing thread)
         messageQueue.clear();
 
-        // Clear model and context
+        // Phase 4: Clear all state
+        waiting.set(false);
         chatService.clearHistory();
-
-        // Clear UI immediately (synchronous)
         tokenCounter.resetSession();
         transcript.clear();
         chatPanel.clear();
         statusBar.clear();
 
-        // Phase 2: Abort tasks silently in background
-        Thread abortThread = new Thread(() -> {
+        // Phase 5: Reset flags AFTER a delay to ensure pending responses are ignored
+        Thread resetThread = new Thread(() -> {
             try {
-                // Abort active tasks
-                taskAborter.abort();
-
-                // Clear any abort hooks
-                taskAborter.clearAbortHooks();
-
-                // Brief delay then reset
-                Thread.sleep(100);
-                taskAborter.reset();
+                Thread.sleep(500);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-            } catch (Exception e) {
-                // Silently ignore - this is a cleanup operation
-            } finally {
+            }
+            // Only reset if epoch hasn't changed (no new clear/abort happened)
+            if (sessionEpoch.get() == newEpoch) {
                 taskAborter.reset();
+                messageQueue.resetAbort();
+                wasAborted.set(false);
             }
         });
-        abortThread.setDaemon(true);
-        abortThread.start();
+        resetThread.setDaemon(true);
+        resetThread.start();
     }
 
     private void finishResponse(StringBuilder assistantBuffer) {

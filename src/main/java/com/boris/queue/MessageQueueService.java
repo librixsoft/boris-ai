@@ -25,7 +25,9 @@ public class MessageQueueService {
     private final CopyOnWriteArrayList<QueueListener> listeners = new CopyOnWriteArrayList<>();
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean processing = new AtomicBoolean(false);
+    private final AtomicBoolean aborted = new AtomicBoolean(false);
     private Thread consumerThread;
+    private volatile Thread currentProcessingThread;
     private MessageProcessor processor;
 
     public void setProcessor(MessageProcessor processor) {
@@ -76,19 +78,48 @@ public class MessageQueueService {
     }
 
     public void clear() {
+        aborted.set(true);
         queue.clear();
         processing.set(false);
+        interruptCurrentProcessing();
         listeners.forEach(QueueListener::onQueueEmpty);
+    }
+
+    public void abortCurrent() {
+        aborted.set(true);
+        interruptCurrentProcessing();
+    }
+
+    public boolean isAborted() {
+        return aborted.get();
+    }
+
+    public void resetAbort() {
+        aborted.set(false);
+    }
+
+    private void interruptCurrentProcessing() {
+        Thread t = currentProcessingThread;
+        if (t != null && t.isAlive()) {
+            t.interrupt();
+        }
     }
 
     private void consumeLoop() {
         while (running.get()) {
             try {
+                if (aborted.get()) {
+                    Thread.sleep(50);
+                    continue;
+                }
                 ChatMessage message = queue.take();
-                processMessage(message);
+                if (!aborted.get()) {
+                    processMessage(message);
+                }
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
+                if (!running.get()) {
+                    break;
+                }
             }
         }
     }
@@ -99,6 +130,11 @@ public class MessageQueueService {
             return;
         }
 
+        if (aborted.get()) {
+            return;
+        }
+
+        currentProcessingThread = Thread.currentThread();
         processing.set(true);
         ChatMessage processingMsg = message.withStatus(MessageStatus.PROCESSING);
         listeners.forEach(l -> l.onMessageStarted(processingMsg));
@@ -111,6 +147,11 @@ public class MessageQueueService {
                 chunk -> {},
                 () -> {
                     processing.set(false);
+                    currentProcessingThread = null;
+                    if (aborted.get()) {
+                        latch.countDown();
+                        return;
+                    }
                     ChatMessage completed = message.withStatus(MessageStatus.COMPLETED);
                     listeners.forEach(l -> l.onMessageCompleted(completed));
                     if (queue.isEmpty()) {
@@ -123,8 +164,13 @@ public class MessageQueueService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             processing.set(false);
+            currentProcessingThread = null;
         } catch (Exception e) {
             processing.set(false);
+            currentProcessingThread = null;
+            if (aborted.get()) {
+                return;
+            }
             ChatMessage failed = message.withStatus(MessageStatus.FAILED);
             listeners.forEach(l -> l.onMessageFailed(failed, e));
             if (queue.isEmpty()) {
