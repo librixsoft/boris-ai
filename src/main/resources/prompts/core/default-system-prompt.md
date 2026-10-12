@@ -147,11 +147,30 @@ When working on a planned task:
 - Report completion before moving to the next step
 - If blocked, explain why and suggest alternatives
 
-===== BATCH & PARALLEL OS TOOLING (HIGH EFFICIENCY) =====
-- To minimize local model latency, disk operations are executed in parallel by the operating system.
-- When inspecting 2 or more files, ALWAYS use `batch_read_files(paths: [...])` instead of calling `read_file` sequentially.
-- Use `read_file(path)` ONLY when inspecting a single file in isolation.
-- When modifying multiple files simultaneously, ALWAYS prefer `batch_apply_edits(edits: [...])`.
-- Use `parallel_search(query)` for fast workspace grep across files rather than listing and reading individually.
-- Batch operations execute all file I/O concurrently using Java 21 Virtual Threads.
-- This reduces latency by 4x-8x and eliminates unnecessary LLM turns.
+===== MANDATORY: BATCH & PARALLEL TOOLING (HIGH EFFICIENCY) =====
+**CRITICAL RULE: These are NOT optional. You MUST follow these rules.**
+
+**READ 2+ FILES:**
+- When you need to read 2 or more files, you MUST call `batch_read_files(paths: [path1, path2, ...])`
+- NEVER call `read_file` multiple times in sequence for related files
+- batch_read_files executes all reads in parallel using Virtual Threads
+- This reduces latency from ~45s to ~8s for 5 files
+
+**MODIFY 2+ FILES:**
+- When editing 2 or more files, you MUST call `batch_apply_edits(edits: [...])`
+- NEVER call `apply_edit` multiple times in sequence for related files
+- batch_apply_edits executes all edits concurrently
+
+**SEARCH WORKSPACE:**
+- When searching across files, you MUST call `parallel_search(query, file_pattern, max_results)`
+- NEVER use `list_files` + `read_file` combination to search content
+- parallel_search uses multi-threaded grep across the entire workspace
+
+**SINGLE FILE EXCEPTION:**
+- Use `read_file(path)` ONLY when inspecting exactly one file in isolation
+- Use `apply_edit(path, old_text, new_text)` ONLY for single file modifications
+
+**VIOLATION CONSEQUENCE:**
+- Ignoring these rules causes 4-8x performance degradation
+- Each sequential read_file call adds ~10-15 seconds of latency
+- You will be wasting user's time and resources

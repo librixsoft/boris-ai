@@ -49,6 +49,9 @@ public class BatchReadFileTool {
         List<Future<FileResult>> futures = new ArrayList<>();
         List<String> uniquePaths = paths.stream().distinct().toList();
 
+        System.out.println("[batch_read_files] Archivos a leer: " + String.join(", ", uniquePaths));
+        System.out.println("[batch_read_files] Total: " + uniquePaths.size() + " archivos");
+
         for (String p : uniquePaths) {
             futures.add(executor.submit(() -> readFileTask(p, maxLinesPerFile, aborter)));
         }
