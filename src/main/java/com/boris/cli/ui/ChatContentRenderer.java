@@ -106,7 +106,11 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
                 inTable = false;
                 isHeader = false;
                 columnWidths.clear();
-                markdownLineRenderer.render(graphics, line, i, contentWidth, inThinking, thinkingEnabled);
+                if (isToolDetailLine(line)) {
+                    renderToolDetailLine(graphics, line, i, contentWidth);
+                } else {
+                    markdownLineRenderer.render(graphics, line, i, contentWidth, inThinking, thinkingEnabled);
+                }
             }
 
             inThinking = MarkdownLineRenderer.updateThinkingState(line, inThinking);
@@ -183,6 +187,19 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
                 }
             }
         }
+    }
+
+    private boolean isToolDetailLine(String line) {
+        if (line == null || line.isEmpty()) {
+            return false;
+        }
+        return line.startsWith("[") && line.contains("]") && line.indexOf(']') < 30;
+    }
+
+    private void renderToolDetailLine(TextGUIGraphics graphics, String line, int row, int contentWidth) {
+        graphics.setBackgroundColor(UiTheme.BG);
+        graphics.setForegroundColor(UiTheme.MUTED);
+        graphics.putString(0, row, padOrTruncate(line, contentWidth));
     }
 
     private void drawScrollbar(TextGUIGraphics graphics, int totalWidth, int visibleRows, int maxOffset, int currentOffset) {

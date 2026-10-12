@@ -25,6 +25,10 @@ public class InputArea extends Panel {
         void onPageScroll(int direction);
     }
 
+    public interface ToolDetailsToggleListener {
+        void onToggle(boolean showDetails);
+    }
+
     private final TextBox inputBox;
     private final CommandHistory commandHistory;
     private final AtomicBoolean waiting;
@@ -33,6 +37,8 @@ public class InputArea extends Panel {
     private HintBar hintBar;
     private CommandMenu commandMenu;
     private ModelSelector modelSelector;
+    private Transcript transcript;
+    private ToolDetailsToggleListener toolDetailsToggleListener;
 
     public InputArea(CommandHistory commandHistory, AtomicBoolean waiting, int scrollStep, InputListener listener) {
         this(commandHistory, waiting, scrollStep, listener, null);
@@ -93,6 +99,14 @@ public class InputArea extends Panel {
 
     public void setModelSelector(ModelSelector modelSelector) {
         this.modelSelector = modelSelector;
+    }
+
+    public void setTranscript(Transcript transcript) {
+        this.transcript = transcript;
+    }
+
+    public void setToolDetailsToggleListener(ToolDetailsToggleListener listener) {
+        this.toolDetailsToggleListener = listener;
     }
 
     public TextBox getTextBox() {
@@ -167,6 +181,18 @@ public class InputArea extends Panel {
             String pasteText = ClipboardUtil.paste();
             if (pasteText != null && !pasteText.isEmpty()) {
                 insertTextAtCaret(pasteText);
+            }
+            return false;
+        }
+
+        // Ctrl+G toggle tool details visibility
+        if (type == KeyType.Character && keyStroke.isCtrlDown() && keyStroke.getCharacter() != null
+                && (keyStroke.getCharacter() == 'g' || keyStroke.getCharacter() == 'G' || keyStroke.getCharacter() == 7)) {
+            if (transcript != null) {
+                transcript.toggleToolDetails();
+                if (toolDetailsToggleListener != null) {
+                    toolDetailsToggleListener.onToggle(transcript.isShowingToolDetails());
+                }
             }
             return false;
         }

@@ -2,21 +2,77 @@ package com.boris.cli.ui;
 
 import com.googlecode.lanterna.TerminalSize;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+
 public class Transcript {
 
-    private final StringBuilder raw = new StringBuilder();
+    private enum EntryType { NORMAL, TOOL_DETAIL }
+
+    private record Entry(EntryType type, String content) {}
+
+    private final List<Entry> entries = new ArrayList<>();
     private final ChatPanel chatPanel;
     private final UiExecutor uiExecutor;
+
+    private final AtomicBoolean showToolDetails = new AtomicBoolean(false);
+    private Consumer<Integer> hiddenCountListener;
 
     public Transcript(ChatPanel chatPanel, UiExecutor uiExecutor) {
         this.chatPanel = chatPanel;
         this.uiExecutor = uiExecutor;
     }
 
+    public void setHiddenCountListener(Consumer<Integer> listener) {
+        this.hiddenCountListener = listener;
+    }
+
+    private void notifyHiddenCountChanged() {
+        if (hiddenCountListener != null) {
+            hiddenCountListener.accept(getHiddenDetailsCount());
+        }
+    }
+
+    public boolean isShowingToolDetails() {
+        return showToolDetails.get();
+    }
+
+    public void toggleToolDetails() {
+        boolean newState = !showToolDetails.get();
+        showToolDetails.set(newState);
+        uiExecutor.run(() -> {
+            notifyHiddenCountChanged();
+            renderWrapped();
+            scrollToBottom();
+        });
+    }
+
+    public void appendToolDetail(String toolName, String message) {
+        String formatted = "[" + toolName + "] " + message;
+        uiExecutor.run(() -> {
+            entries.add(new Entry(EntryType.TOOL_DETAIL, formatted));
+            if (!showToolDetails.get()) {
+                notifyHiddenCountChanged();
+            }
+            renderWrapped();
+            scrollToBottom();
+        });
+    }
+
+    public int getHiddenDetailsCount() {
+        if (showToolDetails.get()) {
+            return 0;
+        }
+        return (int) entries.stream()
+                .filter(e -> e.type() == EntryType.TOOL_DETAIL)
+                .count();
+    }
+
     public void appendLine(String text) {
         uiExecutor.run(() -> {
-            if (raw.length() > 0) raw.append("\n");
-            raw.append(text);
+            entries.add(new Entry(EntryType.NORMAL, text));
             renderWrapped();
             scrollToBottom();
         });
@@ -24,8 +80,8 @@ public class Transcript {
 
     public void appendQueuedMessage(String text, int queuePosition) {
         uiExecutor.run(() -> {
-            if (raw.length() > 0) raw.append("\n");
-            raw.append(">> ").append(text).append(" <queued:#").append(queuePosition).append(">");
+            String content = ">> " + text + " <queued:#" + queuePosition + ">";
+            entries.add(new Entry(EntryType.NORMAL, content));
             renderWrapped();
             scrollToBottom();
         });
@@ -33,22 +89,22 @@ public class Transcript {
 
     public void activateQueuedMessage(String messageContent) {
         uiExecutor.run(() -> {
-            String current = raw.toString();
             String pattern = ">> " + messageContent + " <queued:#\\d+>";
             String replacement = ">> " + messageContent;
-            String updated = current.replaceFirst(pattern, replacement);
-            if (!updated.equals(current)) {
-                raw.setLength(0);
-                raw.append(updated);
-                renderWrapped();
+            for (int i = 0; i < entries.size(); i++) {
+                Entry e = entries.get(i);
+                if (e.type() == EntryType.NORMAL && e.content().matches(pattern)) {
+                    entries.set(i, new Entry(EntryType.NORMAL, replacement));
+                    break;
+                }
             }
+            renderWrapped();
         });
     }
 
     public void appendAssistantPrefix() {
         uiExecutor.run(() -> {
-            if (raw.length() > 0) raw.append("\n");
-            raw.append(":: ");
+            entries.add(new Entry(EntryType.NORMAL, ":: "));
             renderWrapped();
             scrollToBottom();
         });
@@ -56,7 +112,17 @@ public class Transcript {
 
     public void appendChunk(String chunk) {
         uiExecutor.run(() -> {
-            raw.append(chunk);
+            if (!entries.isEmpty()) {
+                int lastIdx = entries.size() - 1;
+                Entry last = entries.get(lastIdx);
+                if (last.type() == EntryType.NORMAL) {
+                    entries.set(lastIdx, new Entry(EntryType.NORMAL, last.content() + chunk));
+                } else {
+                    entries.add(new Entry(EntryType.NORMAL, chunk));
+                }
+            } else {
+                entries.add(new Entry(EntryType.NORMAL, chunk));
+            }
             renderWrapped();
             scrollToBottom();
         });
@@ -64,7 +130,13 @@ public class Transcript {
 
     public void endAssistantResponse() {
         uiExecutor.run(() -> {
-            raw.append("\n");
+            if (!entries.isEmpty()) {
+                int lastIdx = entries.size() - 1;
+                Entry last = entries.get(lastIdx);
+                if (last.type() == EntryType.NORMAL) {
+                    entries.set(lastIdx, new Entry(EntryType.NORMAL, last.content() + "\n"));
+                }
+            }
             renderWrapped();
             scrollToBottom();
         });
@@ -72,8 +144,9 @@ public class Transcript {
 
     public void clear() {
         uiExecutor.run(() -> {
-            raw.setLength(0);
+            entries.clear();
             chatPanel.setText("");
+            notifyHiddenCountChanged();
         });
     }
 
@@ -81,9 +154,25 @@ public class Transcript {
         uiExecutor.run(this::renderWrapped);
     }
 
+    private String buildRawContent() {
+        StringBuilder sb = new StringBuilder();
+        boolean showDetails = showToolDetails.get();
+        for (Entry e : entries) {
+            if (e.type() == EntryType.TOOL_DETAIL && !showDetails) {
+                continue;
+            }
+            if (sb.length() > 0 && !sb.toString().endsWith("\n") && !e.content().startsWith("\n")) {
+                sb.append("\n");
+            }
+            sb.append(e.content());
+        }
+        return sb.toString();
+    }
+
     private void renderWrapped() {
         int width = usableChatWidth();
-        String wrapped = TextWrap.wrap(raw.toString(), width);
+        String raw = buildRawContent();
+        String wrapped = TextWrap.wrap(raw, width);
         boolean wasAtBottom = chatPanel.isAtBottom();
         chatPanel.setText(wrapped);
         if (wasAtBottom) {

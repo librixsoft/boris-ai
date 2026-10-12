@@ -122,9 +122,9 @@ public class BorisUI {
             }
         });
 
-        // Progress notifications from tools
+        // Progress notifications from tools (can be toggled with Ctrl+O)
         ToolProgressNotifier.addListener((toolName, message) -> {
-            transcript.appendLine("[" + toolName + "] " + message);
+            transcript.appendToolDetail(toolName, message);
         });
 
         StatusBar statusBar = new StatusBar(uiExecutor);
@@ -190,9 +190,17 @@ public class BorisUI {
         footer.addComponent(modelSelector);
 
         HintBar hintBar = new HintBar();
+        transcript.setHiddenCountListener(count -> {
+            uiExecutor.run(() -> hintBar.showHiddenDetailsHint(count));
+        });
         InputArea inputArea = new InputArea(commandHistory, waiting, SCROLL_STEP, controller, hintBar);
         inputArea.setCommandMenu(commandMenu);
         inputArea.setModelSelector(modelSelector);
+        inputArea.setTranscript(transcript);
+        inputArea.setToolDetailsToggleListener(showDetails -> {
+            hintBar.setToolDetailsVisible(showDetails);
+            hintBar.showHiddenDetailsHint(showDetails ? 0 : transcript.getHiddenDetailsCount());
+        });
         Border borderedInput = inputArea.withBorder(Borders.singleLine());
         borderedInput.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Fill));
         footer.addComponent(borderedInput);
