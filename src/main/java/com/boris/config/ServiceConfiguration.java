@@ -74,6 +74,11 @@ public class ServiceConfiguration {
         int historySize = settings.getMaxHistorySize() != null ? settings.getMaxHistorySize() : 10;
         boolean enableHistory = settings.getEnableHistory() != null ? settings.getEnableHistory() : true;
 
+        // Configure Ollama URL for abort cancellation
+        if (settings.getModel() != null && settings.getModel().getBaseUrl() != null) {
+            taskAborter.setOllamaBaseUrl(settings.getModel().getBaseUrl());
+        }
+
         ChatService service = new ChatService(
                 chatClientSupplier,
                 "boris",

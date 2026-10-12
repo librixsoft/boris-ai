@@ -23,6 +23,7 @@ import com.boris.settings.SettingsManager;
 import com.boris.tooling.tool.DeleteTool;
 import com.boris.tooling.tool.EditTool;
 import com.boris.tooling.tool.ExecuteCommandTool;
+import com.boris.tooling.tool.GitHubRepoSearchTool;
 import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
@@ -77,6 +78,7 @@ public class ToolCallingConfig {
     private final OfficeDocumentTool officeDocumentTool;
     private final ExecuteCommandTool executeCommandTool;
     private final TaskPlannerTool taskPlannerTool;
+    private final GitHubRepoSearchTool gitHubRepoSearchTool;
     private final Settings settings;
 
     public ToolCallingConfig(ReadFileTool readFileTool,
@@ -91,6 +93,7 @@ public class ToolCallingConfig {
                             OfficeDocumentTool officeDocumentTool,
                             ExecuteCommandTool executeCommandTool,
                             TaskPlannerTool taskPlannerTool,
+                            GitHubRepoSearchTool gitHubRepoSearchTool,
                             Settings settings) {
         this.readFileTool = readFileTool;
         this.writeTool = writeTool;
@@ -104,6 +107,7 @@ public class ToolCallingConfig {
         this.officeDocumentTool = officeDocumentTool;
         this.executeCommandTool = executeCommandTool;
         this.taskPlannerTool = taskPlannerTool;
+        this.gitHubRepoSearchTool = gitHubRepoSearchTool;
         this.settings = settings;
     }
 
@@ -184,6 +188,7 @@ public class ToolCallingConfig {
                 new OfficeDocumentTool(),
                 new ExecuteCommandTool(),
                 new TaskPlannerTool(),
+                new GitHubRepoSearchTool(),
                 settings
         );
     }
@@ -437,6 +442,38 @@ public class ToolCallingConfig {
     public String list_active_plans() {
         String result = taskPlannerTool.executeListActivePlans(Map.of());
         notifyToolTokens("list_active_plans", "", result);
+        return result;
+    }
+
+    // ========== GitHub Repository Search ==========
+
+    @Tool(
+            name = "github_repo_search",
+            description = "Search code in a GitHub repository by cloning it temporarily. Use this to find implementations, components, or examples in external repos. IMPORTANT: Use this instead of searching in Maven JARs (~/.m2) - always search the source repository.")
+    public String github_repo_search(
+            @ToolParam(description = "GitHub repository URL or owner/repo format (e.g., 'angular/angular' or 'https://github.com/angular/angular')") String repo,
+            @ToolParam(description = "Search query: text to find in file content or filename pattern") String query,
+            @ToolParam(description = "Search type: 'content' (grep), 'filename' (find by name), or 'structure' (list tree). Default: content") String search_type,
+            @ToolParam(description = "File extension filter (e.g., '*.java', '*.ts'). Default: all files") String file_pattern,
+            @ToolParam(description = "Subdirectory to search in (e.g., 'src/main'). Default: entire repo") String path,
+            @ToolParam(description = "Branch to clone. Default: default branch") String branch,
+            @ToolParam(description = "Maximum results (1-50). Default: 10") Integer max_results,
+            @ToolParam(description = "Include file content in results. Default: true for content search") Boolean show_content) {
+        if (!ToolCallLimiter.incrementAndCheck()) {
+            return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLimitMessage() + "\"}";
+        }
+        ToolProgressNotifier.notify("github_repo_search", "Buscando en repositorio: " + repo);
+        Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("repo", repo);
+        if (query != null) args.put("query", query);
+        if (search_type != null) args.put("search_type", search_type);
+        if (file_pattern != null) args.put("file_pattern", file_pattern);
+        if (path != null) args.put("path", path);
+        if (branch != null) args.put("branch", branch);
+        if (max_results != null) args.put("max_results", max_results);
+        if (show_content != null) args.put("show_content", show_content);
+        String result = GitHubRepoSearchTool.execute(args);
+        notifyToolTokens("github_repo_search", repo + " " + (query != null ? query : ""), result);
         return result;
     }
 }

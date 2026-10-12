@@ -1,5 +1,7 @@
 package com.boris.task;
 
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Set;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,6 +14,7 @@ public class TaskAborter {
     private final Set<Process> activeProcesses = ConcurrentHashMap.newKeySet();
     private final List<Runnable> abortHooks = new CopyOnWriteArrayList<>();
     private volatile boolean aborted;
+    private volatile String ollamaBaseUrl;
 
     public void startTask(Thread task) {
         if (task == null) return;
@@ -38,6 +41,20 @@ public class TaskAborter {
         activeProcesses.remove(process);
     }
 
+    public void setOllamaBaseUrl(String url) {
+        if (url != null && !url.isBlank()) {
+            String normalized = url.trim();
+            while (normalized.endsWith("/")) {
+                normalized = normalized.substring(0, normalized.length() - 1);
+            }
+            this.ollamaBaseUrl = normalized;
+        }
+    }
+
+    public String getOllamaBaseUrl() {
+        return ollamaBaseUrl;
+    }
+
     public void addAbortHook(Runnable hook) {
         if (hook != null) {
             abortHooks.add(hook);
@@ -50,6 +67,9 @@ public class TaskAborter {
 
     public synchronized void abort() {
         this.aborted = true;
+
+        // Cancel active Ollama generation first (releases GPU)
+        cancelOllamaGeneration();
 
         // Interrupt all registered threads
         for (Thread task : activeTasks) {
@@ -76,6 +96,26 @@ public class TaskAborter {
             }
         }
         abortHooks.clear();
+    }
+
+    private void cancelOllamaGeneration() {
+        if (ollamaBaseUrl == null || ollamaBaseUrl.isBlank()) {
+            return;
+        }
+        Thread cancelThread = new Thread(() -> {
+            try {
+                HttpURLConnection conn = (HttpURLConnection)
+                    new URL(ollamaBaseUrl + "/api/generate").openConnection();
+                conn.setRequestMethod("DELETE");
+                conn.setConnectTimeout(2000);
+                conn.setReadTimeout(2000);
+                conn.getResponseCode();
+                conn.disconnect();
+            } catch (Exception ignored) {
+            }
+        });
+        cancelThread.setDaemon(true);
+        cancelThread.start();
     }
 
     /**

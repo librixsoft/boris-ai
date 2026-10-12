@@ -192,6 +192,9 @@ public class ChatService {
         int historySize = s.getMaxHistorySize();
         boolean enableHistory = s.getEnableHistory() != null ? s.getEnableHistory() : true;
         TaskAborter aborter = new TaskAborter();
+        if (s.getModel().getBaseUrl() != null) {
+            aborter.setOllamaBaseUrl(s.getModel().getBaseUrl());
+        }
         ChatService service = new ChatService(() -> client, botName, aborter, historySize, enableHistory, thinkingEnabled, thinkingMode, modelName);
         service.setSettings(s);
         return service;
