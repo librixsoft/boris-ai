@@ -11,10 +11,13 @@ import java.util.stream.Collectors;
 
 public class CommandMenu extends Panel {
 
+    private static final int MAX_VISIBLE_ITEMS = 6;
+
     private final List<CommandItem> allCommands;
     private List<CommandItem> filteredCommands;
     private final List<Label> itemLabels;
     private int selectedIndex = 0;
+    private int scrollOffset = 0;
     private boolean visible = false;
 
     public CommandMenu() {
@@ -42,6 +45,7 @@ public class CommandMenu extends Panel {
     public void hideMenu() {
         this.visible = false;
         this.selectedIndex = 0;
+        this.scrollOffset = 0;
         setVisible(false);
         removeAllComponents();
         itemLabels.clear();
@@ -67,6 +71,8 @@ public class CommandMenu extends Panel {
         if (selectedIndex >= filteredCommands.size()) {
             selectedIndex = Math.max(0, filteredCommands.size() - 1);
         }
+        scrollOffset = 0;
+        adjustScrollOffset();
 
         renderMenu();
     }
@@ -76,6 +82,7 @@ public class CommandMenu extends Panel {
             return;
         }
         selectedIndex = (selectedIndex + 1) % filteredCommands.size();
+        adjustScrollOffset();
         renderMenu();
     }
 
@@ -84,7 +91,16 @@ public class CommandMenu extends Panel {
             return;
         }
         selectedIndex = (selectedIndex - 1 + filteredCommands.size()) % filteredCommands.size();
+        adjustScrollOffset();
         renderMenu();
+    }
+
+    private void adjustScrollOffset() {
+        if (selectedIndex < scrollOffset) {
+            scrollOffset = selectedIndex;
+        } else if (selectedIndex >= scrollOffset + MAX_VISIBLE_ITEMS) {
+            scrollOffset = selectedIndex - MAX_VISIBLE_ITEMS + 1;
+        }
     }
 
     public CommandItem getSelectedCommand() {
@@ -105,15 +121,26 @@ public class CommandMenu extends Panel {
             return;
         }
 
-        for (int i = 0; i < filteredCommands.size(); i++) {
+        boolean hasMoreAbove = scrollOffset > 0;
+        boolean hasMoreBelow = scrollOffset + MAX_VISIBLE_ITEMS < filteredCommands.size();
+
+        if (hasMoreAbove) {
+            Label upArrow = new Label("   ▲ más comandos arriba");
+            upArrow.setForegroundColor(UiTheme.MUTED);
+            addComponent(upArrow);
+        }
+
+        int endIndex = Math.min(scrollOffset + MAX_VISIBLE_ITEMS, filteredCommands.size());
+        for (int i = scrollOffset; i < endIndex; i++) {
             CommandItem cmd = filteredCommands.get(i);
             boolean isSelected = (i == selectedIndex);
 
+            String cmdPart = String.format("%-12s", cmd.getCommand());
             String text;
             if (isSelected) {
-                text = " ► " + cmd.getCommand() + "  " + cmd.getDescription();
+                text = " ► " + cmdPart + " " + cmd.getDescription();
             } else {
-                text = "   " + cmd.getCommand() + "  " + cmd.getDescription();
+                text = "   " + cmdPart + " " + cmd.getDescription();
             }
 
             Label label = new Label(text);
@@ -127,7 +154,13 @@ public class CommandMenu extends Panel {
             addComponent(label);
         }
 
-        Label hint = new Label(" ↑↓: navegar  Enter: elegir  Esc: cerrar");
+        if (hasMoreBelow) {
+            Label downArrow = new Label("   ▼ más comandos abajo");
+            downArrow.setForegroundColor(UiTheme.MUTED);
+            addComponent(downArrow);
+        }
+
+        Label hint = new Label(" ↑↓: nav · Enter: ok · Esc: cerrar");
         hint.setForegroundColor(UiTheme.MUTED);
         addComponent(hint);
     }

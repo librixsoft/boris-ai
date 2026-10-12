@@ -11,10 +11,13 @@ import java.util.function.Supplier;
 
 public class ModelSelector extends Panel {
 
+    private static final int MAX_VISIBLE_ITEMS = 6;
+
     private final Supplier<List<String>> modelsSupplier;
     private List<String> models;
     private final List<Label> itemLabels;
     private int selectedIndex = 0;
+    private int scrollOffset = 0;
     private boolean visible = false;
     private final Runnable onModelSelected;
 
@@ -35,7 +38,7 @@ public class ModelSelector extends Panel {
         this.visible = true;
         setVisible(true);
         selectedIndex = 0;
-        // Refresh models from supplier each time selector is shown
+        scrollOffset = 0;
         if (modelsSupplier != null) {
             this.models = modelsSupplier.get();
         }
@@ -45,6 +48,7 @@ public class ModelSelector extends Panel {
     public void hideSelector() {
         this.visible = false;
         this.selectedIndex = 0;
+        this.scrollOffset = 0;
         setVisible(false);
         removeAllComponents();
         itemLabels.clear();
@@ -55,6 +59,7 @@ public class ModelSelector extends Panel {
             return;
         }
         selectedIndex = (selectedIndex + 1) % models.size();
+        adjustScrollOffset();
         renderSelector();
     }
 
@@ -63,7 +68,16 @@ public class ModelSelector extends Panel {
             return;
         }
         selectedIndex = (selectedIndex - 1 + models.size()) % models.size();
+        adjustScrollOffset();
         renderSelector();
+    }
+
+    private void adjustScrollOffset() {
+        if (selectedIndex < scrollOffset) {
+            scrollOffset = selectedIndex;
+        } else if (selectedIndex >= scrollOffset + MAX_VISIBLE_ITEMS) {
+            scrollOffset = selectedIndex - MAX_VISIBLE_ITEMS + 1;
+        }
     }
 
     public String getSelectedModel() {
@@ -90,7 +104,17 @@ public class ModelSelector extends Panel {
             return;
         }
 
-        for (int i = 0; i < models.size(); i++) {
+        boolean hasMoreAbove = scrollOffset > 0;
+        boolean hasMoreBelow = scrollOffset + MAX_VISIBLE_ITEMS < models.size();
+
+        if (hasMoreAbove) {
+            Label upArrow = new Label("   ▲ más modelos arriba");
+            upArrow.setForegroundColor(UiTheme.MUTED);
+            addComponent(upArrow);
+        }
+
+        int endIndex = Math.min(scrollOffset + MAX_VISIBLE_ITEMS, models.size());
+        for (int i = scrollOffset; i < endIndex; i++) {
             String model = models.get(i);
             boolean isSelected = (i == selectedIndex);
 
@@ -112,7 +136,13 @@ public class ModelSelector extends Panel {
             addComponent(label);
         }
 
-        Label hint = new Label(" ↑↓: navegar  Enter: seleccionar  Esc: cerrar");
+        if (hasMoreBelow) {
+            Label downArrow = new Label("   ▼ más modelos abajo");
+            downArrow.setForegroundColor(UiTheme.MUTED);
+            addComponent(downArrow);
+        }
+
+        Label hint = new Label(" ↑↓: nav · Enter: seleccionar · Esc: cerrar");
         hint.setForegroundColor(UiTheme.MUTED);
         addComponent(hint);
     }

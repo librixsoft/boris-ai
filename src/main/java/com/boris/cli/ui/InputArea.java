@@ -55,8 +55,6 @@ public class InputArea extends Panel {
 
         inputBox.setTextChangeListener((newText, changedByUser) -> {
             if (this.modelSelector != null && this.modelSelector.isSelectorVisible()) {
-                // Keep model selector visible if text starts with /model or /models
-                // Hide it only if the text no longer relates to model selection
                 if (newText == null) {
                     this.modelSelector.hideSelector();
                 } else {
@@ -69,17 +67,12 @@ public class InputArea extends Panel {
                 return;
             }
             if (this.commandMenu != null) {
-                // Mostrar menú solo cuando hay más de "/"
-                if (newText != null && newText.startsWith("/") && newText.length() > 1 && looksLikeCommand(newText)) {
-                    // If user types exactly /model or /models, show model selector instead of command menu
+                if (newText != null && newText.startsWith("/")) {
                     String trimmed = newText.trim();
-                    if ("/model".equals(trimmed) || "/models".equals(trimmed)) {
-                        this.commandMenu.hideMenu();
-                        if (this.modelSelector != null) {
-                            this.modelSelector.showSelector();
-                        }
+                    if (looksLikeCommand(newText) || "/".equals(trimmed)) {
+                        this.commandMenu.showMenu(trimmed);
                     } else {
-                        this.commandMenu.showMenu(newText);
+                        this.commandMenu.hideMenu();
                     }
                 } else if (this.commandMenu.isMenuVisible()) {
                     this.commandMenu.hideMenu();
@@ -211,8 +204,13 @@ public class InputArea extends Panel {
                     CommandItem selected = commandMenu.getSelectedCommand();
                     commandMenu.hideMenu();
                     if (selected != null) {
+                        String cmd = selected.getCommand();
                         inputBox.setText("");
-                        listener.onSubmit(selected.getCommand());
+                        if (("/model".equals(cmd) || "/models".equals(cmd)) && modelSelector != null) {
+                            modelSelector.showSelector();
+                        } else {
+                            listener.onSubmit(cmd);
+                        }
                         return false;
                     }
                 }
