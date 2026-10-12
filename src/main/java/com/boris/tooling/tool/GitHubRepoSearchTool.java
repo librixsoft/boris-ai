@@ -30,7 +30,7 @@ import com.boris.tooling.ToolProgressNotifier;
  *
  * DO NOT use this for:
  * - Searching in Maven dependencies (use the source repo instead)
- * - Local project code (use read_file/list_files instead)
+ * - Local project code (use batch_read_files/list_files instead)
  */
 public class GitHubRepoSearchTool {
 

@@ -28,7 +28,6 @@ import com.boris.tooling.tool.GitHubRepoSearchTool;
 import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
-import com.boris.tooling.tool.ReadFileTool;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebFetchTool;
 import com.boris.tooling.tool.WebSearchTool;
@@ -70,7 +69,7 @@ public class ToolCallingConfig {
         }
     }
 
-    private final ReadFileTool readFileTool;
+
     private final WriteTool writeTool;
     private final DeleteTool deleteTool;
     private final ListFilesTool listFilesTool;
@@ -91,7 +90,7 @@ public class ToolCallingConfig {
     private final BatchEditTool batchEditTool;
     private final ParallelSearchTool parallelSearchTool;
 
-    public ToolCallingConfig(ReadFileTool readFileTool,
+    public ToolCallingConfig(
                             WriteTool writeTool,
                             DeleteTool deleteTool,
                             ListFilesTool listFilesTool,
@@ -106,7 +105,6 @@ public class ToolCallingConfig {
                             GitHubRepoSearchTool gitHubRepoSearchTool,
                             GitHubApiSearchTool gitHubApiSearchTool,
                             Settings settings) {
-        this.readFileTool = readFileTool;
         this.writeTool = writeTool;
         this.deleteTool = deleteTool;
         this.listFilesTool = listFilesTool;
@@ -193,7 +191,6 @@ public class ToolCallingConfig {
 
     private static ToolCallingConfig createDefaultConfig(Settings settings) {
         return new ToolCallingConfig(
-                new ReadFileTool(),
                 new WriteTool(),
                 new DeleteTool(),
                 new ListFilesTool(),
@@ -223,16 +220,6 @@ public class ToolCallingConfig {
     @SuppressWarnings("unchecked")
     private static java.util.Map<String, Object> castToMap(Object o) {
         return (java.util.Map<String, Object>) o;
-    }
-
-    @Tool(
-            name = "read_file",
-            description = "Read the contents of a file at the given path. Returns the file content as a string.")
-    public String read_file(@ToolParam(description = "Absolute or relative path to the file to read") String path) {
-        ToolProgressNotifier.notify("read_file", "Leyendo archivo: " + path);
-        String result = readFileTool.execute(Map.of("path", path));
-        notifyToolTokens("read_file", path, result);
-        return result;
     }
 
     @Tool(

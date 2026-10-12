@@ -40,7 +40,7 @@ Boris connects your local models with a rich set of developer tools to inspect c
 
 | Tool | Description |
 | :--- | :--- |
-| `read_file` | Reads contents of files in the workspace with pagination and line ranges. |
+| `batch_read_files` | Reads multiple files concurrently from disk in a single call. Much faster for multiple files. |
 | `write_file` | Creates or replaces files with provided content. |
 | `edit_file` | Surgically edits files using string replacements or line-targeted substitutions. |
 | `list_files` | Explores workspace directories, file sizes, and children counts. |

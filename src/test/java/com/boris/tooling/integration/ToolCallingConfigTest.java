@@ -37,27 +37,12 @@ class ToolCallingConfigTest {
                 .map(cb -> cb.getToolDefinition().name())
                 .toList();
 
-        assertTrue(names.contains("read_file"));
         assertTrue(names.contains("write_file"));
         assertTrue(names.contains("delete_file"));
         assertTrue(names.contains("list_files"));
         assertTrue(names.contains("get_system_info"));
         assertTrue(names.contains("generate_pdf"));
         assertTrue(names.contains("execute_command"));
-    }
-
-    @Test
-    void buildNativeToolCallbacks_callbackCallsExecuteCorrectly() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
-
-        var readCb = java.util.Arrays.stream(callbacks)
-                .filter(cb -> "read_file".equals(cb.getToolDefinition().name()))
-                .findFirst()
-                .orElseThrow();
-
-        String result = readCb.call("{\"path\":\"/tmp/test_read.txt\"}");
-
-        assertNotNull(result);
     }
 
     @Test

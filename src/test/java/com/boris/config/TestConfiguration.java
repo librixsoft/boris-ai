@@ -21,7 +21,7 @@ import com.boris.tooling.tool.GitHubRepoSearchTool;
 import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
-import com.boris.tooling.tool.ReadFileTool;
+
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebFetchTool;
 import com.boris.tooling.tool.WebSearchTool;
@@ -80,10 +80,6 @@ public class TestConfiguration {
         return new TaskAborter();
     }
 
-    @Bean
-    public ReadFileTool readFileTool() {
-        return new ReadFileTool();
-    }
 
     @Bean
     public WriteTool writeTool() {
@@ -152,7 +148,7 @@ public class TestConfiguration {
 
     @Bean
     @Primary
-    public ToolCallingConfig toolCallingConfig(ReadFileTool readFileTool,
+    public ToolCallingConfig toolCallingConfig(
                                                WriteTool writeTool,
                                                DeleteTool deleteTool,
                                                ListFilesTool listFilesTool,
@@ -168,7 +164,6 @@ public class TestConfiguration {
                                                GitHubApiSearchTool gitHubApiSearchTool,
                                                Settings settings) {
         return new ToolCallingConfig(
-                readFileTool,
                 writeTool,
                 deleteTool,
                 listFilesTool,

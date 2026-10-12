@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.task.TaskAborter;
+import com.boris.tooling.ToolProgressNotifier;
 
 /**
  * Herramienta para leer múltiples archivos concurrentemente del sistema
@@ -49,8 +50,8 @@ public class BatchReadFileTool {
         List<Future<FileResult>> futures = new ArrayList<>();
         List<String> uniquePaths = paths.stream().distinct().toList();
 
-        System.out.println("[batch_read_files] Archivos a leer: " + String.join(", ", uniquePaths));
-        System.out.println("[batch_read_files] Total: " + uniquePaths.size() + " archivos");
+        String fileList = String.join(", ", uniquePaths);
+        ToolProgressNotifier.notify("batch_read_files", "Leyendo " + uniquePaths.size() + " archivo(s) en paralelo: " + fileList);
 
         for (String p : uniquePaths) {
             futures.add(executor.submit(() -> readFileTask(p, maxLinesPerFile, aborter)));
