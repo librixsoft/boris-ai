@@ -28,6 +28,7 @@ import com.boris.llm.ollama.OllamaModelService;
 import com.boris.settings.Settings;
 import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
+import com.boris.tooling.ToolProgressNotifier;
 import com.boris.tooling.ToolResultNotifier;
 
 import com.boris.cli.ui.BorisWindow;
@@ -119,6 +120,11 @@ public class BorisUI {
                 }
                 transcript.appendLine("\n" + diff);
             }
+        });
+
+        // Progress notifications from tools
+        ToolProgressNotifier.addListener((toolName, message) -> {
+            transcript.appendLine("[" + toolName + "] " + message);
         });
 
         StatusBar statusBar = new StatusBar(uiExecutor);

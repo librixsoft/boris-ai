@@ -28,8 +28,10 @@ import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.ReadFileTool;
 import com.boris.tooling.tool.SystemInfoTool;
+import com.boris.tooling.tool.WebFetchTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
+import com.boris.tooling.ToolProgressNotifier;
 import com.boris.tooling.ToolResultNotifier;
 import com.boris.tooling.quality.QualityIteratorHolder;
 import com.boris.task.decomposition.TaskPlannerTool;
@@ -69,6 +71,7 @@ public class ToolCallingConfig {
     private final EditTool editTool;
     private final SystemInfoTool systemInfoTool;
     private final WebSearchTool webSearchTool;
+    private final WebFetchTool webFetchTool;
     private final PdfGenerationTool pdfGenerationTool;
     private final OfficeDocumentTool officeDocumentTool;
     private final ExecuteCommandTool executeCommandTool;
@@ -82,6 +85,7 @@ public class ToolCallingConfig {
                             EditTool editTool,
                             SystemInfoTool systemInfoTool,
                             WebSearchTool webSearchTool,
+                            WebFetchTool webFetchTool,
                             PdfGenerationTool pdfGenerationTool,
                             OfficeDocumentTool officeDocumentTool,
                             ExecuteCommandTool executeCommandTool,
@@ -94,6 +98,7 @@ public class ToolCallingConfig {
         this.editTool = editTool;
         this.systemInfoTool = systemInfoTool;
         this.webSearchTool = webSearchTool;
+        this.webFetchTool = webFetchTool;
         this.pdfGenerationTool = pdfGenerationTool;
         this.officeDocumentTool = officeDocumentTool;
         this.executeCommandTool = executeCommandTool;
@@ -173,6 +178,7 @@ public class ToolCallingConfig {
                 new EditTool(),
                 new SystemInfoTool(),
                 new WebSearchTool(),
+                new WebFetchTool(),
                 new PdfGenerationTool(),
                 new OfficeDocumentTool(),
                 new ExecuteCommandTool(),
@@ -194,6 +200,7 @@ public class ToolCallingConfig {
             name = "read_file",
             description = "Read the contents of a file at the given path. Returns the file content as a string.")
     public String read_file(@ToolParam(description = "Absolute or relative path to the file to read") String path) {
+        ToolProgressNotifier.notify("read_file", "Leyendo archivo: " + path);
         String result = readFileTool.execute(Map.of("path", path));
         notifyToolTokens("read_file", path, result);
         return result;
@@ -204,6 +211,7 @@ public class ToolCallingConfig {
             description = "Create a new file or overwrite an existing one with the given content.")
     public String write_file(@ToolParam(description = "Absolute or relative path for the file to create/overwrite") String path,
                              @ToolParam(description = "Full text content to write into the file") String content) {
+        ToolProgressNotifier.notify("write_file", "Escribiendo archivo: " + path);
         String inputText = path + "\n" + content;
         String result = writeTool.execute(Map.of("path", path, "content", content));
         notifyToolTokens("write_file", inputText, result);
@@ -214,6 +222,7 @@ public class ToolCallingConfig {
             name = "delete_file",
             description = "Delete a file at the given path. Returns success status and message.")
     public String delete_file(@ToolParam(description = "Absolute or relative path to the file to delete") String path) {
+        ToolProgressNotifier.notify("delete_file", "Eliminando: " + path);
         String result = deleteTool.execute(Map.of("path", path));
         notifyToolTokens("delete_file", path, result);
         return result;
@@ -223,6 +232,7 @@ public class ToolCallingConfig {
             name = "list_files",
             description = "List files and directories in the given directory. Returns a formatted listing.")
     public String list_files(@ToolParam(description = "Directory path to list contents of") String path) {
+        ToolProgressNotifier.notify("list_files", "Listando: " + path);
         String result = listFilesTool.execute(Map.of("path", path));
         notifyToolTokens("list_files", path, result);
         return result;
@@ -234,6 +244,7 @@ public class ToolCallingConfig {
     public String apply_edit(@ToolParam(description = "Absolute or relative file path") String path,
                              @ToolParam(description = "Exact text to find and replace in the file") String old_text,
                              @ToolParam(description = "Replacement text") String new_text) {
+        ToolProgressNotifier.notify("apply_edit", "Editando archivo: " + path);
         String inputText = path + "\n" + old_text + "\n" + new_text;
         String result = EditTool.apply_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
         notifyToolTokens("apply_edit", inputText, result);
@@ -286,7 +297,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "web_search",
-            description = "Search the web using Bing via Playwright. Returns titles, URLs, and snippets with no API key required.")
+            description = "Search the web using Google/Bing/DuckDuckGo via Playwright. Returns titles, URLs, and snippets with no API key required.")
     public String web_search(@ToolParam(description = "Search query string") String query,
                              @ToolParam(description = "Number of results to return (1-10, default 5)") Integer count) {
         Map<String, Object> args = new java.util.LinkedHashMap<>();
@@ -294,6 +305,21 @@ public class ToolCallingConfig {
         if (count != null) args.put("count", count);
         String result = WebSearchTool.execute(args);
         notifyToolTokens("web_search", query, result);
+        return result;
+    }
+
+    @Tool(
+            name = "web_fetch",
+            description = "Fetch and extract content from a specific URL. Ideal for reading documentation, articles, or any webpage. Can extract text, code blocks, or specific sections.")
+    public String web_fetch(@ToolParam(description = "URL to fetch content from") String url,
+                            @ToolParam(description = "Optional CSS selector to extract specific content (e.g., 'article', '.content', '#readme')") String selector,
+                            @ToolParam(description = "If true, extract code blocks from the page (useful for documentation)") Boolean extract_code) {
+        Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("url", url);
+        if (selector != null) args.put("selector", selector);
+        if (extract_code != null) args.put("extract_code", extract_code);
+        String result = WebFetchTool.execute(args);
+        notifyToolTokens("web_fetch", url, result);
         return result;
     }
 
@@ -340,6 +366,7 @@ public class ToolCallingConfig {
     public String execute_command(
             @ToolParam(description = "The terminal command string to execute") String command,
             @ToolParam(description = "Optional working directory path where the command should run") String workingDirectory) {
+        ToolProgressNotifier.notify("execute_command", "Ejecutando: " + command);
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("command", command);
         if (workingDirectory != null) {

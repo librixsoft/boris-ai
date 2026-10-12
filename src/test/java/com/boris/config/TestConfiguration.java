@@ -21,6 +21,7 @@ import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.ReadFileTool;
 import com.boris.tooling.tool.SystemInfoTool;
+import com.boris.tooling.tool.WebFetchTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
 import com.boris.task.decomposition.TaskPlannerTool;
@@ -113,6 +114,11 @@ public class TestConfiguration {
     }
 
     @Bean
+    public WebFetchTool webFetchTool() {
+        return new WebFetchTool();
+    }
+
+    @Bean
     public PdfGenerationTool pdfGenerationTool() {
         return new PdfGenerationTool();
     }
@@ -141,6 +147,7 @@ public class TestConfiguration {
                                                EditTool editTool,
                                                SystemInfoTool systemInfoTool,
                                                WebSearchTool webSearchTool,
+                                               WebFetchTool webFetchTool,
                                                PdfGenerationTool pdfGenerationTool,
                                                OfficeDocumentTool officeDocumentTool,
                                                ExecuteCommandTool executeCommandTool,
@@ -154,6 +161,7 @@ public class TestConfiguration {
                 editTool,
                 systemInfoTool,
                 webSearchTool,
+                webFetchTool,
                 pdfGenerationTool,
                 officeDocumentTool,
                 executeCommandTool,
