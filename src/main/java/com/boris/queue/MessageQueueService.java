@@ -77,6 +77,7 @@ public class MessageQueueService {
 
     public void clear() {
         queue.clear();
+        processing.set(false);
         listeners.forEach(QueueListener::onQueueEmpty);
     }
 
