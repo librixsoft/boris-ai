@@ -118,6 +118,7 @@ public class ChatController implements InputArea.InputListener {
     }
 
     private void initializeMessageQueue() {
+        messageQueue.setOnAbortCallback(() -> taskAborter.abort());
         messageQueue.setProcessor((message, onChunk, onComplete) -> {
             StringBuilder assistantBuffer = new StringBuilder();
             AtomicBoolean firstChunk = new AtomicBoolean(true);
@@ -213,21 +214,25 @@ public class ChatController implements InputArea.InputListener {
 
     @Override
     public void onAbort() {
-        if (!waiting.get()) {
+        if (!waiting.get() && !messageQueue.isProcessing() && !messageQueue.hasMessages()) {
             return;
         }
+        // Clear queue first to stop pending messages
+        messageQueue.clear();
+        // Then abort current Ollama generation
         taskAborter.abort();
         wasAborted.set(true);
         waiting.set(false);
         statusBar.showAborted();
         Thread resetThread = new Thread(() -> {
             try {
-                Thread.sleep(100);
+                Thread.sleep(150);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
             }
             taskAborter.reset();
+            messageQueue.resetAbort();
         });
         resetThread.setDaemon(true);
         resetThread.start();

@@ -15,6 +15,8 @@ public class TaskAborter {
     private final List<Runnable> abortHooks = new CopyOnWriteArrayList<>();
     private volatile boolean aborted;
     private volatile String ollamaBaseUrl;
+    private volatile String activeModelName;
+    private volatile boolean generationInProgress;
 
     public void startTask(Thread task) {
         if (task == null) return;
@@ -53,6 +55,22 @@ public class TaskAborter {
 
     public String getOllamaBaseUrl() {
         return ollamaBaseUrl;
+    }
+
+    public void setActiveModel(String modelName) {
+        this.activeModelName = modelName;
+    }
+
+    public void markGenerationStart() {
+        this.generationInProgress = true;
+    }
+
+    public void markGenerationEnd() {
+        this.generationInProgress = false;
+    }
+
+    public boolean isGenerationInProgress() {
+        return generationInProgress;
     }
 
     public void addAbortHook(Runnable hook) {
@@ -103,19 +121,64 @@ public class TaskAborter {
             return;
         }
         Thread cancelThread = new Thread(() -> {
-            try {
-                HttpURLConnection conn = (HttpURLConnection)
-                    new URL(ollamaBaseUrl + "/api/generate").openConnection();
-                conn.setRequestMethod("DELETE");
-                conn.setConnectTimeout(2000);
-                conn.setReadTimeout(2000);
-                conn.getResponseCode();
-                conn.disconnect();
-            } catch (Exception ignored) {
+            // Try POST /api/abort first (Ollama 0.6+)
+            if (tryAbortEndpoint()) {
+                return;
             }
+            // Fallback: POST /api/generate with keep_alive:0 to force unload
+            tryForceUnloadModel();
         });
         cancelThread.setDaemon(true);
         cancelThread.start();
+    }
+
+    private boolean tryAbortEndpoint() {
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection)
+                new URL(ollamaBaseUrl + "/api/abort").openConnection();
+            conn.setRequestMethod("POST");
+            conn.setConnectTimeout(1500);
+            conn.setReadTimeout(1500);
+            conn.setDoOutput(true);
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.getOutputStream().write("{}".getBytes());
+            int code = conn.getResponseCode();
+            return code >= 200 && code < 300;
+        } catch (Exception e) {
+            return false;
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+    }
+
+    private void tryForceUnloadModel() {
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection)
+                new URL(ollamaBaseUrl + "/api/generate").openConnection();
+            conn.setRequestMethod("POST");
+            conn.setConnectTimeout(1500);
+            conn.setReadTimeout(1500);
+            conn.setDoOutput(true);
+            conn.setRequestProperty("Content-Type", "application/json");
+            // Use active model if known, otherwise use placeholder
+            String model = activeModelName != null ? activeModelName : "_";
+            String payload = String.format(
+                "{\"model\":\"%s\",\"prompt\":\"\",\"keep_alive\":0,\"stream\":false}",
+                model.replace("\"", "\\\"")
+            );
+            conn.getOutputStream().write(payload.getBytes());
+            conn.getResponseCode();
+        } catch (Exception ignored) {
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+        this.generationInProgress = false;
     }
 
     /**
@@ -143,6 +206,7 @@ public class TaskAborter {
 
     public synchronized void reset() {
         this.aborted = false;
+        this.generationInProgress = false;
         activeTasks.clear();
         activeProcesses.clear();
         abortHooks.clear();

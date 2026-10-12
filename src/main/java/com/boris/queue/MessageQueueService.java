@@ -29,9 +29,14 @@ public class MessageQueueService {
     private Thread consumerThread;
     private volatile Thread currentProcessingThread;
     private MessageProcessor processor;
+    private volatile Runnable onAbortCallback;
 
     public void setProcessor(MessageProcessor processor) {
         this.processor = processor;
+    }
+
+    public void setOnAbortCallback(Runnable callback) {
+        this.onAbortCallback = callback;
     }
 
     public void addListener(QueueListener listener) {
@@ -82,6 +87,12 @@ public class MessageQueueService {
         queue.clear();
         processing.set(false);
         interruptCurrentProcessing();
+        if (onAbortCallback != null) {
+            try {
+                onAbortCallback.run();
+            } catch (Exception ignored) {
+            }
+        }
         listeners.forEach(QueueListener::onQueueEmpty);
     }
 

@@ -48,4 +48,40 @@ public class TaskAborterTest {
         aborter.abort();
         assertTrue(aborter.isAborted());
     }
+
+    @Test
+    void generation_tracking_works() {
+        TaskAborter aborter = new TaskAborter();
+        assertFalse(aborter.isGenerationInProgress());
+        aborter.markGenerationStart();
+        assertTrue(aborter.isGenerationInProgress());
+        aborter.markGenerationEnd();
+        assertFalse(aborter.isGenerationInProgress());
+    }
+
+    @Test
+    void active_model_is_set() {
+        TaskAborter aborter = new TaskAborter();
+        aborter.setActiveModel("llama3");
+        aborter.setOllamaBaseUrl("http://localhost:11434");
+        assertEquals("http://localhost:11434", aborter.getOllamaBaseUrl());
+    }
+
+    @Test
+    void reset_clears_generation_state() {
+        TaskAborter aborter = new TaskAborter();
+        aborter.markGenerationStart();
+        aborter.abort();
+        assertTrue(aborter.isAborted());
+        aborter.reset();
+        assertFalse(aborter.isAborted());
+        assertFalse(aborter.isGenerationInProgress());
+    }
+
+    @Test
+    void abort_without_ollama_url_does_not_throw() {
+        TaskAborter aborter = new TaskAborter();
+        aborter.markGenerationStart();
+        assertDoesNotThrow(() -> aborter.abort());
+    }
 }

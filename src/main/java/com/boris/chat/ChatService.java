@@ -57,6 +57,9 @@ public class ChatService {
         this.thinkingEnabled = thinkingEnabled;
         this.thinkingMode = thinkingMode;
         this.modelName = modelName;
+        if (taskAborter != null && modelName != null) {
+            taskAborter.setActiveModel(modelName);
+        }
     }
 
     public String sendMessage(String userMessage) {
@@ -137,7 +140,17 @@ public class ChatService {
             }
         } catch (Exception e) {
             ThinkContextHolder.clearAll();
-            if (taskAborter.isAborted()) {
+            if (taskAborter != null && taskAborter.isAborted()) {
+                if (onComplete != null) {
+                    onComplete.run();
+                }
+                return;
+            }
+            if (Thread.currentThread().isInterrupted()) {
+                Thread.currentThread().interrupt();
+                if (onComplete != null) {
+                    onComplete.run();
+                }
                 return;
             }
             throw new com.boris.exceptions.BorisException("Chat error", e);
@@ -152,10 +165,21 @@ public class ChatService {
     private ChatTurn callSpringAiOnce(ChatClient client, String fullMessage, String effectiveThink) {
         ThinkContextHolder.setThinkMode(effectiveThink);
         ThinkContextHolder.clearLastThinking();
+        Thread currentThread = Thread.currentThread();
+        if (taskAborter != null) {
+            taskAborter.markGenerationStart();
+            taskAborter.startTask(currentThread);
+        }
         try {
+            if (taskAborter != null && taskAborter.isAborted()) {
+                return new ChatTurn("", null);
+            }
             String response = client.prompt(fullMessage)
                     .options(buildSpringAiOptions(effectiveThink))
                     .call().content();
+            if (taskAborter != null && taskAborter.isAborted()) {
+                return new ChatTurn("", null);
+            }
             String thinkingContent = ThinkContextHolder.getLastThinking();
             if ((thinkingContent == null || thinkingContent.isBlank()) && thinkingEnabled) {
                 thinkingContent = extractThinkingContent(response);
@@ -168,7 +192,16 @@ public class ChatService {
                 this.lastThinkingContent = thinkingContent;
             }
             return new ChatTurn(finalResponse, thinkingContent);
+        } catch (Exception e) {
+            if (taskAborter != null && taskAborter.isAborted()) {
+                return new ChatTurn("", null);
+            }
+            throw e;
         } finally {
+            if (taskAborter != null) {
+                taskAborter.unregisterTask(currentThread);
+                taskAborter.markGenerationEnd();
+            }
             ThinkContextHolder.clearThinkMode();
         }
     }
