@@ -15,6 +15,10 @@ public class ThinkingSpinner {
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicLong messageStartTime = new AtomicLong(0);
 
+    public boolean isRunning() {
+        return running.get();
+    }
+
     public ThinkingSpinner(StatusBar statusBar, TokenCounter tokenCounter, AtomicBoolean waiting, AtomicBoolean wasAborted) {
         this(statusBar, tokenCounter, waiting, wasAborted, () -> true);
     }

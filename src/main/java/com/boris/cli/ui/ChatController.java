@@ -111,7 +111,9 @@ public class ChatController implements InputArea.InputListener {
         ToolResultNotifier.addTokenListener(usage -> {
             tokenCounter.addInputTokens(usage.inputTokens());
             tokenCounter.addOutputTokens(usage.outputTokens());
-            statusBar.showTokenStatus(tokenCounter);
+            if (!spinner.isRunning()) {
+                statusBar.showTokenStatus(tokenCounter);
+            }
         });
     }
 
@@ -137,7 +139,6 @@ public class ChatController implements InputArea.InputListener {
                             assistantBuffer.append(chunk);
                         }
                         tokenCounter.addOutputTokens(chunk);
-                        statusBar.showTokenStatus(tokenCounter);
                         if (firstChunk.compareAndSet(true, false)) {
                             transcript.appendAssistantPrefix();
                         }

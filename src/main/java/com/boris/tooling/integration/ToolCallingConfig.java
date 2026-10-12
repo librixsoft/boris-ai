@@ -31,6 +31,7 @@ import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebFetchTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
+import com.boris.tooling.ToolCallLimiter;
 import com.boris.tooling.ToolProgressNotifier;
 import com.boris.tooling.ToolResultNotifier;
 import com.boris.tooling.quality.QualityIteratorHolder;
@@ -297,9 +298,12 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "web_search",
-            description = "Search the web using Google/Bing/DuckDuckGo via Playwright. Returns titles, URLs, and snippets with no API key required.")
+            description = "Search the web using Google/Bing/DuckDuckGo via Playwright. Returns titles, URLs, and snippets with no API key required. Limited to avoid infinite loops.")
     public String web_search(@ToolParam(description = "Search query string") String query,
                              @ToolParam(description = "Number of results to return (1-10, default 5)") Integer count) {
+        if (!ToolCallLimiter.incrementAndCheck()) {
+            return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLimitMessage() + "\"}";
+        }
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("query", query);
         if (count != null) args.put("count", count);
@@ -310,10 +314,13 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "web_fetch",
-            description = "Fetch and extract content from a specific URL. Ideal for reading documentation, articles, or any webpage. Can extract text, code blocks, or specific sections.")
+            description = "Fetch and extract content from a specific URL. Ideal for reading documentation, articles, or any webpage. Can extract text, code blocks, or specific sections. Limited to avoid infinite loops.")
     public String web_fetch(@ToolParam(description = "URL to fetch content from") String url,
                             @ToolParam(description = "Optional CSS selector to extract specific content (e.g., 'article', '.content', '#readme')") String selector,
                             @ToolParam(description = "If true, extract code blocks from the page (useful for documentation)") Boolean extract_code) {
+        if (!ToolCallLimiter.incrementAndCheck()) {
+            return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLimitMessage() + "\"}";
+        }
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("url", url);
         if (selector != null) args.put("selector", selector);

@@ -12,6 +12,7 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 
 import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.llm.think.ThinkContextHolder;
+import com.boris.tooling.ToolCallLimiter;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 import com.boris.task.TaskAborter;
@@ -69,6 +70,7 @@ public class ChatService {
         if ("q".equals(lower) || "exit".equals(lower)) {
             return EXIT_COMMAND;
         }
+        ToolCallLimiter.reset();
         ChatClient client = getActiveClient();
         try {
             String fullMessage = buildPromptWithHistory(userMessage);
@@ -108,6 +110,7 @@ public class ChatService {
         if ("q".equals(lower) || "exit".equals(lower)) {
             return;
         }
+        ToolCallLimiter.reset();
         ChatClient client = getActiveClient();
         String effectiveThink = thinkingEnabled ? resolveThinkMode() : null;
         try {
