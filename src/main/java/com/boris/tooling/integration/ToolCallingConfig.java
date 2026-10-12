@@ -33,6 +33,9 @@ import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebFetchTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
+import com.boris.tooling.parallel.BatchReadFileTool;
+import com.boris.tooling.parallel.BatchEditTool;
+import com.boris.tooling.parallel.ParallelSearchTool;
 import com.boris.tooling.ToolCallLimiter;
 import com.boris.tooling.ToolProgressNotifier;
 import com.boris.tooling.ToolResultNotifier;
@@ -82,6 +85,11 @@ public class ToolCallingConfig {
     private final GitHubRepoSearchTool gitHubRepoSearchTool;
     private final GitHubApiSearchTool gitHubApiSearchTool;
     private final Settings settings;
+    
+    // Batch & Parallel tools
+    private final BatchReadFileTool batchReadFileTool;
+    private final BatchEditTool batchEditTool;
+    private final ParallelSearchTool parallelSearchTool;
 
     public ToolCallingConfig(ReadFileTool readFileTool,
                             WriteTool writeTool,
@@ -113,6 +121,11 @@ public class ToolCallingConfig {
         this.gitHubRepoSearchTool = gitHubRepoSearchTool;
         this.gitHubApiSearchTool = gitHubApiSearchTool;
         this.settings = settings;
+        
+        // Initialize batch and parallel tools
+        this.batchReadFileTool = new BatchReadFileTool();
+        this.batchEditTool = new BatchEditTool();
+        this.parallelSearchTool = new ParallelSearchTool();
     }
 
     public static String loadSystemPrompt(Settings settings) {
@@ -207,6 +220,11 @@ public class ToolCallingConfig {
         return (org.springframework.ai.chat.model.ChatModel) method.invoke(client);
     }
 
+    @SuppressWarnings("unchecked")
+    private static java.util.Map<String, Object> castToMap(Object o) {
+        return (java.util.Map<String, Object>) o;
+    }
+
     @Tool(
             name = "read_file",
             description = "Read the contents of a file at the given path. Returns the file content as a string.")
@@ -280,7 +298,10 @@ public class ToolCallingConfig {
         for (var edit : edits) {
             inputBuilder.append("\n").append(edit.get("old_text")).append("\n").append(edit.get("new_text"));
         }
-        String result = EditTool.multi_edit(Map.of("path", path, "edits", edits));
+        java.util.Map<String, Object> multiEditParams = new java.util.LinkedHashMap<>();
+        multiEditParams.put("path", path);
+        multiEditParams.put("edits", edits);
+        String result = EditTool.multi_edit(multiEditParams);
         notifyToolTokens("multi_edit", inputBuilder.toString(), result);
         return result;
     }
@@ -505,6 +526,62 @@ public class ToolCallingConfig {
         if (max_results != null) args.put("max_results", max_results);
         String result = GitHubApiSearchTool.execute(args);
         notifyToolTokens("github_api_search", (search_type != null ? search_type + " " : "") + query, result);
+        return result;
+    }
+
+    // ========== Batch & Parallel OS Tools ==========
+
+    @Tool(
+            name = "batch_read_files",
+            description = "Read multiple files concurrently from disk in a single call. Much faster than reading files one by one. Use this when inspecting multiple files, dependencies, or tests.")
+    public String batch_read_files(
+            @ToolParam(description = "List of absolute or relative file paths to read") java.util.List<String> paths,
+            @ToolParam(description = "Optional maximum lines to read per file (default: all)") Integer max_lines_per_file) {
+        ToolProgressNotifier.notify("batch_read_files", "Leyendo " + (paths != null ? paths.size() : 0) + " archivos en paralelo...");
+        String result = batchReadFileTool.execute(paths, max_lines_per_file);
+        String pathsStr = (paths != null && !paths.isEmpty()) ? String.join(", ", paths) : "empty";
+        notifyToolTokens("batch_read_files", pathsStr, result);
+        return result;
+    }
+
+    @Tool(
+            name = "batch_apply_edits",
+            description = "Apply surgical edits across multiple files in parallel. Much faster than applying edits one by one. Use this when modifying multiple files simultaneously.")
+    @SuppressWarnings("unchecked")
+    public String batch_apply_edits(
+            @ToolParam(description = "List of edit specifications. Each must have: path, old_text, new_text") java.util.List<java.util.Map<String, Object>> edits) {
+        ToolProgressNotifier.notify("batch_apply_edits", "Aplicando " + (edits != null ? edits.size() : 0) + " ediciones en paralelo...");
+        
+        // Cast from generic Object to proper Map type for iteration
+        java.util.List<?> rawEdits = (java.util.List<?>) (edits != null ? edits : new java.util.ArrayList<>());
+        java.util.List<BatchEditTool.FileEditSpec> specs = new java.util.ArrayList<>();
+        for (Object rawEdit : rawEdits) {
+            java.util.Map<String, Object> edit = (java.util.Map<String, Object>) rawEdit;
+            String path = edit != null ? (String) edit.get("path") : null;
+            String oldText = edit != null ? (String) edit.get("old_text") : null;
+            String newText = edit != null ? (String) edit.get("new_text") : null;
+            String content = edit != null ? (String) edit.get("content") : null;
+            boolean doDelete = edit != null && "true".equals(edit.get("do_delete"));
+            specs.add(new BatchEditTool.FileEditSpec(path, oldText, newText, doDelete, content));
+        }
+        
+        String result = batchEditTool.execute(specs);
+        String inputSummary = specs.stream().map(s -> s.path()).collect(java.util.stream.Collectors.joining(", "));
+        notifyToolTokens("batch_apply_edits", inputSummary, result);
+        return result;
+    }
+
+    @Tool(
+            name = "parallel_search",
+            description = "High-speed multi-threaded text search across the entire workspace. Much faster than listing files and searching individually.")
+    public String parallel_search(
+            @ToolParam(description = "Search query or pattern to find") String query,
+            @ToolParam(description = "File extension filter (e.g., '*.java', '*.ts'). Default: all files") String file_pattern,
+            @ToolParam(description = "Maximum results to return (default: 100)") Integer max_results,
+            @ToolParam(description = "Base directory to search in (default: current directory)") String base_path) {
+        ToolProgressNotifier.notify("parallel_search", "Buscando: " + query);
+        String result = parallelSearchTool.execute(query, file_pattern, max_results, base_path);
+        notifyToolTokens("parallel_search", query, result);
         return result;
     }
 }

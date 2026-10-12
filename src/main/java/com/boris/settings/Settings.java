@@ -17,6 +17,12 @@ public class Settings {
     private Boolean thinkingEnabled;
     private String thinkingMode;
     private Map<String, Object> options;
+    
+    // Parallel OS Execution settings
+    private Boolean parallelOsExecution;
+    private Integer maxConcurrentIoThreads;
+    private Integer maxConcurrentCommandExecutions;
+    private Long ioTimeoutMs;
 
     public Settings() {}
 
@@ -56,6 +62,19 @@ public class Settings {
 
     public Map<String, Object> getOptions() { return options; }
     public void setOptions(Map<String, Object> options) { this.options = options; }
+
+    // Parallel OS Execution accessors
+    public Boolean getParallelOsExecution() { return parallelOsExecution; }
+    public void setParallelOsExecution(Boolean parallelOsExecution) { this.parallelOsExecution = parallelOsExecution; }
+    
+    public Integer getMaxConcurrentIoThreads() { return maxConcurrentIoThreads; }
+    public void setMaxConcurrentIoThreads(Integer maxConcurrentIoThreads) { this.maxConcurrentIoThreads = maxConcurrentIoThreads; }
+    
+    public Integer getMaxConcurrentCommandExecutions() { return maxConcurrentCommandExecutions; }
+    public void setMaxConcurrentCommandExecutions(Integer maxConcurrentCommandExecutions) { this.maxConcurrentCommandExecutions = maxConcurrentCommandExecutions; }
+    
+    public Long getIoTimeoutMs() { return ioTimeoutMs; }
+    public void setIoTimeoutMs(Long ioTimeoutMs) { this.ioTimeoutMs = ioTimeoutMs; }
 
     @JsonIgnore
     public String getReasoningEffort() {
