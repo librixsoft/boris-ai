@@ -23,6 +23,7 @@ import com.boris.settings.SettingsManager;
 import com.boris.tooling.tool.DeleteTool;
 import com.boris.tooling.tool.EditTool;
 import com.boris.tooling.tool.ExecuteCommandTool;
+import com.boris.tooling.tool.GitHubApiSearchTool;
 import com.boris.tooling.tool.GitHubRepoSearchTool;
 import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.tool.OfficeDocumentTool;
@@ -79,6 +80,7 @@ public class ToolCallingConfig {
     private final ExecuteCommandTool executeCommandTool;
     private final TaskPlannerTool taskPlannerTool;
     private final GitHubRepoSearchTool gitHubRepoSearchTool;
+    private final GitHubApiSearchTool gitHubApiSearchTool;
     private final Settings settings;
 
     public ToolCallingConfig(ReadFileTool readFileTool,
@@ -94,6 +96,7 @@ public class ToolCallingConfig {
                             ExecuteCommandTool executeCommandTool,
                             TaskPlannerTool taskPlannerTool,
                             GitHubRepoSearchTool gitHubRepoSearchTool,
+                            GitHubApiSearchTool gitHubApiSearchTool,
                             Settings settings) {
         this.readFileTool = readFileTool;
         this.writeTool = writeTool;
@@ -108,6 +111,7 @@ public class ToolCallingConfig {
         this.executeCommandTool = executeCommandTool;
         this.taskPlannerTool = taskPlannerTool;
         this.gitHubRepoSearchTool = gitHubRepoSearchTool;
+        this.gitHubApiSearchTool = gitHubApiSearchTool;
         this.settings = settings;
     }
 
@@ -189,6 +193,7 @@ public class ToolCallingConfig {
                 new ExecuteCommandTool(),
                 new TaskPlannerTool(),
                 new GitHubRepoSearchTool(),
+                new GitHubApiSearchTool(),
                 settings
         );
     }
@@ -449,11 +454,11 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "github_repo_search",
-            description = "Search code in a GitHub repository by cloning it temporarily. Use this to find implementations, components, or examples in external repos. IMPORTANT: Use this instead of searching in Maven JARs (~/.m2) - always search the source repository.")
+            description = "Search code in a GitHub repository by cloning it temporarily. Supports specialized modes: 'docs' (find README, CONTRIBUTING, docs/), 'examples' (find sample code), 'config' (detect project type and find config files). Uses caching - same repo won't be re-cloned within 30 minutes.")
     public String github_repo_search(
             @ToolParam(description = "GitHub repository URL or owner/repo format (e.g., 'angular/angular' or 'https://github.com/angular/angular')") String repo,
             @ToolParam(description = "Search query: text to find in file content or filename pattern") String query,
-            @ToolParam(description = "Search type: 'content' (grep), 'filename' (find by name), or 'structure' (list tree). Default: content") String search_type,
+            @ToolParam(description = "Search type: 'content' (grep), 'filename' (find by name), 'structure' (list tree), 'docs' (documentation files), 'examples' (sample code), 'config' (project config files). Default: content") String search_type,
             @ToolParam(description = "File extension filter (e.g., '*.java', '*.ts'). Default: all files") String file_pattern,
             @ToolParam(description = "Subdirectory to search in (e.g., 'src/main'). Default: entire repo") String path,
             @ToolParam(description = "Branch to clone. Default: default branch") String branch,
@@ -474,6 +479,32 @@ public class ToolCallingConfig {
         if (show_content != null) args.put("show_content", show_content);
         String result = GitHubRepoSearchTool.execute(args);
         notifyToolTokens("github_repo_search", repo + " " + (query != null ? query : ""), result);
+        return result;
+    }
+
+    // ========== GitHub API Search (No Clone Required) ==========
+
+    @Tool(
+            name = "github_api_search",
+            description = "Search GitHub via API without cloning. Use this FIRST for documentation lookup, finding repos, searching code patterns, or getting README content. Faster than github_repo_search for initial exploration.")
+    public String github_api_search(
+            @ToolParam(description = "Search type: 'repos' (find repositories), 'code' (search code), 'readme' (get README), 'issues' (search issues/PRs), 'files' (list repo files), 'file_content' (get file)") String search_type,
+            @ToolParam(description = "Search query or repo (owner/repo for readme/files/file_content, keywords for repos/code/issues)") String query,
+            @ToolParam(description = "For 'file_content': path to file. For 'files': subdirectory to list") String path,
+            @ToolParam(description = "Filter by programming language (e.g., 'java', 'typescript')") String language,
+            @ToolParam(description = "Maximum results (1-30). Default: 10") Integer max_results) {
+        if (!ToolCallLimiter.incrementAndCheck()) {
+            return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLimitMessage() + "\"}";
+        }
+        ToolProgressNotifier.notify("github_api_search", "Consultando GitHub API...");
+        Map<String, Object> args = new java.util.LinkedHashMap<>();
+        if (search_type != null) args.put("search_type", search_type);
+        args.put("query", query);
+        if (path != null) args.put("path", path);
+        if (language != null) args.put("language", language);
+        if (max_results != null) args.put("max_results", max_results);
+        String result = GitHubApiSearchTool.execute(args);
+        notifyToolTokens("github_api_search", (search_type != null ? search_type + " " : "") + query, result);
         return result;
     }
 }

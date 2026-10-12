@@ -16,6 +16,7 @@ import com.boris.task.TaskAborter;
 import com.boris.tooling.tool.DeleteTool;
 import com.boris.tooling.tool.EditTool;
 import com.boris.tooling.tool.ExecuteCommandTool;
+import com.boris.tooling.tool.GitHubApiSearchTool;
 import com.boris.tooling.tool.GitHubRepoSearchTool;
 import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.tool.OfficeDocumentTool;
@@ -145,6 +146,11 @@ public class TestConfiguration {
     }
 
     @Bean
+    public GitHubApiSearchTool gitHubApiSearchTool() {
+        return new GitHubApiSearchTool();
+    }
+
+    @Bean
     @Primary
     public ToolCallingConfig toolCallingConfig(ReadFileTool readFileTool,
                                                WriteTool writeTool,
@@ -159,6 +165,7 @@ public class TestConfiguration {
                                                ExecuteCommandTool executeCommandTool,
                                                TaskPlannerTool taskPlannerTool,
                                                GitHubRepoSearchTool gitHubRepoSearchTool,
+                                               GitHubApiSearchTool gitHubApiSearchTool,
                                                Settings settings) {
         return new ToolCallingConfig(
                 readFileTool,
@@ -174,6 +181,7 @@ public class TestConfiguration {
                 executeCommandTool,
                 taskPlannerTool,
                 gitHubRepoSearchTool,
+                gitHubApiSearchTool,
                 settings
         );
     }
