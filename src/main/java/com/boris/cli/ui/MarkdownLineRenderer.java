@@ -12,6 +12,7 @@ public class MarkdownLineRenderer {
 
     private static final String[] OPEN_TAGS = {"<think>", "<thought>", "<thinking>", "<reasoning>"};
     private static final String[] CLOSE_TAGS = {"</think>", "</thought>", "</thinking>", "</reasoning>"};
+    private static final String CODE_FENCE = "```";
 
     public static class TextSegment {
         private final String text;
@@ -69,6 +70,19 @@ public class MarkdownLineRenderer {
             }
         }
         return 0;
+    }
+
+    public static boolean isCodeFence(String line) {
+        if (line == null) return false;
+        String trimmed = line.trim();
+        return trimmed.startsWith(CODE_FENCE);
+    }
+
+    public static boolean updateCodeBlockState(String line, boolean currentlyInCodeBlock) {
+        if (isCodeFence(line)) {
+            return !currentlyInCodeBlock;
+        }
+        return currentlyInCodeBlock;
     }
 
     public static boolean updateThinkingState(String line, boolean currentlyInThinking) {
@@ -166,16 +180,20 @@ public class MarkdownLineRenderer {
     }
 
     public void render(TextGUIGraphics graphics, String line, int row, int contentWidth) {
-        render(graphics, line, row, contentWidth, false, true);
+        render(graphics, line, row, contentWidth, false, true, false);
     }
 
     public void render(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean inThinking) {
-        render(graphics, line, row, contentWidth, inThinking, true);
+        render(graphics, line, row, contentWidth, inThinking, true, false);
+    }
+
+    public void render(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean inThinking, boolean thinkingEnabled) {
+        render(graphics, line, row, contentWidth, inThinking, thinkingEnabled, false);
     }
 
     private static final java.util.regex.Pattern QUEUED_PATTERN = java.util.regex.Pattern.compile("<queued:#(\\d+)>");
 
-    public void render(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean inThinking, boolean thinkingEnabled) {
+    public void render(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean inThinking, boolean thinkingEnabled, boolean inCodeBlock) {
         if (line == null) {
             line = "";
         }
@@ -186,6 +204,11 @@ public class MarkdownLineRenderer {
             graphics.setBackgroundColor(UiTheme.BG);
             graphics.setForegroundColor(UiTheme.QUEUED);
             graphics.putString(0, row, padOrTruncate(displayLine, contentWidth));
+            return;
+        }
+
+        if (inCodeBlock && !isCodeFence(line)) {
+            renderCodeLine(graphics, line, row, contentWidth, inThinking);
             return;
         }
 
@@ -645,6 +668,34 @@ public class MarkdownLineRenderer {
         }
 
         List<SyntaxHighlighter.SyntaxToken> tokens = SyntaxHighlighter.tokenizeLine(code);
+        for (SyntaxHighlighter.SyntaxToken token : tokens) {
+            if (x >= contentWidth) break;
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : token.color());
+            String tokenText = token.text();
+            int spaceLeft = contentWidth - x;
+            if (tokenText.length() > spaceLeft) {
+                tokenText = tokenText.substring(0, spaceLeft);
+            }
+            graphics.putString(x, row, tokenText);
+            x += tokenText.length();
+        }
+
+        if (x < contentWidth) {
+            graphics.putString(x, row, padOrTruncate("", contentWidth - x));
+        }
+    }
+
+    private void renderCodeLine(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean isThinking) {
+        graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
+
+        int availableWidth = contentWidth;
+        String code = line;
+        if (code.length() > availableWidth) {
+            code = RenderUtils.truncateWithEllipsis(code, availableWidth);
+        }
+
+        List<SyntaxHighlighter.SyntaxToken> tokens = SyntaxHighlighter.tokenizeLine(code);
+        int x = 0;
         for (SyntaxHighlighter.SyntaxToken token : tokens) {
             if (x >= contentWidth) break;
             graphics.setForegroundColor(isThinking ? UiTheme.THINKING : token.color());

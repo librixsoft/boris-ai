@@ -72,8 +72,11 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
         List<Integer> columnWidths = new ArrayList<>();
 
         boolean inThinking = false;
+        boolean inCodeBlock = false;
         for (int lineIdx = 0; lineIdx < component.getScrollOffset() && lineIdx < component.getLineCount(); lineIdx++) {
-            inThinking = MarkdownLineRenderer.updateThinkingState(component.getLine(lineIdx), inThinking);
+            String lineText = component.getLine(lineIdx);
+            inThinking = MarkdownLineRenderer.updateThinkingState(lineText, inThinking);
+            inCodeBlock = MarkdownLineRenderer.updateCodeBlockState(lineText, inCodeBlock);
         }
 
         boolean thinkingEnabled = component.isThinkingEnabled();
@@ -109,11 +112,12 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
                 if (isToolDetailLine(line)) {
                     renderToolDetailLine(graphics, line, i, contentWidth);
                 } else {
-                    markdownLineRenderer.render(graphics, line, i, contentWidth, inThinking, thinkingEnabled);
+                    markdownLineRenderer.render(graphics, line, i, contentWidth, inThinking, thinkingEnabled, inCodeBlock);
                 }
             }
 
             inThinking = MarkdownLineRenderer.updateThinkingState(line, inThinking);
+            inCodeBlock = MarkdownLineRenderer.updateCodeBlockState(line, inCodeBlock);
         }
 
         for (int i = component.getLineCount() - component.getScrollOffset(); i < visibleRows; i++) {
