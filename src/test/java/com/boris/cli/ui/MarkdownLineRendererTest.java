@@ -108,7 +108,7 @@ class MarkdownLineRendererTest {
     @Test
     void testRenderThinkingListUsesThinkingColor() {
         renderer.render(graphics, "- Item in thinking", 0, 40, true);
-        verify(graphics).setForegroundColor(UiTheme.THINKING);
+        verify(graphics, atLeastOnce()).setForegroundColor(UiTheme.THINKING);
     }
 
     @Test

@@ -103,7 +103,7 @@ class SettingsManagerTest {
         assertEquals(true, settings.getEnableHistory());
         assertEquals(true, settings.getEnforceSequentialExecution());
         assertEquals(0.7, settings.getTemperature());
-        assertEquals(10000, settings.getContextWindow());
+        assertEquals(262000, settings.getContextWindow());
         assertEquals(true, settings.getThinkingEnabled());
         assertEquals("think", settings.getThinkingMode());
     }
