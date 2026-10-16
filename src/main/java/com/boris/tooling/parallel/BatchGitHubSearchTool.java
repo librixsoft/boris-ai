@@ -1,4 +1,4 @@
-package com.boris.tooling.tool;
+package com.boris.tooling.parallel;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -6,127 +6,136 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.boris.tooling.ToolDefinition;
+import com.boris.task.TaskAborter;
 import com.boris.tooling.ToolProgressNotifier;
 
 /**
- * Search GitHub using the REST API without cloning repositories.
+ * Batch GitHub API search tool using PARALLEL queries with Virtual Threads.
+ * Executes multiple GitHub API queries simultaneously.
  *
- * Use this tool when you need to:
- * - Find repositories by keywords or topics
- * - Search code across GitHub without cloning
- * - Find issues/PRs with solutions to problems
- * - Get README content quickly
- * - Explore repository structure via API
- *
- * Fast GitHub exploration via API without cloning
- * since it doesn't require cloning the entire repository.
+ * Features:
+ * - Parallel execution of multiple queries
+ * - Single query works exactly like old GitHubApiSearchTool
+ * - Supports repos, code, readme, issues, files, file_content
+ * - Rate limit aware
+ * - Progress notifications to UI
  */
-public class GitHubApiSearchTool {
+public class BatchGitHubSearchTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String GITHUB_API = "https://api.github.com";
     private static final int TIMEOUT_MS = 15000;
+    private static final int PARALLEL_TIMEOUT_MS = 30000;
     private static final int MAX_CONTENT_LENGTH = 50000;
 
-    public static ToolDefinition github_api_search() {
-        var searchTypeProp = Map.of(
-            "type", "string",
-            "description", "Search type: 'repos' (find repositories), 'code' (search code across GitHub), " +
-                          "'readme' (get repo README), 'issues' (search issues/PRs), 'files' (list repo files), " +
-                          "'file_content' (get specific file content). Default: repos"
-        );
-        var queryProp = Map.of(
-            "type", "string",
-            "description", "Search query. For 'repos': keywords/topics. For 'code': code pattern + optional qualifiers " +
-                          "(e.g., 'HttpClient language:java'). For 'issues': problem description. For 'readme/files/file_content': owner/repo format"
-        );
-        var pathProp = Map.of(
-            "type", "string",
-            "description", "For 'file_content': path to the file within the repo. For 'files': subdirectory to list (optional)"
-        );
-        var languageProp = Map.of(
-            "type", "string",
-            "description", "Filter by programming language (e.g., 'java', 'typescript', 'python')"
-        );
-        var maxResultsProp = Map.of(
-            "type", "integer",
-            "description", "Maximum results to return (1-30). Default: 10"
-        );
+    public record SearchSpec(String searchType, String query, String path, String language, Integer maxResults) {}
+    public record SearchResult(String searchType, String query, boolean success, ObjectNode data, String error) {}
 
-        var properties = new LinkedHashMap<String, Object>();
-        properties.put("search_type", searchTypeProp);
-        properties.put("query", queryProp);
-        properties.put("path", pathProp);
-        properties.put("language", languageProp);
-        properties.put("max_results", maxResultsProp);
-
-        var schema = new LinkedHashMap<String, Object>();
-        schema.put("type", "object");
-        schema.put("properties", properties);
-        schema.put("required", List.of("query"));
-
-        return ToolDefinition.of(
-            "github_api_search",
-            "Search GitHub via API without cloning. Find repos, search code, get README, search issues/PRs, or fetch file contents. " +
-            "Fast exploration and documentation lookup via GitHub API.",
-            schema
-        );
-    }
-
-    public static String execute(Map<String, Object> args) {
-        GitHubApiSearchTool tool = new GitHubApiSearchTool();
-        return tool.search(args);
-    }
-
-    String search(Map<String, Object> args) {
-        String searchType = (String) args.getOrDefault("search_type", "repos");
-        String query = (String) args.get("query");
-        String path = (String) args.getOrDefault("path", null);
-        String language = (String) args.getOrDefault("language", null);
-        Integer maxResults = args.get("max_results") != null ?
-            ((Number) args.get("max_results")).intValue() : 10;
-
-        if (query == null || query.isBlank()) {
-            return formatError("query is required");
+    public String execute(List<SearchSpec> specs, TaskAborter aborter) {
+        if (specs == null || specs.isEmpty()) {
+            return formatError("queries list is empty");
         }
 
-        maxResults = Math.max(1, Math.min(30, maxResults));
+        List<SearchSpec> validSpecs = specs.stream()
+            .filter(s -> s.query() != null && !s.query().isBlank())
+            .toList();
+
+        if (validSpecs.isEmpty()) {
+            return formatError("no valid queries provided");
+        }
+
+        int totalQueries = validSpecs.size();
+
+        if (totalQueries == 1) {
+            SearchSpec spec = validSpecs.get(0);
+            String type = spec.searchType() != null ? spec.searchType() : "repos";
+            ToolProgressNotifier.notify("github_api_search", "Consultando GitHub: " + type + " - " + spec.query());
+        } else {
+            ToolProgressNotifier.notify("github_api_search", "Ejecutando " + totalQueries + " consultas GitHub en paralelo...");
+        }
+
+        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+        List<Future<SearchResult>> futures = new ArrayList<>();
 
         try {
-            switch (searchType.toLowerCase()) {
-                case "repos":
-                    return searchRepositories(query, language, maxResults);
-                case "code":
-                    return searchCode(query, language, maxResults);
-                case "readme":
-                    return getReadme(query);
-                case "issues":
-                    return searchIssues(query, language, maxResults);
-                case "files":
-                    return listFiles(query, path);
-                case "file_content":
-                    return getFileContent(query, path);
-                default:
-                    return formatError("Unknown search_type: " + searchType + ". Use: repos, code, readme, issues, files, file_content");
+            for (SearchSpec spec : validSpecs) {
+                futures.add(executor.submit(() -> executeSearch(spec, aborter)));
             }
-        } catch (Exception e) {
-            return formatError("API request failed: " + e.getMessage());
+
+            List<SearchResult> results = new ArrayList<>();
+            int successCount = 0;
+            int failCount = 0;
+
+            for (Future<SearchResult> future : futures) {
+                try {
+                    SearchResult result = future.get(PARALLEL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                    results.add(result);
+                    if (result.success()) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                } catch (Exception e) {
+                    results.add(new SearchResult("unknown", "unknown", false, null, "Query timed out or failed: " + e.getMessage()));
+                    failCount++;
+                }
+            }
+
+            if (totalQueries == 1) {
+                return formatSingleResult(results.get(0));
+            } else {
+                ToolProgressNotifier.notify("github_api_search", "Completado: " + successCount + " exitosas, " + failCount + " fallidas");
+                return formatBatchResults(results, successCount, failCount);
+            }
+        } finally {
+            executor.shutdown();
         }
     }
 
-    private String searchRepositories(String query, String language, int maxResults) throws Exception {
-        ToolProgressNotifier.notify("github_api_search", "Buscando repositorios: " + query);
+    public String execute(List<SearchSpec> specs) {
+        return execute(specs, null);
+    }
 
+    private SearchResult executeSearch(SearchSpec spec, TaskAborter aborter) {
+        if (aborter != null && aborter.isAborted()) {
+            return new SearchResult(spec.searchType(), spec.query(), false, null, "Aborted");
+        }
+
+        String searchType = spec.searchType() != null ? spec.searchType() : "repos";
+        String query = spec.query();
+        String path = spec.path();
+        String language = spec.language();
+        int maxResults = spec.maxResults() != null ? Math.max(1, Math.min(30, spec.maxResults())) : 10;
+
+        try {
+            ObjectNode data = switch (searchType.toLowerCase()) {
+                case "repos" -> searchRepositories(query, language, maxResults);
+                case "code" -> searchCode(query, language, maxResults);
+                case "readme" -> getReadme(query);
+                case "issues" -> searchIssues(query, language, maxResults);
+                case "files" -> listFiles(query, path);
+                case "file_content" -> getFileContent(query, path);
+                default -> throw new RuntimeException("Unknown search_type: " + searchType);
+            };
+            return new SearchResult(searchType, query, true, data, null);
+        } catch (Exception e) {
+            return new SearchResult(searchType, query, false, null, e.getMessage());
+        }
+    }
+
+    private ObjectNode searchRepositories(String query, String language, int maxResults) throws Exception {
         StringBuilder urlBuilder = new StringBuilder(GITHUB_API + "/search/repositories?q=");
         urlBuilder.append(URLEncoder.encode(query, StandardCharsets.UTF_8));
         if (language != null && !language.isBlank()) {
@@ -138,7 +147,6 @@ public class GitHubApiSearchTool {
         JsonNode response = makeRequest(urlBuilder.toString());
 
         ObjectNode result = MAPPER.createObjectNode();
-        result.put("success", true);
         result.put("search_type", "repos");
         result.put("query", query);
         result.put("total_count", response.path("total_count").asInt(0));
@@ -159,13 +167,10 @@ public class GitHubApiSearchTool {
             }
         }
 
-        result.putNull("error");
-        return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(result);
+        return result;
     }
 
-    private String searchCode(String query, String language, int maxResults) throws Exception {
-        ToolProgressNotifier.notify("github_api_search", "Buscando código: " + query);
-
+    private ObjectNode searchCode(String query, String language, int maxResults) throws Exception {
         StringBuilder urlBuilder = new StringBuilder(GITHUB_API + "/search/code?q=");
         urlBuilder.append(URLEncoder.encode(query, StandardCharsets.UTF_8));
         if (language != null && !language.isBlank()) {
@@ -176,7 +181,6 @@ public class GitHubApiSearchTool {
         JsonNode response = makeRequest(urlBuilder.toString());
 
         ObjectNode result = MAPPER.createObjectNode();
-        result.put("success", true);
         result.put("search_type", "code");
         result.put("query", query);
         result.put("total_count", response.path("total_count").asInt(0));
@@ -189,7 +193,6 @@ public class GitHubApiSearchTool {
             code.put("repo", item.path("repository").path("full_name").asText());
             code.put("url", item.path("html_url").asText());
 
-            // Include text matches if available
             ArrayNode matches = code.putArray("matches");
             for (JsonNode match : item.path("text_matches")) {
                 ObjectNode m = matches.addObject();
@@ -197,25 +200,20 @@ public class GitHubApiSearchTool {
             }
         }
 
-        result.putNull("error");
-        return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(result);
+        return result;
     }
 
-    private String getReadme(String repo) throws Exception {
+    private ObjectNode getReadme(String repo) throws Exception {
         repo = normalizeRepo(repo);
-        ToolProgressNotifier.notify("github_api_search", "Obteniendo README de: " + repo);
-
         String url = GITHUB_API + "/repos/" + repo + "/readme";
         JsonNode response = makeRequest(url);
 
         ObjectNode result = MAPPER.createObjectNode();
-        result.put("success", true);
         result.put("search_type", "readme");
         result.put("repo", repo);
 
         String content = response.path("content").asText("");
         if (!content.isEmpty()) {
-            // GitHub returns base64 encoded content
             byte[] decoded = Base64.getMimeDecoder().decode(content);
             String readmeContent = new String(decoded, StandardCharsets.UTF_8);
 
@@ -228,13 +226,10 @@ public class GitHubApiSearchTool {
             result.put("content", "");
         }
 
-        result.putNull("error");
-        return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(result);
+        return result;
     }
 
-    private String searchIssues(String query, String language, int maxResults) throws Exception {
-        ToolProgressNotifier.notify("github_api_search", "Buscando issues/PRs: " + query);
-
+    private ObjectNode searchIssues(String query, String language, int maxResults) throws Exception {
         StringBuilder urlBuilder = new StringBuilder(GITHUB_API + "/search/issues?q=");
         urlBuilder.append(URLEncoder.encode(query, StandardCharsets.UTF_8));
         if (language != null && !language.isBlank()) {
@@ -246,7 +241,6 @@ public class GitHubApiSearchTool {
         JsonNode response = makeRequest(urlBuilder.toString());
 
         ObjectNode result = MAPPER.createObjectNode();
-        result.put("success", true);
         result.put("search_type", "issues");
         result.put("query", query);
         result.put("total_count", response.path("total_count").asInt(0));
@@ -274,14 +268,11 @@ public class GitHubApiSearchTool {
             }
         }
 
-        result.putNull("error");
-        return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(result);
+        return result;
     }
 
-    private String listFiles(String repo, String path) throws Exception {
+    private ObjectNode listFiles(String repo, String path) throws Exception {
         repo = normalizeRepo(repo);
-        ToolProgressNotifier.notify("github_api_search", "Listando archivos de: " + repo);
-
         String url = GITHUB_API + "/repos/" + repo + "/contents";
         if (path != null && !path.isBlank()) {
             url += "/" + path;
@@ -290,7 +281,6 @@ public class GitHubApiSearchTool {
         JsonNode response = makeRequest(url);
 
         ObjectNode result = MAPPER.createObjectNode();
-        result.put("success", true);
         result.put("search_type", "files");
         result.put("repo", repo);
         result.put("path", path != null ? path : "/");
@@ -306,23 +296,19 @@ public class GitHubApiSearchTool {
             }
         }
 
-        result.putNull("error");
-        return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(result);
+        return result;
     }
 
-    private String getFileContent(String repo, String path) throws Exception {
+    private ObjectNode getFileContent(String repo, String path) throws Exception {
         repo = normalizeRepo(repo);
         if (path == null || path.isBlank()) {
-            return formatError("path is required for file_content search type");
+            throw new RuntimeException("path is required for file_content search type");
         }
-
-        ToolProgressNotifier.notify("github_api_search", "Obteniendo: " + repo + "/" + path);
 
         String url = GITHUB_API + "/repos/" + repo + "/contents/" + path;
         JsonNode response = makeRequest(url);
 
         ObjectNode result = MAPPER.createObjectNode();
-        result.put("success", true);
         result.put("search_type", "file_content");
         result.put("repo", repo);
         result.put("path", path);
@@ -341,18 +327,15 @@ public class GitHubApiSearchTool {
         }
 
         result.put("size", response.path("size").asInt());
-        result.putNull("error");
-        return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(result);
+        return result;
     }
 
     private JsonNode makeRequest(String urlString) throws Exception {
         URL url = new URL(urlString);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
-        conn.setRequestProperty("Accept", "application/vnd.github.v3+json");
-        conn.setRequestProperty("User-Agent", "Boris-AI-Agent");
-        // Request text matches for code search
         conn.setRequestProperty("Accept", "application/vnd.github.text-match+json");
+        conn.setRequestProperty("User-Agent", "Boris-AI-Agent");
         conn.setConnectTimeout(TIMEOUT_MS);
         conn.setReadTimeout(TIMEOUT_MS);
 
@@ -391,11 +374,9 @@ public class GitHubApiSearchTool {
     private String normalizeRepo(String repo) {
         if (repo == null) return "";
         repo = repo.trim();
-        // Remove GitHub URL prefix if present
         repo = repo.replaceFirst("^https?://github\\.com/", "");
         repo = repo.replaceFirst("^git@github\\.com:", "");
         repo = repo.replaceFirst("\\.git$", "");
-        // Remove trailing slash
         repo = repo.replaceFirst("/$", "");
         return repo;
     }
@@ -405,16 +386,68 @@ public class GitHubApiSearchTool {
         return repoUrl.replaceFirst("^https://api\\.github\\.com/repos/", "");
     }
 
+    private String formatSingleResult(SearchResult result) {
+        try {
+            ObjectNode node = MAPPER.createObjectNode();
+            node.put("success", result.success());
+            node.put("search_type", result.searchType());
+            node.put("query", result.query());
+
+            if (result.success() && result.data() != null) {
+                node.setAll(result.data());
+            }
+
+            if (result.error() != null) {
+                node.put("error", result.error());
+            } else {
+                node.putNull("error");
+            }
+
+            return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(node);
+        } catch (Exception e) {
+            throw new com.boris.exceptions.BorisException("Failed to format output", e);
+        }
+    }
+
+    private String formatBatchResults(List<SearchResult> results, int successCount, int failCount) {
+        try {
+            ObjectNode root = MAPPER.createObjectNode();
+            root.put("totalQueries", results.size());
+            root.put("successfulQueries", successCount);
+            root.put("failedQueries", failCount);
+
+            ArrayNode queriesArray = root.putArray("results");
+            for (SearchResult r : results) {
+                ObjectNode item = queriesArray.addObject();
+                item.put("search_type", r.searchType());
+                item.put("query", r.query());
+                item.put("success", r.success());
+
+                if (r.success() && r.data() != null) {
+                    item.set("data", r.data());
+                } else {
+                    item.put("error", r.error());
+                }
+            }
+
+            return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root);
+        } catch (Exception e) {
+            throw new com.boris.exceptions.BorisException("Failed to format output", e);
+        }
+    }
+
     private String formatError(String message) {
         try {
             ObjectNode node = MAPPER.createObjectNode();
             node.put("success", false);
-            node.put("search_type", "");
-            node.put("query", "");
             node.put("error", message);
-            return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(node);
+            return MAPPER.writeValueAsString(node);
         } catch (Exception e) {
             return "{\"success\":false,\"error\":\"" + message + "\"}";
         }
+    }
+
+    public void shutdown() {
+        // No persistent executor to shut down
     }
 }

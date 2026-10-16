@@ -1,43 +1,52 @@
-package com.boris.tooling.tool;
+package com.boris.tooling.parallel;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.microsoft.playwright.*;
-import com.boris.tooling.ToolDefinition;
+import com.microsoft.playwright.options.LoadState;
+import com.boris.task.TaskAborter;
 import com.boris.tooling.ToolProgressNotifier;
 
 /**
- * Fetch and extract content from a specific URL using Playwright.
- * Can extract text content, code blocks, or raw HTML from any webpage.
+ * Batch web fetch tool using Playwright with PARALLEL URL fetching.
+ * Fetches multiple URLs simultaneously using Virtual Threads.
  *
  * Features:
- * - Direct URL navigation
- * - Code block extraction (for documentation pages)
- * - Main content extraction (removes navigation, ads, etc.)
+ * - Parallel fetching of multiple URLs
+ * - Single URL works exactly like old WebFetchTool
+ * - Code block extraction for documentation
+ * - Main content extraction with smart selectors
  * - GitHub README support
  * - Progress notifications to UI
  */
-public class WebFetchTool {
+public class BatchWebFetchTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final Properties PROPERTIES = loadProperties();
     private static final boolean HEADLESS = Boolean.parseBoolean(PROPERTIES.getProperty("web.fetch.headless", "true"));
     private static final int TIMEOUT_MS = Integer.parseInt(PROPERTIES.getProperty("web.fetch.timeout.ms", "30000"));
     private static final int MAX_CONTENT_LENGTH = Integer.parseInt(PROPERTIES.getProperty("web.fetch.max.content.length", "50000"));
+    private static final int PARALLEL_TIMEOUT_MS = 45000;
+
+    public record FetchSpec(String url, String selector, boolean extractCode) {}
+    public record FetchResult(String url, boolean success, String title, String content, String error) {}
 
     private static Properties loadProperties() {
         Properties props = new Properties();
-        try (InputStream input = WebFetchTool.class.getClassLoader().getResourceAsStream("test.properties")) {
+        try (InputStream input = BatchWebFetchTool.class.getClassLoader().getResourceAsStream("test.properties")) {
             if (input != null) {
                 props.load(input);
             }
@@ -47,38 +56,22 @@ public class WebFetchTool {
         return props;
     }
 
-    public static ToolDefinition web_fetch() {
-        var urlProp = Map.of("type", "string", "description", "URL to fetch content from");
-        var selectorProp = Map.of("type", "string", "description", "Optional CSS selector to extract specific content (e.g., 'article', '.content', '#readme')");
-        var extractCodeProp = Map.of("type", "boolean", "description", "If true, extract code blocks from the page (useful for documentation)");
-        var properties = new LinkedHashMap<String, Object>();
-        properties.put("url", urlProp);
-        properties.put("selector", selectorProp);
-        properties.put("extract_code", extractCodeProp);
-        var schema = new LinkedHashMap<String, Object>();
-        schema.put("type", "object");
-        schema.put("properties", properties);
-        return ToolDefinition.of(
-                "web_fetch",
-                "Fetch and extract content from a URL. Can extract text, code blocks, or specific sections from documentation pages.",
-                schema);
-    }
-
-    public static String execute(Map<String, Object> args) {
-        WebFetchTool tool = new WebFetchTool();
-        return tool.fetch(args);
-    }
-
-    String fetch(Map<String, Object> args) {
-        String url = (String) args.get("url");
-        String selector = (String) args.getOrDefault("selector", null);
-        Boolean extractCode = (Boolean) args.getOrDefault("extract_code", false);
-
-        if (url == null || url.isBlank()) {
-            return formatError("url is required");
+    public String execute(List<FetchSpec> specs, TaskAborter aborter) {
+        if (specs == null || specs.isEmpty()) {
+            return formatError("urls list is empty");
         }
 
-        ToolProgressNotifier.notify("web_fetch", "Navegando a: " + url);
+        List<FetchSpec> uniqueSpecs = specs.stream().distinct().toList();
+        int totalUrls = uniqueSpecs.size();
+
+        if (totalUrls == 1) {
+            ToolProgressNotifier.notify("web_fetch", "Navegando a: " + uniqueSpecs.get(0).url());
+        } else {
+            ToolProgressNotifier.notify("web_fetch", "Fetching " + totalUrls + " URLs en paralelo...");
+        }
+
+        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+        List<Future<FetchResult>> futures = new ArrayList<>();
 
         try (Playwright playwright = Playwright.create()) {
             Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
@@ -88,47 +81,88 @@ public class WebFetchTool {
             BrowserContext context = browser.newContext(new Browser.NewContextOptions()
                 .setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"));
 
-            Page page = context.newPage();
-
             try {
-                ToolProgressNotifier.notify("web_fetch", "Cargando página...");
-                page.navigate(url, new Page.NavigateOptions().setTimeout(TIMEOUT_MS));
+                for (FetchSpec spec : uniqueSpecs) {
+                    Page page = context.newPage();
+                    futures.add(executor.submit(() -> fetchUrl(page, spec, aborter)));
+                }
 
-                // Wait for page to stabilize
-                page.waitForLoadState(com.microsoft.playwright.options.LoadState.DOMCONTENTLOADED);
-                page.waitForTimeout(1000);
+                List<FetchResult> results = new ArrayList<>();
+                int successCount = 0;
+                int failCount = 0;
 
-                String content;
-                String title = page.title();
+                for (Future<FetchResult> future : futures) {
+                    try {
+                        FetchResult result = future.get(PARALLEL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                        results.add(result);
+                        if (result.success()) {
+                            successCount++;
+                        } else {
+                            failCount++;
+                        }
+                    } catch (Exception e) {
+                        results.add(new FetchResult("unknown", false, "", "", "Fetch timed out or failed: " + e.getMessage()));
+                        failCount++;
+                    }
+                }
 
-                if (extractCode != null && extractCode) {
-                    ToolProgressNotifier.notify("web_fetch", "Extrayendo bloques de código...");
-                    content = extractCodeBlocks(page);
-                } else if (selector != null && !selector.isBlank()) {
-                    ToolProgressNotifier.notify("web_fetch", "Extrayendo contenido con selector: " + selector);
-                    content = extractWithSelector(page, selector);
+                if (totalUrls == 1) {
+                    FetchResult single = results.get(0);
+                    if (single.success()) {
+                        ToolProgressNotifier.notify("web_fetch", "Contenido extraído (" + single.content().length() + " caracteres)");
+                    }
+                    return formatSingleResult(single);
                 } else {
-                    ToolProgressNotifier.notify("web_fetch", "Extrayendo contenido principal...");
-                    content = extractMainContent(page, url);
+                    ToolProgressNotifier.notify("web_fetch", "Completado: " + successCount + " exitosos, " + failCount + " fallidos");
+                    return formatBatchResults(results, successCount, failCount);
                 }
-
-                if (content == null || content.isBlank()) {
-                    return formatError("No se pudo extraer contenido de la página");
-                }
-
-                // Truncate if too long
-                if (content.length() > MAX_CONTENT_LENGTH) {
-                    content = content.substring(0, MAX_CONTENT_LENGTH) + "\n\n[... contenido truncado ...]";
-                }
-
-                ToolProgressNotifier.notify("web_fetch", "Contenido extraído (" + content.length() + " caracteres)");
-                return formatSuccess(url, title, content);
             } finally {
                 browser.close();
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return formatError("Error al obtener URL: " + e.getMessage());
+            return formatError("Error en fetch: " + e.getMessage());
+        } finally {
+            executor.shutdown();
+        }
+    }
+
+    public String execute(List<FetchSpec> specs) {
+        return execute(specs, null);
+    }
+
+    private FetchResult fetchUrl(Page page, FetchSpec spec, TaskAborter aborter) {
+        if (aborter != null && aborter.isAborted()) {
+            return new FetchResult(spec.url(), false, "", "", "Aborted");
+        }
+
+        try {
+            page.navigate(spec.url(), new Page.NavigateOptions().setTimeout(TIMEOUT_MS));
+            page.waitForLoadState(LoadState.DOMCONTENTLOADED);
+            page.waitForTimeout(1000);
+
+            String title = page.title();
+            String content;
+
+            if (spec.extractCode()) {
+                content = extractCodeBlocks(page);
+            } else if (spec.selector() != null && !spec.selector().isBlank()) {
+                content = extractWithSelector(page, spec.selector());
+            } else {
+                content = extractMainContent(page, spec.url());
+            }
+
+            if (content == null || content.isBlank()) {
+                return new FetchResult(spec.url(), false, title, "", "No se pudo extraer contenido");
+            }
+
+            if (content.length() > MAX_CONTENT_LENGTH) {
+                content = content.substring(0, MAX_CONTENT_LENGTH) + "\n\n[... contenido truncado ...]";
+            }
+
+            return new FetchResult(spec.url(), true, title, content, null);
+        } catch (Exception e) {
+            return new FetchResult(spec.url(), false, "", "", "Error: " + e.getMessage());
         }
     }
 
@@ -137,7 +171,6 @@ public class WebFetchTool {
             () => {
                 const codeBlocks = [];
 
-                // Pre tags (most common for code)
                 document.querySelectorAll('pre').forEach(pre => {
                     const code = pre.querySelector('code');
                     const text = code ? code.textContent : pre.textContent;
@@ -147,10 +180,9 @@ public class WebFetchTool {
                     }
                 });
 
-                // Standalone code tags not in pre
                 document.querySelectorAll('code:not(pre code)').forEach(code => {
                     const text = code.textContent;
-                    if (text && text.trim().length > 50) { // Only significant code blocks
+                    if (text && text.trim().length > 50) {
                         codeBlocks.push({lang: '', code: text.trim()});
                     }
                 });
@@ -174,15 +206,12 @@ public class WebFetchTool {
     }
 
     private String extractMainContent(Page page, String url) {
-        // Special handling for GitHub
         if (url.contains("github.com")) {
             return extractGitHubContent(page);
         }
 
-        // Generic content extraction
         Object result = page.evaluate("""
             () => {
-                // Priority selectors for main content
                 const selectors = [
                     'article',
                     'main',
@@ -204,7 +233,6 @@ public class WebFetchTool {
                     }
                 }
 
-                // Fallback: get body text removing nav, header, footer, sidebar
                 const body = document.body.cloneNode(true);
                 ['nav', 'header', 'footer', 'aside', '.sidebar', '.navigation', '.menu', '.ads', '.advertisement'].forEach(sel => {
                     body.querySelectorAll(sel).forEach(el => el.remove());
@@ -219,7 +247,6 @@ public class WebFetchTool {
     private String extractGitHubContent(Page page) {
         Object result = page.evaluate("""
             () => {
-                // README content
                 const readme = document.querySelector('#readme article') ||
                                document.querySelector('.markdown-body') ||
                                document.querySelector('[data-target="readme-toc.content"]');
@@ -227,14 +254,11 @@ public class WebFetchTool {
                     return readme.innerText || readme.textContent;
                 }
 
-                // Repository description
                 const about = document.querySelector('.f4.my-3');
                 const description = about ? about.textContent.trim() : '';
 
-                // Topics
                 const topics = Array.from(document.querySelectorAll('.topic-tag')).map(t => t.textContent.trim()).join(', ');
 
-                // File listing (for repos without README visible)
                 const files = Array.from(document.querySelectorAll('.js-navigation-item .content a')).map(a => a.textContent.trim()).slice(0, 20);
 
                 let content = '';
@@ -250,24 +274,51 @@ public class WebFetchTool {
 
     private String cleanText(String text) {
         if (text == null) return "";
-
-        // Remove excessive whitespace
         text = text.replaceAll("\\s*\\n\\s*\\n\\s*\\n+", "\n\n");
         text = text.replaceAll("[ \\t]+", " ");
         text = text.trim();
-
         return text;
     }
 
-    private String formatSuccess(String url, String title, String content) {
+    private String formatSingleResult(FetchResult result) {
         try {
             ObjectNode node = MAPPER.createObjectNode();
-            node.put("success", true);
-            node.put("url", url);
-            node.put("title", title != null ? title : "");
-            node.put("content", content);
-            node.putNull("error");
+            node.put("success", result.success());
+            node.put("url", result.url());
+            node.put("title", result.title() != null ? result.title() : "");
+            node.put("content", result.content());
+            if (result.error() != null) {
+                node.put("error", result.error());
+            } else {
+                node.putNull("error");
+            }
             return MAPPER.writeValueAsString(node);
+        } catch (Exception e) {
+            throw new com.boris.exceptions.BorisException("Failed to format output", e);
+        }
+    }
+
+    private String formatBatchResults(List<FetchResult> results, int successCount, int failCount) {
+        try {
+            ObjectNode root = MAPPER.createObjectNode();
+            root.put("totalUrls", results.size());
+            root.put("successfulFetches", successCount);
+            root.put("failedFetches", failCount);
+
+            ArrayNode urlsArray = root.putArray("results");
+            for (FetchResult r : results) {
+                ObjectNode item = urlsArray.addObject();
+                item.put("url", r.url());
+                item.put("success", r.success());
+                item.put("title", r.title() != null ? r.title() : "");
+                if (r.success()) {
+                    item.put("content", r.content());
+                } else {
+                    item.put("error", r.error());
+                }
+            }
+
+            return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root);
         } catch (Exception e) {
             throw new com.boris.exceptions.BorisException("Failed to format output", e);
         }
@@ -277,13 +328,14 @@ public class WebFetchTool {
         try {
             ObjectNode node = MAPPER.createObjectNode();
             node.put("success", false);
-            node.put("url", "");
-            node.put("title", "");
-            node.put("content", "");
             node.put("error", message);
             return MAPPER.writeValueAsString(node);
         } catch (Exception e) {
             throw new com.boris.exceptions.BorisException("Failed to format output", e);
         }
+    }
+
+    public void shutdown() {
+        // No persistent executor to shut down
     }
 }

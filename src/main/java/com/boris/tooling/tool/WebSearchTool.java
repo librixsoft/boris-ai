@@ -9,6 +9,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -17,12 +22,13 @@ import com.boris.tooling.ToolDefinition;
 import com.boris.tooling.ToolProgressNotifier;
 
 /**
- * Web search using Playwright with multiple search engines.
- * Tries Google first, falls back to Bing, then DuckDuckGo.
+ * Web search using Playwright with PARALLEL search across multiple engines.
+ * Searches Google, Bing, and DuckDuckGo simultaneously using Virtual Threads.
  *
  * Features:
  * - No API key required
- * - Multiple search engine fallback
+ * - Parallel search across 3 engines (fastest response wins)
+ * - Merges and deduplicates results from all engines
  * - Progress notifications to UI
  * - Returns titles, URLs, and snippets
  */
@@ -35,6 +41,7 @@ public class WebSearchTool {
     private static final int MAX_COUNT = Integer.parseInt(PROPERTIES.getProperty("web.search.max.count", "10"));
     private static final int TIMEOUT_MS = Integer.parseInt(PROPERTIES.getProperty("web.search.timeout.ms", "20000"));
     private static final int WAIT_TIMEOUT_MS = Integer.parseInt(PROPERTIES.getProperty("web.search.wait.timeout.ms", "3000"));
+    private static final int PARALLEL_TIMEOUT_MS = 25000;
 
     private static Properties loadProperties() {
         Properties props = new Properties();
@@ -59,7 +66,7 @@ public class WebSearchTool {
         schema.put("properties", properties);
         return ToolDefinition.of(
                 "web_search",
-                "Search the web using Google/Bing/DuckDuckGo via Playwright. Returns titles, URLs, and snippets.",
+                "Search the web using Google/Bing/DuckDuckGo in PARALLEL via Playwright. Returns titles, URLs, and snippets.",
                 schema);
     }
 
@@ -75,7 +82,11 @@ public class WebSearchTool {
             return formatError("query is required");
         }
 
-        ToolProgressNotifier.notify("web_search", "Iniciando búsqueda: " + query);
+        int count = resolveCount(args);
+        ToolProgressNotifier.notify("web_search", "Buscando en paralelo (Google + Bing + DuckDuckGo): " + query);
+
+        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+        List<Future<EngineResult>> futures = new ArrayList<>();
 
         try (Playwright playwright = Playwright.create()) {
             Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
@@ -86,35 +97,72 @@ public class WebSearchTool {
                 .setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                 .setLocale("es-ES"));
 
-            Page page = context.newPage();
-
             try {
-                int count = resolveCount(args);
-                List<Map<String, String>> results = null;
+                Page googlePage = context.newPage();
+                Page bingPage = context.newPage();
+                Page duckPage = context.newPage();
 
-                // Try Google first
-                ToolProgressNotifier.notify("web_search", "Buscando en Google...");
-                results = searchViaGoogle(page, query, count);
+                futures.add(executor.submit(() -> {
+                    try {
+                        List<Map<String, String>> results = searchViaGoogle(googlePage, query, count);
+                        return new EngineResult("Google", results);
+                    } catch (Exception e) {
+                        return new EngineResult("Google", null);
+                    }
+                }));
 
-                // Fallback to Bing
-                if (results == null || results.isEmpty()) {
-                    ToolProgressNotifier.notify("web_search", "Google sin resultados. Probando Bing...");
-                    results = searchViaBing(page, query, count);
+                futures.add(executor.submit(() -> {
+                    try {
+                        List<Map<String, String>> results = searchViaBing(bingPage, query, count);
+                        return new EngineResult("Bing", results);
+                    } catch (Exception e) {
+                        return new EngineResult("Bing", null);
+                    }
+                }));
+
+                futures.add(executor.submit(() -> {
+                    try {
+                        List<Map<String, String>> results = searchViaDuckDuckGo(duckPage, query, count);
+                        return new EngineResult("DuckDuckGo", results);
+                    } catch (Exception e) {
+                        return new EngineResult("DuckDuckGo", null);
+                    }
+                }));
+
+                List<Map<String, String>> allResults = new ArrayList<>();
+                java.util.Set<String> seenUrls = new java.util.HashSet<>();
+                List<String> successfulEngines = new ArrayList<>();
+
+                for (Future<EngineResult> future : futures) {
+                    try {
+                        EngineResult result = future.get(PARALLEL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                        if (result.results != null && !result.results.isEmpty()) {
+                            successfulEngines.add(result.engine);
+                            for (Map<String, String> item : result.results) {
+                                String url = item.get("url");
+                                if (url != null && !seenUrls.contains(url)) {
+                                    seenUrls.add(url);
+                                    allResults.add(item);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Engine failed or timed out, continue with others
+                    }
                 }
 
-                // Fallback to DuckDuckGo
-                if (results == null || results.isEmpty()) {
-                    ToolProgressNotifier.notify("web_search", "Bing sin resultados. Probando DuckDuckGo...");
-                    results = searchViaDuckDuckGo(page, query, count);
-                }
-
-                if (results == null || results.isEmpty()) {
+                if (allResults.isEmpty()) {
                     ToolProgressNotifier.notify("web_search", "No se encontraron resultados en ningún buscador");
                     return formatError("No se encontraron resultados para: " + query);
                 }
 
-                ToolProgressNotifier.notify("web_search", "Encontrados " + results.size() + " resultados");
-                return formatSuccess(query, results);
+                if (allResults.size() > count) {
+                    allResults = allResults.subList(0, count);
+                }
+
+                String enginesUsed = String.join(" + ", successfulEngines);
+                ToolProgressNotifier.notify("web_search", "Encontrados " + allResults.size() + " resultados (" + enginesUsed + ")");
+                return formatSuccess(query, allResults, enginesUsed);
             } finally {
                 browser.close();
             }
@@ -122,8 +170,12 @@ public class WebSearchTool {
             e.printStackTrace();
             ToolProgressNotifier.notify("web_search", "Error: " + e.getMessage());
             return formatError("Error en búsqueda: " + e.getMessage());
+        } finally {
+            executor.shutdown();
         }
     }
+
+    private record EngineResult(String engine, List<Map<String, String>> results) {}
 
     private List<Map<String, String>> searchViaGoogle(Page page, String query, int count) {
         try {
@@ -133,7 +185,6 @@ public class WebSearchTool {
             page.navigate(url, new Page.NavigateOptions().setTimeout(TIMEOUT_MS));
             page.waitForTimeout(WAIT_TIMEOUT_MS);
 
-            // Check for consent dialog and accept
             try {
                 Locator consentButton = page.locator("button:has-text('Accept'), button:has-text('Aceptar'), button:has-text('I agree')");
                 if (consentButton.count() > 0) {
@@ -146,7 +197,6 @@ public class WebSearchTool {
                 () => {
                     const results = [];
 
-                    // Main search results
                     document.querySelectorAll('div.g, div[data-sokoban-container]').forEach(item => {
                         const linkEl = item.querySelector('a[href^="http"]');
                         const titleEl = item.querySelector('h3');
@@ -154,7 +204,6 @@ public class WebSearchTool {
 
                         if (linkEl && titleEl) {
                             const url = linkEl.href;
-                            // Filter out Google's own pages
                             if (!url.includes('google.com/search') && !url.includes('accounts.google')) {
                                 results.push({
                                     title: titleEl.textContent || '',
@@ -225,7 +274,6 @@ public class WebSearchTool {
 
                         if (linkEl && linkEl.href) {
                             let url = linkEl.href;
-                            // DuckDuckGo uses redirect URLs
                             if (url.includes('duckduckgo.com/l/')) {
                                 const match = url.match(/uddg=([^&]+)/);
                                 if (match) {
@@ -280,11 +328,12 @@ public class WebSearchTool {
         return DEFAULT_COUNT;
     }
 
-    private String formatSuccess(String query, List<Map<String, String>> results) {
+    private String formatSuccess(String query, List<Map<String, String>> results, String enginesUsed) {
         try {
             ObjectNode node = MAPPER.createObjectNode();
             node.put("success", true);
             node.put("query", query);
+            node.put("engines", enginesUsed);
             ArrayNode array = node.putArray("results");
             for (Map<String, String> r : results) {
                 ObjectNode obj = array.addObject();

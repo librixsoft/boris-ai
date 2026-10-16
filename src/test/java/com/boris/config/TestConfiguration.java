@@ -15,16 +15,18 @@ import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
 import com.boris.tooling.tool.DeleteTool;
 import com.boris.tooling.tool.EditTool;
-import com.boris.tooling.tool.ExecuteCommandTool;
-import com.boris.tooling.tool.GitHubApiSearchTool;
-import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
-
 import com.boris.tooling.tool.SystemInfoTool;
-import com.boris.tooling.tool.WebFetchTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
+import com.boris.tooling.parallel.BatchReadFileTool;
+import com.boris.tooling.parallel.BatchEditTool;
+import com.boris.tooling.parallel.BatchWebFetchTool;
+import com.boris.tooling.parallel.BatchExecuteCommandTool;
+import com.boris.tooling.parallel.BatchListDirectoriesTool;
+import com.boris.tooling.parallel.BatchGitHubSearchTool;
+import com.boris.tooling.parallel.ParallelSearchTool;
 import com.boris.task.decomposition.TaskPlannerTool;
 import com.boris.tooling.integration.ToolCallingConfig;
 
@@ -79,7 +81,6 @@ public class TestConfiguration {
         return new TaskAborter();
     }
 
-
     @Bean
     public WriteTool writeTool() {
         return new WriteTool();
@@ -88,11 +89,6 @@ public class TestConfiguration {
     @Bean
     public DeleteTool deleteTool() {
         return new DeleteTool();
-    }
-
-    @Bean
-    public ListFilesTool listFilesTool() {
-        return new ListFilesTool();
     }
 
     @Bean
@@ -111,11 +107,6 @@ public class TestConfiguration {
     }
 
     @Bean
-    public WebFetchTool webFetchTool() {
-        return new WebFetchTool();
-    }
-
-    @Bean
     public PdfGenerationTool pdfGenerationTool() {
         return new PdfGenerationTool();
     }
@@ -126,18 +117,44 @@ public class TestConfiguration {
     }
 
     @Bean
-    public ExecuteCommandTool executeCommandTool() {
-        return new ExecuteCommandTool();
-    }
-
-    @Bean
     public TaskPlannerTool taskPlannerTool() {
         return new TaskPlannerTool();
     }
 
+    // Parallel tools
     @Bean
-    public GitHubApiSearchTool gitHubApiSearchTool() {
-        return new GitHubApiSearchTool();
+    public BatchReadFileTool batchReadFileTool() {
+        return new BatchReadFileTool();
+    }
+
+    @Bean
+    public BatchEditTool batchEditTool() {
+        return new BatchEditTool();
+    }
+
+    @Bean
+    public BatchWebFetchTool batchWebFetchTool() {
+        return new BatchWebFetchTool();
+    }
+
+    @Bean
+    public BatchExecuteCommandTool batchExecuteCommandTool() {
+        return new BatchExecuteCommandTool();
+    }
+
+    @Bean
+    public BatchListDirectoriesTool batchListDirectoriesTool() {
+        return new BatchListDirectoriesTool();
+    }
+
+    @Bean
+    public BatchGitHubSearchTool batchGitHubSearchTool() {
+        return new BatchGitHubSearchTool();
+    }
+
+    @Bean
+    public ParallelSearchTool parallelSearchTool() {
+        return new ParallelSearchTool();
     }
 
     @Bean
@@ -145,30 +162,20 @@ public class TestConfiguration {
     public ToolCallingConfig toolCallingConfig(
                                                WriteTool writeTool,
                                                DeleteTool deleteTool,
-                                               ListFilesTool listFilesTool,
                                                EditTool editTool,
                                                SystemInfoTool systemInfoTool,
-                                               WebSearchTool webSearchTool,
-                                               WebFetchTool webFetchTool,
                                                PdfGenerationTool pdfGenerationTool,
                                                OfficeDocumentTool officeDocumentTool,
-                                               ExecuteCommandTool executeCommandTool,
                                                TaskPlannerTool taskPlannerTool,
-                                               GitHubApiSearchTool gitHubApiSearchTool,
                                                Settings settings) {
         return new ToolCallingConfig(
                 writeTool,
                 deleteTool,
-                listFilesTool,
                 editTool,
                 systemInfoTool,
-                webSearchTool,
-                webFetchTool,
                 pdfGenerationTool,
                 officeDocumentTool,
-                executeCommandTool,
                 taskPlannerTool,
-                gitHubApiSearchTool,
                 settings
         );
     }

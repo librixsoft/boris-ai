@@ -94,11 +94,12 @@ class ToolCallingConfigTest {
                 .orElseThrow();
 
         assertEquals("execute_command", execCb.getToolDefinition().name());
-        String result = execCb.call("{\"command\":\"echo test\"}");
+        String result = execCb.call("{\"command\":\"echo hello_world\"}");
 
         assertNotNull(result);
-        assertTrue(result.contains("success"));
-        assertTrue(result.contains("test"));
+        assertTrue(result.contains("success") && result.contains("true"),
+            "Expected success in result: " + result);
+        assertTrue(result.contains("hello_world"), "Expected command output in result: " + result);
     }
 
 }
