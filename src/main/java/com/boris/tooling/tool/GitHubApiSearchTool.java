@@ -28,7 +28,7 @@ import com.boris.tooling.ToolProgressNotifier;
  * - Get README content quickly
  * - Explore repository structure via API
  *
- * This is faster than github_repo_search for initial exploration
+ * Fast GitHub exploration via API without cloning
  * since it doesn't require cloning the entire repository.
  */
 public class GitHubApiSearchTool {
@@ -78,7 +78,7 @@ public class GitHubApiSearchTool {
         return ToolDefinition.of(
             "github_api_search",
             "Search GitHub via API without cloning. Find repos, search code, get README, search issues/PRs, or fetch file contents. " +
-            "Faster than github_repo_search for exploration and documentation lookup.",
+            "Fast exploration and documentation lookup via GitHub API.",
             schema
         );
     }
@@ -371,7 +371,7 @@ public class GitHubApiSearchTool {
             reader.close();
 
             if (responseCode == 403) {
-                throw new RuntimeException("GitHub API rate limit exceeded. Try again later or use github_repo_search instead.");
+                throw new RuntimeException("GitHub API rate limit exceeded. Try again later.");
             } else if (responseCode == 404) {
                 throw new RuntimeException("Not found. Check repository name or path.");
             }
