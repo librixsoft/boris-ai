@@ -291,6 +291,17 @@ public class MarkdownLineRenderer {
             return;
         }
 
+        // Diff continuation lines (wrapped)
+        if (line.startsWith(TextWrap.DIFF_CONT_MARKER)) {
+            char symbol = line.length() > TextWrap.DIFF_CONT_MARKER.length()
+                ? line.charAt(TextWrap.DIFF_CONT_MARKER.length())
+                : '+';
+            boolean isAdd = symbol == '+';
+            String content = line.substring(TextWrap.DIFF_CONT_MARKER.length() + 1);
+            renderDiffContinuationLine(graphics, content, row, contentWidth, isThinking, isAdd);
+            return;
+        }
+
         if (line.startsWith("@@@") && line.endsWith("@@@")) {
             graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
             graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.DIFF_HEADER);
@@ -709,6 +720,36 @@ public class MarkdownLineRenderer {
         }
 
         if (x < contentWidth) {
+            graphics.putString(x, row, padOrTruncate("", contentWidth - x));
+        }
+    }
+
+    private void renderDiffContinuationLine(TextGUIGraphics graphics, String content, int row, int contentWidth, boolean isThinking, boolean isAdd) {
+        TextColor bgColor = isThinking ? UiTheme.BG : (isAdd ? UiTheme.DIFF_ADD_BG : UiTheme.DIFF_REMOVE_BG);
+        graphics.setBackgroundColor(bgColor);
+
+        String code = content;
+        if (code.length() > contentWidth) {
+            code = RenderUtils.truncateWithEllipsis(code, contentWidth);
+        }
+
+        List<SyntaxHighlighter.SyntaxToken> tokens = SyntaxHighlighter.tokenizeLine(code);
+        int x = 0;
+        for (SyntaxHighlighter.SyntaxToken token : tokens) {
+            if (x >= contentWidth) break;
+            TextColor fgColor = isThinking ? UiTheme.THINKING : token.color();
+            graphics.setForegroundColor(fgColor);
+            String tokenText = token.text();
+            int spaceLeft = contentWidth - x;
+            if (tokenText.length() > spaceLeft) {
+                tokenText = tokenText.substring(0, spaceLeft);
+            }
+            graphics.putString(x, row, tokenText);
+            x += tokenText.length();
+        }
+
+        if (x < contentWidth) {
+            graphics.setBackgroundColor(bgColor);
             graphics.putString(x, row, padOrTruncate("", contentWidth - x));
         }
     }
