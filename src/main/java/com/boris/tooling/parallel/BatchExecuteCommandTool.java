@@ -33,6 +33,20 @@ public class BatchExecuteCommandTool {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final long DEFAULT_TIMEOUT_SECONDS = 120;
 
+    /**
+     * Comandos prohibidos para evitar inspección de JARs.
+     * El modelo debe usar github_api_search para documentación, no JARs locales.
+     */
+    private static final List<String> BLOCKED_PATTERNS = List.of(
+        "jar tf ",      // listar contenido de JAR
+        "jar xf ",      // extraer JAR
+        "jar -tf ",     // listar con guión
+        "jar -xf ",     // extraer con guión
+        "javap ",       // decompilador de clases
+        "javap -",      // javap con flags
+        "unzip.*\\.jar" // extraer JAR con unzip
+    );
+
     public record CommandSpec(String command, String workingDirectory) {}
     public record CommandResult(String command, boolean success, int exitCode, String stdout, String stderr, String message) {}
 
@@ -81,6 +95,15 @@ public class BatchExecuteCommandTool {
     private CommandResult executeCommand(String command, String dirStr, TaskAborter aborter) {
         if (aborter != null && aborter.isAborted()) {
             return new CommandResult(command, false, -1, "", "", "Aborted");
+        }
+
+        // Verificar comandos prohibidos
+        String blockedReason = checkBlockedCommand(command);
+        if (blockedReason != null) {
+            ToolProgressNotifier.notify("execute_command", "BLOQUEADO: " + blockedReason);
+            return new CommandResult(command, false, -1, "", "",
+                "Error: Comando bloqueado. " + blockedReason +
+                " Usa github_api_search con search_type 'readme' o 'file_content' para documentación.");
         }
 
         File workingDir = null;
@@ -148,6 +171,30 @@ public class BatchExecuteCommandTool {
         } catch (IOException e) {
             return new CommandResult(command, false, -1, "", "", "Error: Failed to execute: " + e.getMessage());
         }
+    }
+
+    /**
+     * Verifica si un comando está en la lista de bloqueados.
+     * @return razón del bloqueo o null si está permitido
+     */
+    private String checkBlockedCommand(String command) {
+        if (command == null) return null;
+        String cmdLower = command.toLowerCase();
+
+        for (String pattern : BLOCKED_PATTERNS) {
+            if (pattern.contains(".*")) {
+                // Es un regex
+                if (cmdLower.matches(".*" + pattern + ".*")) {
+                    return "Inspección de JARs no permitida (patrón: " + pattern + ")";
+                }
+            } else {
+                // Es un string literal
+                if (cmdLower.contains(pattern.toLowerCase())) {
+                    return "Inspección de JARs no permitida (comando: " + pattern.trim() + ")";
+                }
+            }
+        }
+        return null;
     }
 
     private void readStream(java.io.InputStream inputStream, StringBuilder builder) {
