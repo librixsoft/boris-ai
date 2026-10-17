@@ -133,14 +133,20 @@ public class LineValidator {
         while (matcher.find()) {
             String className = matcher.group(1);
 
-            // Si es clase conocida del CONTEXT pero NO fue consultada, pedir que consulte primero
-            if (symbolCache.isKnownClass(className) && !SearchContextTool.wasConsulted(className)) {
+            // Solo validar clases de LIBRERÍA externa (no Java estándar ni clases locales)
+            if (!symbolCache.isLibraryClass(className)) {
+                continue; // Clase estándar o local, siempre OK
+            }
+
+            // Es clase de librería - verificar si fue consultada
+            if (!SearchContextTool.wasConsulted(className)) {
                 return Optional.of(ValidationResult.error(
                     "DEBES consultar la API antes de usar '" + className + "'",
                     List.of("Ejecuta: search_context('" + className + "') y luego reintenta")
                 ));
             }
 
+            // Verificar si existe en CONTEXT.md
             if (!symbolCache.isKnownClass(className)) {
                 List<String> similar = symbolCache.findSimilarClasses(className);
                 return Optional.of(ValidationResult.error(
@@ -156,6 +162,12 @@ public class LineValidator {
         Matcher matcher = EXTENDS_PATTERN.matcher(line);
         if (matcher.find()) {
             String className = matcher.group(1);
+
+            // Solo validar clases de librería externa
+            if (!symbolCache.isLibraryClass(className)) {
+                return Optional.of(ValidationResult.ok());
+            }
+
             if (!symbolCache.isKnownClass(className)) {
                 List<String> similar = symbolCache.findSimilarClasses(className);
                 return Optional.of(ValidationResult.error(
@@ -172,8 +184,13 @@ public class LineValidator {
         while (matcher.find()) {
             String className = matcher.group(1);
 
-            // Si es clase conocida del CONTEXT pero NO fue consultada
-            if (symbolCache.isKnownClass(className) && !SearchContextTool.wasConsulted(className)) {
+            // Solo validar clases de librería externa
+            if (!symbolCache.isLibraryClass(className)) {
+                continue; // Clase estándar o local, siempre OK
+            }
+
+            // Es clase de librería - verificar si fue consultada
+            if (!SearchContextTool.wasConsulted(className)) {
                 return Optional.of(ValidationResult.error(
                     "DEBES consultar la API antes de usar '" + className + "'",
                     List.of("Ejecuta: search_context('" + className + "') y luego reintenta")

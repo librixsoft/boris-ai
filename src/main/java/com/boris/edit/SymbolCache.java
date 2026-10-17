@@ -13,38 +13,16 @@ public class SymbolCache {
     private final Map<String, List<String>> classToConstructors = new HashMap<>();
     private final Set<String> knownClasses = new HashSet<>();
     private final Set<String> knownImports = new HashSet<>();
+    private final Set<String> libraryPackages = new HashSet<>();
 
-    private static final Set<String> STANDARD_CLASSES = Set.of(
-        "ArrayList", "HashMap", "HashSet", "LinkedList", "StringBuilder",
-        "String", "Integer", "Long", "Double", "Float", "Boolean",
-        "Thread", "Exception", "RuntimeException", "IOException",
-        "File", "Path", "Date", "Random", "Arrays", "Collections",
-        "List", "Map", "Set", "Queue", "Deque", "Optional",
-        "Properties", "System", "Math", "Object", "Class",
-        "Consumer", "Supplier", "Function", "Predicate", "Stream",
-        // java.text
-        "SimpleDateFormat", "DateFormat", "NumberFormat", "DecimalFormat",
-        // java.util.concurrent
-        "AtomicBoolean", "AtomicInteger", "AtomicLong", "AtomicReference",
-        "ConcurrentHashMap", "CopyOnWriteArrayList", "ExecutorService",
-        "Executors", "Future", "CompletableFuture", "CountDownLatch",
-        // java.io
-        "InputStream", "OutputStream", "Reader", "Writer",
-        "BufferedReader", "BufferedWriter", "FileReader", "FileWriter",
-        "PrintWriter", "StringReader", "StringWriter",
-        // java.nio
-        "ByteBuffer", "CharBuffer", "Paths", "Files",
-        // java.net
-        "URL", "URI", "Socket", "ServerSocket",
-        // java.time
-        "LocalDate", "LocalTime", "LocalDateTime", "Instant",
-        "Duration", "Period", "ZonedDateTime", "DateTimeFormatter",
-        // java.util.regex
-        "Pattern", "Matcher",
-        // Otros comunes
-        "StringBuffer", "Throwable", "Error",
-        "Comparable", "Comparator", "Iterator", "Iterable",
-        "Runnable", "Callable", "Timer", "TimerTask"
+    // Packages estándar que NUNCA se validan (cualquier lenguaje puede agregar los suyos)
+    private static final Set<String> STANDARD_PACKAGES = Set.of(
+        "java.", "javax.", "jdk.",           // Java
+        "kotlin.", "kotlinx.",               // Kotlin
+        "scala.",                            // Scala
+        "android.", "androidx.",             // Android
+        "org.junit.", "org.testng.",         // Testing
+        "org.slf4j.", "org.apache.logging."  // Logging
     );
 
     private static final Pattern CLASS_HEADER = Pattern.compile("###\\s*`([A-Z][\\w]+)`");
@@ -91,29 +69,72 @@ public class SymbolCache {
 
             Matcher importMatch = IMPORT_PATTERN.matcher(line);
             if (importMatch.find()) {
-                knownImports.add(importMatch.group(1));
+                String importPath = importMatch.group(1);
+                knownImports.add(importPath);
+                // Extraer package de librería externa (no estándar)
+                if (!isStandardPackage(importPath)) {
+                    int lastDot = importPath.lastIndexOf('.');
+                    if (lastDot > 0) {
+                        // Guardar package base (ej: com.googlecode.lanterna de com.googlecode.lanterna.gui2.Panel)
+                        String[] parts = importPath.split("\\.");
+                        if (parts.length >= 3) {
+                            libraryPackages.add(parts[0] + "." + parts[1] + "." + parts[2]);
+                        }
+                    }
+                }
             }
         }
     }
 
+    private boolean isStandardPackage(String importPath) {
+        for (String stdPkg : STANDARD_PACKAGES) {
+            if (importPath.startsWith(stdPkg)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Verifica si una clase es válida para usar.
+     * - Si es clase del CONTEXT.md (librería externa) → debe estar en knownClasses
+     * - Si NO es de librería externa → siempre OK (es clase local o estándar)
+     */
     public boolean isKnownClass(String className) {
-        if (STANDARD_CLASSES.contains(className)) {
+        // Si está en el CONTEXT.md, es válida
+        if (knownClasses.contains(className)) {
             return true;
         }
-        return knownClasses.contains(className);
+        // Si NO está en knownClasses, verificar si es de librería externa
+        // Si es de librería externa y no está en knownClasses → inválida
+        // Si NO es de librería externa → válida (clase local o estándar de Java)
+        return !isLibraryClass(className);
+    }
+
+    /**
+     * Verifica si una clase pertenece a una librería del CONTEXT.md
+     */
+    public boolean isLibraryClass(String className) {
+        // Buscar si hay un import de esta clase en las librerías conocidas
+        for (String imp : knownImports) {
+            if (imp.endsWith("." + className) && !isStandardPackage(imp)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean hasMethod(String className, String methodName) {
-        if (STANDARD_CLASSES.contains(className)) {
-            return true;
+        if (!isLibraryClass(className)) {
+            return true; // Clases no-librería siempre OK
         }
         Set<String> methods = classToMethods.get(className);
         return methods != null && methods.contains(methodName);
     }
 
     public boolean hasConstructor(String className) {
-        if (STANDARD_CLASSES.contains(className)) {
-            return true;
+        if (!isLibraryClass(className)) {
+            return true; // Clases no-librería siempre OK
         }
         return classToConstructors.containsKey(className);
     }
@@ -127,13 +148,16 @@ public class SymbolCache {
     }
 
     public Set<String> getAllKnownClasses() {
-        Set<String> all = new HashSet<>(STANDARD_CLASSES);
-        all.addAll(knownClasses);
-        return all;
+        return new HashSet<>(knownClasses);
+    }
+
+    public Set<String> getLibraryPackages() {
+        return new HashSet<>(libraryPackages);
     }
 
     public boolean isValidImport(String fullImportPath) {
-        if (fullImportPath.startsWith("java.") || fullImportPath.startsWith("javax.") || fullImportPath.startsWith("jdk.")) {
+        // Packages estándar siempre OK
+        if (isStandardPackage(fullImportPath)) {
             return true;
         }
         // Si no hay imports verificados, hacer fallback a verificar la clase
