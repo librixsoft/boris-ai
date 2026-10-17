@@ -197,14 +197,16 @@ public class InputArea extends Panel {
             return false;
         }
 
-        // Multiline newline insertion (Ctrl+Enter, Alt+Enter, Shift+Enter, Ctrl+J / LF '\n', or fast paste burst Enter)
-        boolean isExplicitCtrlEnter = (type == KeyType.Enter && (keyStroke.isCtrlDown() || keyStroke.isAltDown() || keyStroke.isShiftDown()))
+        // Multiline newline insertion (Ctrl+N, Ctrl+Enter, Alt+Enter, Shift+Enter, Ctrl+J / LF '\n', or fast paste burst Enter)
+        boolean isExplicitNewline = (type == KeyType.Character && keyStroke.isCtrlDown() && keyStroke.getCharacter() != null
+                        && (keyStroke.getCharacter() == 'n' || keyStroke.getCharacter() == 'N' || keyStroke.getCharacter() == 14))
+                || (type == KeyType.Enter && (keyStroke.isCtrlDown() || keyStroke.isAltDown() || keyStroke.isShiftDown()))
                 || (type == KeyType.Character && keyStroke.getCharacter() != null && keyStroke.getCharacter() == '\n')
                 || (type == KeyType.Character && keyStroke.isCtrlDown() && keyStroke.getCharacter() != null && (keyStroke.getCharacter() == 'j' || keyStroke.getCharacter() == 'J'));
 
         boolean isPasteBurstEnter = (type == KeyType.Enter && elapsed <= 25);
 
-        if (isExplicitCtrlEnter || isPasteBurstEnter) {
+        if (isExplicitNewline || isPasteBurstEnter) {
             insertTextAtCaret("\n");
             return false;
         }
