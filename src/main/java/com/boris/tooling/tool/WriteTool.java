@@ -43,6 +43,21 @@ public class WriteTool {
         }
 
         Path path = Paths.get(pathStr);
+
+        // Verificar contexto para archivos .java con imports externos
+        if (pathStr.endsWith(".java") && hasExternalImports(content)) {
+            Path projectRoot = findProjectRoot(path);
+            if (projectRoot != null) {
+                Path contextFile = projectRoot.resolve(".boris/CONTEXT.md");
+                if (!Files.exists(contextFile)) {
+                    return formatOutput(false,
+                        "BLOQUEADO: Antes de escribir codigo con bibliotecas externas, " +
+                        "debes crear .boris/CONTEXT.md con la documentacion de la API. " +
+                        "Ejecuta: mkdir -p .boris && write_file .boris/CONTEXT.md con imports, clases y ejemplos.");
+                }
+            }
+        }
+
         try {
             Files.createDirectories(path.getParent());
             Files.writeString(path, content);
@@ -51,6 +66,28 @@ public class WriteTool {
         } catch (IOException e) {
             throw new com.boris.exceptions.BorisException("Error writing file: " + pathStr, e);
         }
+    }
+
+    private static boolean hasExternalImports(String content) {
+        return content.lines()
+            .filter(line -> line.trim().startsWith("import "))
+            .map(line -> line.trim().substring(7).replace(";", "").trim())
+            .anyMatch(imp -> !imp.startsWith("java.") &&
+                           !imp.startsWith("javax.") &&
+                           !imp.startsWith("jdk."));
+    }
+
+    private static Path findProjectRoot(Path filePath) {
+        Path current = filePath.toAbsolutePath().getParent();
+        while (current != null) {
+            if (Files.exists(current.resolve("pom.xml")) ||
+                Files.exists(current.resolve("build.gradle")) ||
+                Files.exists(current.resolve("package.json"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        return null;
     }
 
     private static String formatOutput(boolean success, String message) {
