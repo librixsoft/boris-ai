@@ -65,7 +65,8 @@ public class InputArea extends Panel {
                     this.modelSelector.hideSelector();
                 } else {
                     String trimmed = newText.trim();
-                    boolean isModelCommand = trimmed.startsWith("/model") || trimmed.startsWith("/models");
+                    // Keep selector open if text is empty or is a model command
+                    boolean isModelCommand = trimmed.isEmpty() || trimmed.startsWith("/model") || trimmed.startsWith("/models");
                     if (!isModelCommand) {
                         this.modelSelector.hideSelector();
                     }
@@ -249,7 +250,12 @@ public class InputArea extends Panel {
                     if (commandMenu != null) {
                         commandMenu.hideMenu();
                     }
-                    listener.onSubmit(text);
+                    // Show model selector if user typed /model or /models directly
+                    if ((text.equals("/model") || text.equals("/models")) && modelSelector != null) {
+                        modelSelector.showSelector();
+                    } else {
+                        listener.onSubmit(text);
+                    }
                 }
             }
             return false;

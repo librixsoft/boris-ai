@@ -13,5 +13,6 @@ public class HeaderBar extends Label {
 
     public void updateModel(String modelName) {
         setText(" boris  ·  terminal agent  ·  " + (modelName != null && !modelName.isBlank() ? modelName : "unknown") + "  [v" + VERSION + "]");
+        invalidate();
     }
 }

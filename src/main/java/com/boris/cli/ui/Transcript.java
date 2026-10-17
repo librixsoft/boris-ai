@@ -145,7 +145,8 @@ public class Transcript {
     public void appendResponseStats(long durationMs, int inputTokens, int outputTokens) {
         uiExecutor.run(() -> {
             String timeStr = formatDuration(durationMs);
-            String stats = timeStr + " · in: " + inputTokens + " tokens · out: " + outputTokens + " tokens";
+            String timestamp = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
+            String stats = "[" + timestamp + "] " + timeStr + " · in: " + inputTokens + " tokens · out: " + outputTokens + " tokens";
             entries.add(new Entry(EntryType.STATS, stats));
             renderWrapped();
             scrollToBottom();
