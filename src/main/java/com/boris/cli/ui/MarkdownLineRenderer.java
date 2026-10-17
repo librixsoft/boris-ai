@@ -282,12 +282,17 @@ public class MarkdownLineRenderer {
         }
 
         if (line.matches("^\\s*\\d+\\s*│-\\s.*") || line.matches("^\\s*\\d+\\s*\\|-\\s.*")) {
-            renderDiffLineWithNumber(graphics, line, row, contentWidth, isThinking, false);
+            renderDiffLineWithNumber(graphics, line, row, contentWidth, isThinking, false, false);
             return;
         }
 
         if (line.matches("^\\s*\\d+\\s*│\\+\\s.*") || line.matches("^\\s*\\d+\\s*\\|\\+\\s.*")) {
-            renderDiffLineWithNumber(graphics, line, row, contentWidth, isThinking, true);
+            renderDiffLineWithNumber(graphics, line, row, contentWidth, isThinking, true, false);
+            return;
+        }
+
+        if (line.matches("^\\s*\\d+\\s*│[✗⚠]\\s.*") || line.matches("^\\s*\\d+\\s*\\|[✗⚠]\\s.*")) {
+            renderDiffLineWithNumber(graphics, line, row, contentWidth, isThinking, false, true);
             return;
         }
 
@@ -543,12 +548,12 @@ public class MarkdownLineRenderer {
         }
     }
 
-    private void renderDiffLineWithNumber(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean isThinking, boolean isAdd) {
+    private void renderDiffLineWithNumber(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean isThinking, boolean isAdd, boolean isError) {
         int x = 0;
         int separatorIdx = line.indexOf("│");
         if (separatorIdx < 0) separatorIdx = line.indexOf("|");
         if (separatorIdx < 0) {
-            graphics.setForegroundColor(isAdd ? UiTheme.DIFF_ADD : UiTheme.DIFF_REMOVE);
+            graphics.setForegroundColor(isError ? UiTheme.DIFF_ERROR : (isAdd ? UiTheme.DIFF_ADD : UiTheme.DIFF_REMOVE));
             graphics.putString(0, row, padOrTruncate(line, contentWidth));
             return;
         }
@@ -566,22 +571,33 @@ public class MarkdownLineRenderer {
         graphics.putString(x, row, " │");
         x += 2;
 
-        if (isAdd) {
-            graphics.setBackgroundColor(isThinking ? UiTheme.BG : UiTheme.DIFF_ADD_BG);
-            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.DIFF_ADD);
+        TextColor bgColor;
+        TextColor fgColor;
+        String symbol;
+
+        if (isError) {
+            bgColor = isThinking ? UiTheme.BG : UiTheme.DIFF_ERROR_BG;
+            fgColor = isThinking ? UiTheme.THINKING : UiTheme.DIFF_ERROR;
+            symbol = "✗";
+        } else if (isAdd) {
+            bgColor = isThinking ? UiTheme.BG : UiTheme.DIFF_ADD_BG;
+            fgColor = isThinking ? UiTheme.THINKING : UiTheme.DIFF_ADD;
+            symbol = "+";
         } else {
-            graphics.setBackgroundColor(isThinking ? UiTheme.BG : UiTheme.DIFF_REMOVE_BG);
-            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.DIFF_REMOVE);
+            bgColor = isThinking ? UiTheme.BG : UiTheme.DIFF_REMOVE_BG;
+            fgColor = isThinking ? UiTheme.THINKING : UiTheme.DIFF_REMOVE;
+            symbol = "-";
         }
 
-        String codeContent = rest.length() > 2 ? rest.substring(2) : "";
-        String symbol = isAdd ? "+" : "-";
+        graphics.setBackgroundColor(bgColor);
+        graphics.setForegroundColor(fgColor);
         graphics.putString(x, row, symbol);
         x += 1;
 
         graphics.putString(x, row, " ");
         x += 1;
 
+        String codeContent = rest.length() > 2 ? rest.substring(2) : "";
         String remaining = codeContent.startsWith(" ") ? codeContent.substring(1) : codeContent;
         int availableWidth = contentWidth - x;
         if (remaining.length() > availableWidth) {
@@ -589,13 +605,12 @@ public class MarkdownLineRenderer {
         }
 
         List<SyntaxHighlighter.SyntaxToken> tokens = SyntaxHighlighter.tokenizeLine(remaining);
-        TextColor bgColor = isThinking ? UiTheme.BG : (isAdd ? UiTheme.DIFF_ADD_BG : UiTheme.DIFF_REMOVE_BG);
         graphics.setBackgroundColor(bgColor);
 
         for (SyntaxHighlighter.SyntaxToken token : tokens) {
             if (x >= contentWidth) break;
-            TextColor fgColor = isThinking ? UiTheme.THINKING : token.color();
-            graphics.setForegroundColor(fgColor);
+            TextColor tokenColor = isThinking ? UiTheme.THINKING : token.color();
+            graphics.setForegroundColor(tokenColor);
             String tokenText = token.text();
             int spaceLeft = contentWidth - x;
             if (tokenText.length() > spaceLeft) {
