@@ -9,11 +9,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -22,13 +17,12 @@ import com.boris.tooling.ToolDefinition;
 import com.boris.tooling.ToolProgressNotifier;
 
 /**
- * Web search using Playwright with PARALLEL search across multiple engines.
- * Searches Google, Bing, and DuckDuckGo simultaneously using Virtual Threads.
+ * Web search using Playwright with DuckDuckGo.
+ * Simple, single-engine search - fast and efficient.
  *
  * Features:
  * - No API key required
- * - Parallel search across 3 engines (fastest response wins)
- * - Merges and deduplicates results from all engines
+ * - Single engine (DuckDuckGo) - no overhead
  * - Progress notifications to UI
  * - Returns titles, URLs, and snippets
  */
@@ -41,7 +35,6 @@ public class WebSearchTool {
     private static final int MAX_COUNT = Integer.parseInt(PROPERTIES.getProperty("web.search.max.count", "10"));
     private static final int TIMEOUT_MS = Integer.parseInt(PROPERTIES.getProperty("web.search.timeout.ms", "20000"));
     private static final int WAIT_TIMEOUT_MS = Integer.parseInt(PROPERTIES.getProperty("web.search.wait.timeout.ms", "3000"));
-    private static final int PARALLEL_TIMEOUT_MS = 25000;
 
     private static Properties loadProperties() {
         Properties props = new Properties();
@@ -66,7 +59,7 @@ public class WebSearchTool {
         schema.put("properties", properties);
         return ToolDefinition.of(
                 "web_search",
-                "Search the web using Google/Bing/DuckDuckGo in PARALLEL via Playwright. Returns titles, URLs, and snippets.",
+                "Search the web using DuckDuckGo via Playwright. Returns titles, URLs, and snippets.",
                 schema);
     }
 
@@ -83,10 +76,7 @@ public class WebSearchTool {
         }
 
         int count = resolveCount(args);
-        ToolProgressNotifier.notify("web_search", "Buscando en paralelo (Google + Bing + DuckDuckGo): " + query);
-
-        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
-        List<Future<EngineResult>> futures = new ArrayList<>();
+        ToolProgressNotifier.notify("web_search", "Buscando: " + query);
 
         try (Playwright playwright = Playwright.create()) {
             Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
@@ -98,83 +88,31 @@ public class WebSearchTool {
                 .setLocale("es-ES"));
 
             try {
-                Page googlePage = context.newPage();
-                Page bingPage = context.newPage();
-                Page duckPage = context.newPage();
+                Page page = context.newPage();
 
-                futures.add(executor.submit(() -> {
-                    try {
-                        List<Map<String, String>> results = searchViaGoogle(googlePage, query, count);
-                        return new EngineResult("Google", results);
-                    } catch (Exception e) {
-                        return new EngineResult("Google", null);
-                    }
-                }));
+                // Usar solo DuckDuckGo (más simple, sin bloqueos)
+                List<Map<String, String>> results = searchViaDuckDuckGo(page, query, count);
 
-                futures.add(executor.submit(() -> {
-                    try {
-                        List<Map<String, String>> results = searchViaBing(bingPage, query, count);
-                        return new EngineResult("Bing", results);
-                    } catch (Exception e) {
-                        return new EngineResult("Bing", null);
-                    }
-                }));
-
-                futures.add(executor.submit(() -> {
-                    try {
-                        List<Map<String, String>> results = searchViaDuckDuckGo(duckPage, query, count);
-                        return new EngineResult("DuckDuckGo", results);
-                    } catch (Exception e) {
-                        return new EngineResult("DuckDuckGo", null);
-                    }
-                }));
-
-                List<Map<String, String>> allResults = new ArrayList<>();
-                java.util.Set<String> seenUrls = new java.util.HashSet<>();
-                List<String> successfulEngines = new ArrayList<>();
-
-                for (Future<EngineResult> future : futures) {
-                    try {
-                        EngineResult result = future.get(PARALLEL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-                        if (result.results != null && !result.results.isEmpty()) {
-                            successfulEngines.add(result.engine);
-                            for (Map<String, String> item : result.results) {
-                                String url = item.get("url");
-                                if (url != null && !seenUrls.contains(url)) {
-                                    seenUrls.add(url);
-                                    allResults.add(item);
-                                }
-                            }
-                        }
-                    } catch (Exception e) {
-                        // Engine failed or timed out, continue with others
-                    }
-                }
-
-                if (allResults.isEmpty()) {
-                    ToolProgressNotifier.notify("web_search", "No se encontraron resultados en ningún buscador");
+                if (results == null || results.isEmpty()) {
+                    ToolProgressNotifier.notify("web_search", "No se encontraron resultados");
                     return formatError("No se encontraron resultados para: " + query);
                 }
 
-                if (allResults.size() > count) {
-                    allResults = allResults.subList(0, count);
+                if (results.size() > count) {
+                    results = results.subList(0, count);
                 }
 
-                String enginesUsed = String.join(" + ", successfulEngines);
-                ToolProgressNotifier.notify("web_search", "Encontrados " + allResults.size() + " resultados (" + enginesUsed + ")");
-                return formatSuccess(query, allResults, enginesUsed);
+                ToolProgressNotifier.notify("web_search", "Encontrados " + results.size() + " resultados");
+                return formatSuccess(query, results, "DuckDuckGo");
             } finally {
                 browser.close();
             }
         } catch (Exception e) {
             ToolProgressNotifier.notify("web_search", "Error: " + e.getMessage());
             return formatError("Error en búsqueda: " + e.getMessage());
-        } finally {
-            executor.shutdown();
         }
     }
 
-    private record EngineResult(String engine, List<Map<String, String>> results) {}
 
     private List<Map<String, String>> searchViaGoogle(Page page, String query, int count) {
         try {
