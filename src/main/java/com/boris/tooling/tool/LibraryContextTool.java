@@ -34,6 +34,9 @@ public class LibraryContextTool {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     private static final int CACHE_DAYS = 15;
 
+    // Rate limit: solo 1 llamada por repo por sesión
+    private static final Set<String> PROCESSED_REPOS = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+
     private static class LibraryMeta {
         String repo;
         String version;
@@ -96,6 +99,17 @@ public class LibraryContextTool {
             return formatOutput(false, "Error: repo is required (format: owner/repo)");
         }
 
+        // === RATE LIMIT: 1 llamada por repo por sesión ===
+        String repoKey = repo.toLowerCase();
+        if (!force && PROCESSED_REPOS.contains(repoKey)) {
+            ToolProgressNotifier.notify("create_library_context",
+                "BLOQUEADO: " + repo + " ya fue procesado en esta sesión");
+            return formatOutput(true,
+                "BLOQUEADO: " + repo + " ya fue procesado en esta sesión. " +
+                "USA el CONTEXT.md existente. NO vuelvas a llamar este tool. " +
+                "NO busques en internet. Lee .boris/CONTEXT.md y usa esa información.");
+        }
+
         Path borisDir = Paths.get(projectPath, ".boris");
         Path contextPath = borisDir.resolve("CONTEXT.md");
         String repoName = repo.split("/")[1];
@@ -106,12 +120,13 @@ public class LibraryContextTool {
             try {
                 ContextFile existing = parseContextFile(contextPath);
                 if (existing.hasLibrary(repo, version)) {
+                    PROCESSED_REPOS.add(repoKey); // Marcar como procesado
                     ToolProgressNotifier.notify("create_library_context",
                         "Cache hit: " + repo + " v" + version);
                     return formatOutput(true,
                         "CONTEXT.md ya contiene " + repo + " v" + version +
                         " (cache válido por " + CACHE_DAYS + " días). " +
-                        "NO busques en web, usa el CONTEXT.md existente. Usa force=true para recrear.");
+                        "NO busques en web, usa el CONTEXT.md existente. NO vuelvas a llamar este tool.");
                 }
             } catch (Exception e) {
                 // If parsing fails, continue to recreate
@@ -203,21 +218,24 @@ public class LibraryContextTool {
             Files.createDirectories(contextPath.getParent());
             Files.writeString(contextPath, finalContent);
 
+            PROCESSED_REPOS.add(repoKey); // Marcar como procesado
+
             ToolProgressNotifier.notify("create_library_context",
                 "Contexto creado: " + realImports.size() + " imports, " +
                 realClasses.size() + " clases, " + javaFiles.size() + " archivos analizados");
 
             return formatOutput(true,
                 "CONTEXT.md actualizado con " + repo + " v" + version + ": " +
-                realImports.size() + " imports, " + realClasses.size() + " clases " +
-                "(de " + javaFiles.size() + " archivos)");
+                realImports.size() + " imports, " + realClasses.size() + " clases. " +
+                "USA SOLO esta información. NO busques en internet. NO vuelvas a llamar este tool.");
 
         } catch (Exception e) {
             // Fallback: if download fails but context exists, use it
             if (Files.exists(contextPath)) {
+                PROCESSED_REPOS.add(repoKey); // Marcar como procesado
                 return formatOutput(true,
                     "Error descargando " + repo + ": " + e.getMessage() +
-                    ". Usando CONTEXT.md existente.");
+                    ". Usando CONTEXT.md existente. NO busques en internet.");
             }
             return formatOutput(false, "Error: " + e.getMessage());
         }
