@@ -690,21 +690,6 @@ public class ToolCallingConfig {
         return result;
     }
 
-    // ========== Search Replace Tool (Para ediciones parciales) ==========
-
-    @Tool(
-            name = "search_replace",
-            description = "Apply multiple SEARCH/REPLACE blocks to a file. Validates ALL replacements before applying. " +
-                         "Use when you only need to change specific parts without rewriting the whole file.")
-    public String search_replace(
-            @ToolParam(description = "Path to the file to edit") String path,
-            @ToolParam(description = "List of replacements: [{search: 'text to find', replace: 'new text'}, ...]") java.util.List<java.util.Map<String, String>> replacements) {
-        ToolProgressNotifier.notify("search_replace", "Aplicando " + (replacements != null ? replacements.size() : 0) + " reemplazos en: " + path);
-        String result = com.boris.edit.SearchReplaceEditTool.search_replace(path, replacements);
-        notifyToolTokens("search_replace", path, result);
-        return result;
-    }
-
     // ========== Streaming Line Edit Tools (DISABLED - using text format instead) ==========
     // El modelo escribe código con formato ```java:path y StreamingFileWriter lo detecta
     // y guarda automáticamente. No se necesitan herramientas.
