@@ -470,8 +470,12 @@ public class ToolCallingConfig {
             @ToolParam(description = "Maximum results to return (default: 100)") Integer max_results,
             @ToolParam(description = "Base directory to search in (default: current directory)") String base_path) {
 
-        // Bloquear búsquedas de clases - deben usar query_symbols
+        // Bloquear búsquedas de clases y comandos
         if (query != null && isClassSearch(query)) {
+            String q = query.trim().toLowerCase();
+            if (q.equals("mvn") || q.equals("maven") || q.startsWith("mvn ")) {
+                return "{\"error\": \"BLOQUEADO: Para compilar usa maven_build(\\\"compile\\\") en vez de parallel_search\"}";
+            }
             String className = extractClassName(query);
             return "{\"error\": \"BLOQUEADO: Para buscar clases/métodos usa query_symbols(\\\"" + className + "\\\") en vez de parallel_search\"}";
         }
@@ -484,14 +488,20 @@ public class ToolCallingConfig {
     }
 
     private boolean isClassSearch(String query) {
-        String q = query.trim();
+        String q = query.trim().toLowerCase();
+
+        // Bloquear búsquedas de comandos - usar maven_build
+        if (q.equals("mvn") || q.equals("maven") || q.startsWith("mvn ")) {
+            return true;
+        }
+
         // Detectar patrones de búsqueda de clases
         if (q.startsWith("class ") || q.startsWith("interface ") ||
             q.startsWith("enum ") || q.startsWith("abstract class ")) {
             return true;
         }
         // Detectar nombre de clase solo (PascalCase)
-        if (q.matches("^[A-Z][a-zA-Z0-9]*$")) {
+        if (query.trim().matches("^[A-Z][a-zA-Z0-9]*$")) {
             return true;
         }
         // Detectar "class X implements" o similar
