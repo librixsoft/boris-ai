@@ -1,5 +1,6 @@
 package com.boris.cli.ui;
 
+import com.googlecode.lanterna.TerminalPosition;
 import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.gui2.BasicWindow;
 import com.googlecode.lanterna.gui2.Borders;
@@ -24,7 +25,7 @@ public class ToastPopup extends BasicWindow {
 
     public ToastPopup(String message, UiExecutor uiExecutor) {
         this.uiExecutor = uiExecutor;
-        setHints(Arrays.asList(Window.Hint.CENTERED, Window.Hint.NO_FOCUS));
+        setHints(Arrays.asList(Window.Hint.FIXED_POSITION, Window.Hint.NO_FOCUS));
 
         Label label = new Label(" " + message + " ");
         label.setForegroundColor(UiTheme.SELECT_HIGHLIGHT_FG);
@@ -33,7 +34,14 @@ public class ToastPopup extends BasicWindow {
     }
 
     public void showFor(MultiWindowTextGUI gui, int durationSeconds) {
-        uiExecutor.run(() -> gui.addWindow(this));
+        uiExecutor.run(() -> {
+            gui.addWindow(this);
+            TerminalSize screenSize = gui.getScreen().getTerminalSize();
+            TerminalSize toastSize = getPreferredSize();
+            int x = screenSize.getColumns() - toastSize.getColumns() - 2;
+            int y = 1;
+            setPosition(new TerminalPosition(x, y));
+        });
         scheduler.schedule(() -> {
             uiExecutor.run(this::close);
         }, durationSeconds, TimeUnit.SECONDS);
