@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.task.TaskAborter;
 import com.boris.tooling.ToolResultNotifier;
 import com.boris.tooling.ToolProgressNotifier;
+import com.boris.tooling.tool.ContextTracker;
 
 /**
  * Herramienta para aplicar múltiples ediciones a diferentes archivos
@@ -45,6 +46,28 @@ public class BatchEditTool {
     public String execute(List<FileEditSpec> edits, TaskAborter aborter) {
         if (edits == null || edits.isEmpty()) {
             return "{\"success\":false,\"error\":\"edits list is empty\"}";
+        }
+
+        // === VALIDACIÓN: Verificar código contra CONTEXT.md ===
+        for (FileEditSpec edit : edits) {
+            if (edit.path() != null && isCodeFile(edit.path())) {
+                Path path = Path.of(edit.path()).toAbsolutePath();
+                Path projectRoot = findProjectRoot(path);
+                if (projectRoot != null) {
+                    Path contextFile = projectRoot.resolve(".boris/CONTEXT.md");
+                    if (Files.exists(contextFile)) {
+                        String codeToValidate = edit.newText() != null ? edit.newText() : edit.content();
+                        if (codeToValidate != null) {
+                            String validationError = validateCodeAgainstContext(codeToValidate, contextFile);
+                            if (validationError != null) {
+                                return "{\"success\":false,\"error\":\"BLOQUEADO - POSIBLE ALUCINACIÓN en " +
+                                       edit.path() + ":\\n" + validationError +
+                                       "\\n\\nUSA search_context para verificar qué clases/métodos existen.\"}";
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         ToolProgressNotifier.notify("batch_apply_edits", "Aplicando " + edits.size() + " ediciones...");
@@ -238,5 +261,70 @@ public class BatchEditTool {
             executor.shutdownNow();
             Thread.currentThread().interrupt();
         }
+    }
+
+    private static boolean isCodeFile(String path) {
+        String lower = path.toLowerCase();
+        return lower.endsWith(".java") || lower.endsWith(".kt") ||
+               lower.endsWith(".py") || lower.endsWith(".js") ||
+               lower.endsWith(".ts") || lower.endsWith(".tsx") ||
+               lower.endsWith(".go") || lower.endsWith(".rs");
+    }
+
+    private static Path findProjectRoot(Path filePath) {
+        Path current = filePath.toAbsolutePath().getParent();
+        while (current != null) {
+            if (Files.exists(current.resolve("pom.xml")) ||
+                Files.exists(current.resolve("build.gradle")) ||
+                Files.exists(current.resolve("package.json"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        return null;
+    }
+
+    private static String validateCodeAgainstContext(String code, Path contextFile) {
+        try {
+            String contextContent = Files.readString(contextFile);
+            java.util.Set<String> standardClasses = java.util.Set.of(
+                "ArrayList", "HashMap", "HashSet", "LinkedList", "StringBuilder",
+                "String", "Integer", "Long", "Double", "Thread", "Exception",
+                "File", "Date", "Random", "SimpleDateFormat", "Arrays", "List",
+                "Map", "Set", "Properties", "System", "Math", "Object", "Class"
+            );
+
+            java.util.List<String> errors = new java.util.ArrayList<>();
+
+            // Verificar instanciaciones: new ClassName(
+            java.util.regex.Pattern newPattern = java.util.regex.Pattern.compile("new\\s+([A-Z][\\w]+)\\s*\\(");
+            java.util.regex.Matcher newMatcher = newPattern.matcher(code);
+            while (newMatcher.find()) {
+                String className = newMatcher.group(1);
+                if (standardClasses.contains(className)) continue;
+                if (!contextContent.contains("### `" + className + "`") &&
+                    !contextContent.contains("new " + className + "(")) {
+                    errors.add("Clase '" + className + "' no encontrada en CONTEXT.md");
+                }
+            }
+
+            // Verificar extends
+            java.util.regex.Pattern extendsPattern = java.util.regex.Pattern.compile("extends\\s+([A-Z][\\w]+)");
+            java.util.regex.Matcher extendsMatcher = extendsPattern.matcher(code);
+            while (extendsMatcher.find()) {
+                String className = extendsMatcher.group(1);
+                if (standardClasses.contains(className)) continue;
+                if (!contextContent.contains("### `" + className + "`")) {
+                    errors.add("Clase padre '" + className + "' no encontrada en CONTEXT.md");
+                }
+            }
+
+            if (!errors.isEmpty() && errors.size() <= 5) {
+                return String.join("\\n", errors);
+            }
+        } catch (Exception e) {
+            // Si no puede leer el contexto, no bloquear
+        }
+        return null;
     }
 }

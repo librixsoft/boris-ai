@@ -132,6 +132,27 @@ public class EditTool {
             return formatOutput(false, "Error: not a regular file: " + pathStr);
         }
 
+        // === VALIDACIÓN: Verificar código contra CONTEXT.md ===
+        if (isCodeFile(pathStr)) {
+            Path projectRoot = findProjectRoot(path);
+            if (projectRoot != null) {
+                Path contextFile = projectRoot.resolve(".boris/CONTEXT.md");
+                if (Files.exists(contextFile)) {
+                    for (Map<String, Object> edit : editsList) {
+                        String newText = (String) edit.get("new_text");
+                        if (newText != null) {
+                            String validationError = validateCodeAgainstContext(newText, contextFile);
+                            if (validationError != null) {
+                                return formatOutput(false,
+                                    "BLOQUEADO - POSIBLE ALUCINACIÓN:\n" + validationError + "\n\n" +
+                                    "USA search_context para verificar qué clases/métodos existen.");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         try {
             String content = Files.readString(path);
             int totalReplacements = 0;
