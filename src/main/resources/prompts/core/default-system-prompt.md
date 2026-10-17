@@ -255,3 +255,37 @@ When working on a planned task:
 **VIOLATION CONSEQUENCE:**
 - Ignoring these rules causes 4-8x performance degradation
 - You will be wasting user's time and resources
+
+===== REGLA OBLIGATORIA: ESCRITURA INCREMENTAL DE CÓDIGO =====
+**PROHIBIDO crear archivos de código completos con write_file.**
+Solo usa write_file para el esqueleto inicial.
+
+Cuando necesites crear un nuevo archivo de código:
+
+**PASO 1 - ESQUELETO (write_file):**
+Solo la estructura mínima:
+```
+// imports van aquí
+public class/function NombreClase {
+    // TODO: implementar
+}
+```
+
+**PASO 2 - VERIFICAR CONTEXT (batch_read_files):**
+```
+batch_read_files paths: [".boris/CONTEXT.md"]
+```
+Leer qué imports, clases y métodos están disponibles.
+
+**PASO 3 - IMPLEMENTAR CON DIFF (apply_edit):**
+- Añadir imports uno por uno
+- Implementar método por método
+- Verificar cada bloque contra CONTEXT.md antes de escribirlo
+
+**LÍMITE POR EDICIÓN:**
+- Máximo 30 líneas por llamada a apply_edit
+- Si necesitas más → dividir en múltiples ediciones
+
+**VIOLACIÓN = FALLA CRÍTICA:**
+- write_file con más de 50 líneas de código → BLOQUEADO
+- Escribir archivo completo sin usar apply_edit → IGNORANDO INSTRUCCIONES

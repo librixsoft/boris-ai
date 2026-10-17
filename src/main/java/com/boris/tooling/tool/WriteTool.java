@@ -44,6 +44,22 @@ public class WriteTool {
 
         Path path = Paths.get(pathStr);
 
+        // === VALIDACIÓN: Escritura incremental obligatoria ===
+        // Bloquear archivos de código con más de 50 líneas
+        if (isCodeFile(pathStr)) {
+            long lineCount = content.lines().count();
+            if (lineCount > 50) {
+                return formatOutput(false,
+                    "BLOQUEADO: Escritura incremental obligatoria.\n" +
+                    "El archivo tiene " + lineCount + " líneas (máximo permitido: 50).\n" +
+                    "DEBES usar este flujo:\n" +
+                    "1. write_file → solo esqueleto base (< 50 líneas)\n" +
+                    "2. batch_read_files → leer .boris/CONTEXT.md\n" +
+                    "3. apply_edit → implementar método por método (máx 30 líneas por edición)\n" +
+                    "NO intentes escribir el archivo completo de una vez.");
+            }
+        }
+
         // Verificar contexto para archivos .java con imports externos
         if (pathStr.endsWith(".java") && hasExternalImports(content)) {
             Path projectRoot = findProjectRoot(path);
@@ -91,6 +107,29 @@ public class WriteTool {
             .anyMatch(imp -> !imp.startsWith("java.") &&
                            !imp.startsWith("javax.") &&
                            !imp.startsWith("jdk."));
+    }
+
+    private static boolean isCodeFile(String path) {
+        String lower = path.toLowerCase();
+        return lower.endsWith(".java") ||
+               lower.endsWith(".kt") ||
+               lower.endsWith(".scala") ||
+               lower.endsWith(".groovy") ||
+               lower.endsWith(".py") ||
+               lower.endsWith(".js") ||
+               lower.endsWith(".ts") ||
+               lower.endsWith(".tsx") ||
+               lower.endsWith(".jsx") ||
+               lower.endsWith(".go") ||
+               lower.endsWith(".rs") ||
+               lower.endsWith(".c") ||
+               lower.endsWith(".cpp") ||
+               lower.endsWith(".h") ||
+               lower.endsWith(".cs") ||
+               lower.endsWith(".rb") ||
+               lower.endsWith(".php") ||
+               lower.endsWith(".swift") ||
+               lower.endsWith(".m");
     }
 
     private static Path findProjectRoot(Path filePath) {
