@@ -23,6 +23,7 @@ import com.boris.tooling.ToolResultNotifier;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 import com.boris.task.TaskAborter;
+import com.boris.context.ProjectContext;
 
 public class ChatService {
 
@@ -44,6 +45,8 @@ public class ChatService {
     private volatile Settings currentSettings;
     private final StreamingFileWriter fileWriter;
     private static final Pattern THINKING_PATTERN = Pattern.compile("(?i)(?:<think>|<thinking>|<thought>|<reasoning>|```)(.*?)(?:</think>|</thinking>|</thought>|</reasoning>|```)", Pattern.DOTALL);
+    private static final Pattern PROJECT_PATH_PATTERN = Pattern.compile("^\\s*(/[^\\s]+|~/[^\\s]+)\\s+(.+)$", Pattern.DOTALL);
+    private volatile String currentProjectPath;
 
     public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory) {
         this(chatClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, true, "think", "");
@@ -95,10 +98,17 @@ public class ChatService {
         if ("q".equals(lower) || "exit".equals(lower)) {
             return EXIT_COMMAND;
         }
+        // Extraer ruta del proyecto si el mensaje comienza con una ruta absoluta
+        String[] extracted = extractProjectPath(userMessage);
+        String cleanMessage = extracted[0];
+        if (extracted[1] != null) {
+            this.currentProjectPath = extracted[1];
+            ProjectContext.setProjectPath(extracted[1]);
+        }
         ToolCallLimiter.reset();
         ChatClient client = getActiveClient();
         try {
-            String fullMessage = buildPromptWithHistory(userMessage);
+            String fullMessage = buildPromptWithHistory(cleanMessage);
             if (enableHistory) {
                 conversationHistory.add("User: " + userMessage);
                 trimHistory();
@@ -135,12 +145,19 @@ public class ChatService {
         if ("q".equals(lower) || "exit".equals(lower)) {
             return;
         }
+        // Extraer ruta del proyecto si el mensaje comienza con una ruta absoluta
+        String[] extracted = extractProjectPath(userMessage);
+        String cleanMessage = extracted[0];
+        if (extracted[1] != null) {
+            this.currentProjectPath = extracted[1];
+            ProjectContext.setProjectPath(extracted[1]);
+        }
         ToolCallLimiter.reset();
         ChatClient client = getActiveClient();
         String effectiveThink = thinkingEnabled ? resolveThinkMode() : null;
 
         try {
-            String fullMessage = buildPromptWithHistory(userMessage);
+            String fullMessage = buildPromptWithHistory(cleanMessage);
             if (enableHistory) {
                 conversationHistory.add("User: " + userMessage);
                 trimHistory();
@@ -449,6 +466,15 @@ public class ChatService {
     private String buildPromptWithHistory(String currentMessage) {
         StringBuilder promptBuilder = new StringBuilder();
 
+        // Contexto del proyecto si está definido
+        if (currentProjectPath != null && !currentProjectPath.isBlank()) {
+            promptBuilder.append("===== PROJECT CONTEXT =====\n");
+            promptBuilder.append("WORKING DIRECTORY: ").append(currentProjectPath).append("\n");
+            promptBuilder.append("IMPORTANTE: Todos los archivos que crees o modifiques deben usar rutas absolutas dentro de este directorio.\n");
+            promptBuilder.append("Ejemplo: ").append(currentProjectPath).append("/src/main/java/...\n");
+            promptBuilder.append("===== END PROJECT CONTEXT =====\n\n");
+        }
+
         synchronized (queryResultsCache) {
             if (!queryResultsCache.isEmpty()) {
                 promptBuilder.append("===== CACHED TOOL RESULTS (from this session) =====\n");
@@ -519,5 +545,31 @@ public class ChatService {
             return thinkingMode;
         }
         return "low";
+    }
+
+    /**
+     * Extrae la ruta del proyecto si el mensaje comienza con una ruta absoluta.
+     * Ejemplo: "/Users/x/proyecto haz algo" → path="/Users/x/proyecto", mensaje="haz algo"
+     * @return [0]=mensaje limpio, [1]=ruta del proyecto (o null si no hay)
+     */
+    private String[] extractProjectPath(String message) {
+        if (message == null) return new String[]{message, null};
+        Matcher m = PROJECT_PATH_PATTERN.matcher(message);
+        if (m.matches()) {
+            String path = m.group(1);
+            // Expandir ~ a home
+            if (path.startsWith("~/")) {
+                path = System.getProperty("user.home") + path.substring(1);
+            }
+            // Verificar que sea un directorio existente
+            if (java.nio.file.Files.isDirectory(java.nio.file.Paths.get(path))) {
+                return new String[]{m.group(2).trim(), path};
+            }
+        }
+        return new String[]{message, null};
+    }
+
+    public String getCurrentProjectPath() {
+        return currentProjectPath;
     }
 }

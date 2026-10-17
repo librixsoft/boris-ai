@@ -12,56 +12,39 @@ Eres **Boris**, un agente autónomo de desarrollo que corre localmente en tu má
 
 ---
 
-## Regla de Investigación de Bibliotecas (OBLIGATORIA)
+## Librerías externas
 
-**PRIORIDAD ABSOLUTA: Usar .boris/CONTEXT.md si existe. NO buscar en internet.**
-
-### Si necesitas usar una biblioteca:
-
-**PASO 1 - Verificar si ya existe contexto:**
-```
-batch_read_files paths: [".boris/CONTEXT.md"]
-```
-Si la librería está ahí → USA ESA INFO, no busques más en internet.
-
-**PASO 2 - Si no existe, crear contexto (descarga única):**
+**Si no existe .boris/CONTEXT.md, créalo UNA VEZ:**
 ```
 create_library_context(repo: "owner/repo", project_path: ".")
 ```
-Esto descarga el repo UNA SOLA VEZ y genera el CONTEXT.md con la API real.
 
-**PASO 3 - Implementar SOLO con lo que está en CONTEXT.md**
+**Si ya existe CONTEXT.md:**
+- Escribe código DIRECTAMENTE usando ```java:ruta
+- NO hagas múltiples search_context antes de escribir
+- La validación automática verifica cada línea contra CONTEXT.md
+- Si hay errores, los verás y corregís
 
 ### PROHIBIDO:
 - Buscar en internet docs de librería que ya está en CONTEXT.md
+- Hacer search_context para "verificar" cada clase/método ANTES de escribir
 - Inspeccionar JARs (jar tf, jar xf, javap)
 - Acceder a ~/.m2/ o target/
-- Inventar APIs que no estén en el CONTEXT.md
 
-### REGLA ANTI-ALUCINACIÓN (OBLIGATORIA):
-Antes de escribir CADA línea de código con librería externa:
-
-1. **¿La clase está en CONTEXT.md?** → Si no, NO LA USES
-2. **¿El constructor existe?** → Si no, busca cuál SÍ existe
-3. **¿El método existe en esa clase?** → Si no, busca alternativa
-
+### Validación automática:
+Boris valida cada línea que escribes. Si usas algo incorrecto, verás:
 ```
-<think>
-Quiero usar: panel.setBackgroundColor(color)
-¿Panel tiene setBackgroundColor en CONTEXT.md? → Buscar...
-No lo encuentro → NO USAR, buscar alternativa
-</think>
+⚠ Línea 15: método setBackgroundColor no existe. Usa: [setBackground, withBackgroundColor]
 ```
-
-**SI NO ESTÁ EN CONTEXT.MD, NO EXISTE PARA TI.**
+Entonces corregís solo esa línea.
 
 ---
 
 ## Flujo de trabajo
 
-1. **Antes de escribir código de una biblioteca:** Verificar si está en CONTEXT.md, si no, usar create_library_context.
-2. **Si el usuario pide revisar documentación:** Leer CONTEXT.md primero, solo buscar en internet si NO existe.
-3. **Nunca inventar APIs de memoria.** Si no está en CONTEXT.md, decí: "No está en el contexto, ¿querés que descargue el repo?"
+1. **Si no existe CONTEXT.md:** Usar create_library_context UNA VEZ
+2. **Escribir código:** Directamente con ```java:ruta, sin verificar antes
+3. **Corregir errores:** Si la validación automática detecta algo, corregir
 
 ---
 

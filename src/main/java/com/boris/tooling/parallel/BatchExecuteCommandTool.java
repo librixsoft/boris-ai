@@ -37,7 +37,9 @@ public class BatchExecuteCommandTool {
 
     /** Contador de intentos bloqueados por sesión */
     private static final AtomicInteger BLOCKED_ATTEMPTS = new AtomicInteger(0);
+    private static final AtomicInteger REDIRECT_ATTEMPTS = new AtomicInteger(0);
     private static final int MAX_BLOCKED_ATTEMPTS = 3;
+    private static final int MAX_REDIRECT_ATTEMPTS = 3;
 
     /**
      * Comandos prohibidos para evitar inspección de JARs y acceso a ~/.m2/.
@@ -145,15 +147,11 @@ public class BatchExecuteCommandTool {
             return new CommandResult(command, false, -1, "", "", "Aborted");
         }
 
-        // Verificar comandos prohibidos
+        // Verificar comandos prohibidos o redirigidos
         String blockedReason = checkBlockedCommand(command);
         if (blockedReason != null) {
-            ToolProgressNotifier.notify("execute_command", "Redirigiendo a GitHub API...");
-            return new CommandResult(command, false, -1, "", "",
-                "No es necesario extraer JARs. Para obtener el código fuente o documentación de una librería, " +
-                "usa github_api_search con search_type='readme' para ver el README, " +
-                "search_type='files' para listar archivos, o search_type='file_content' para leer archivos específicos. " +
-                "Busca el repositorio oficial de la librería en GitHub.");
+            ToolProgressNotifier.notify("execute_command", "BLOQUEADO: " + command.substring(0, Math.min(30, command.length())));
+            return new CommandResult(command, false, -1, "", "", blockedReason);
         }
 
         File workingDir = null;
@@ -234,7 +232,15 @@ public class BatchExecuteCommandTool {
         // 1. Verificar comandos que deben usar herramientas dedicadas
         for (java.util.Map.Entry<String, String> entry : REDIRECT_COMMANDS.entrySet()) {
             if (cmdLower.startsWith(entry.getKey())) {
-                return "REDIRIGIR: " + entry.getValue() + ".\n" +
+                int attempts = REDIRECT_ATTEMPTS.incrementAndGet();
+                if (attempts >= MAX_REDIRECT_ATTEMPTS) {
+                    return "STOP. COMANDO BLOQUEADO PERMANENTEMENTE.\n" +
+                           "Has usado " + entry.getKey().trim() + " " + attempts + " veces.\n" +
+                           entry.getValue() + ".\n" +
+                           "NO REINTENTES. CAMBIA A LA HERRAMIENTA CORRECTA.";
+                }
+                return "REDIRIGIR (intento " + attempts + "/" + MAX_REDIRECT_ATTEMPTS + "): " +
+                       entry.getValue() + ".\n" +
                        "execute_command es para compilar, git, mvn, etc.\n" +
                        "NO para operaciones de archivos que tienen tools dedicadas.";
             }
@@ -274,9 +280,10 @@ public class BatchExecuteCommandTool {
         return null;
     }
 
-    /** Resetea el contador de intentos bloqueados (para tests o nueva sesión) */
+    /** Resetea los contadores de intentos bloqueados (para tests o nueva sesión) */
     public static void resetBlockedAttempts() {
         BLOCKED_ATTEMPTS.set(0);
+        REDIRECT_ATTEMPTS.set(0);
     }
 
     private void readStream(java.io.InputStream inputStream, StringBuilder builder) {

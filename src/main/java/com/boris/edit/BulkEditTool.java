@@ -15,6 +15,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.boris.context.ProjectContext;
+
 /**
  * BulkEditTool - Estilo Aider
  *
@@ -59,21 +61,18 @@ public class BulkEditTool {
         String pathStr = (String) args.get("path");
         String content = (String) args.getOrDefault("content", "");
 
-        System.out.println("[BulkEditTool] Iniciando bulk_edit para: " + pathStr);
-        System.out.println("[BulkEditTool] Content length: " + (content != null ? content.length() : 0));
-
         if (pathStr == null || pathStr.isBlank()) {
-            System.out.println("[BulkEditTool] ERROR: path es requerido");
             return formatError("path es requerido");
         }
 
+        // Resolver ruta relativa usando el proyecto actual
+        pathStr = ProjectContext.resolveRelativePath(pathStr);
+
         try {
             Path contextFile = findContextFile(pathStr);
-            System.out.println("[BulkEditTool] Context file: " + contextFile);
             SymbolCache symbolCache = new SymbolCache();
             if (contextFile != null && Files.exists(contextFile)) {
                 symbolCache.loadFromContext(contextFile);
-                System.out.println("[BulkEditTool] SymbolCache loaded");
             }
             LineValidator validator = new LineValidator(symbolCache);
 
@@ -110,26 +109,18 @@ public class BulkEditTool {
 
             // FASE 2: Si hay errores, NO escribir
             if (!errors.isEmpty()) {
-                System.out.println("[BulkEditTool] ERRORES encontrados: " + errors.size());
-                for (ValidationError err : errors) {
-                    System.out.println("[BulkEditTool]   Línea " + err.lineNumber + ": " + err.message);
-                }
                 DiffLineNotifier.notify(String.format("─── ⚠ %d errores, NO guardado ───", errors.size()));
                 return formatValidationErrors(pathStr, errors, lines.length);
             }
 
             // FASE 3: Todo válido -> Escribir archivo
-            System.out.println("[BulkEditTool] Todo válido, escribiendo archivo...");
             Files.createDirectories(filePath.getParent());
             Files.writeString(filePath, content);
-            System.out.println("[BulkEditTool] Archivo escrito: " + filePath);
             DiffLineNotifier.notify(String.format("─── +%d ✓ guardado ───", lines.length));
 
             return formatSuccess(pathStr, lines.length);
 
         } catch (IOException e) {
-            System.out.println("[BulkEditTool] ERROR IO: " + e.getMessage());
-            e.printStackTrace();
             return formatError("Error IO: " + e.getMessage());
         }
     }

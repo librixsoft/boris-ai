@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.exceptions.BorisException;
 import com.boris.tooling.ToolDefinition;
+import com.boris.context.ProjectContext;
 public class EditTool {
 
     public static ToolDefinition apply_edit() {
@@ -40,6 +41,10 @@ public class EditTool {
         if (pathStr == null || pathStr.isBlank()) {
             return formatOutput(false, "Error: path is required");
         }
+
+        // Resolver ruta relativa usando el proyecto actual
+        pathStr = ProjectContext.resolveRelativePath(pathStr);
+
         if (oldText == null || oldText.isEmpty()) {
             return formatOutput(false, "Error: old_text is required");
         }
@@ -209,6 +214,10 @@ public class EditTool {
         if (pathStr == null || pathStr.isBlank()) {
             return formatOutput(false, "Error: path is required");
         }
+
+        // Resolver ruta relativa usando el proyecto actual
+        pathStr = ProjectContext.resolveRelativePath(pathStr);
+
         if (oldText == null || oldText.isEmpty()) {
             return formatOutput(false, "Error: old_text is required");
         }

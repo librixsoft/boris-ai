@@ -10,6 +10,7 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.tooling.ToolDefinition;
+import com.boris.context.ProjectContext;
 public class WriteTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -38,6 +39,10 @@ public class WriteTool {
         if (pathStr == null || pathStr.isBlank()) {
             return formatOutput(false, "Error: path is required");
         }
+
+        // Resolver ruta relativa usando el proyecto actual
+        pathStr = ProjectContext.resolveRelativePath(pathStr);
+
         if (content == null) {
             content = "";
         }

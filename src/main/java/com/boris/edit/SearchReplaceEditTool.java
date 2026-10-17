@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.boris.context.ProjectContext;
+
 /**
  * SearchReplaceEditTool - Ediciones parciales estilo Aider
  *
@@ -40,6 +42,9 @@ public class SearchReplaceEditTool {
         if (path == null || path.isBlank()) {
             return formatError("path es requerido");
         }
+
+        // Resolver ruta relativa usando el proyecto actual
+        path = ProjectContext.resolveRelativePath(path);
 
         if (replacements == null || replacements.isEmpty()) {
             return formatError("replacements es requerido");

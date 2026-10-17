@@ -1,6 +1,7 @@
 package com.boris.edit;
 
 import com.boris.tooling.DiffLineNotifier;
+import com.boris.context.ProjectContext;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -115,12 +116,15 @@ public class StreamingFileWriter {
                 endFileBlock();
             }
 
-            currentFilePath = path;
+            // Resolver ruta relativa usando el proyecto actual
+            String resolvedPath = ProjectContext.resolveRelativePath(path);
+
+            currentFilePath = resolvedPath;
             currentLanguage = language;
             lineNumber = 0;
             inCodeBlock = true;
 
-            Path filePath = Paths.get(path);
+            Path filePath = Paths.get(resolvedPath);
             Files.createDirectories(filePath.getParent());
             currentWriter = Files.newBufferedWriter(filePath);
 

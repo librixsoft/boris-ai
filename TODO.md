@@ -1,44 +1,68 @@
 # TODO.md — Boris CLI
 
-## Pendiente: Streaming Estilo Aider
+## Completado: Streaming Estilo Aider ✅
 
-### Problema actual
-El `StreamingFileWriter` fue deshabilitado temporalmente porque:
-1. Espera líneas completas (busca `\n`) pero el streaming envía chunks parciales
-2. El texto se "tragaba" porque quedaba en el buffer esperando un newline que nunca llegaba
-3. Chunks como "Hey" (sin newline) nunca se procesaban
+- ✅ `StreamingFileWriter.processChunk()` corregido
+- ✅ `ChatService.sendMessageStream()` reconectado
+- ✅ Streaming funciona con escritura de archivos estilo Aider
 
-### Solución requerida
-Modificar `StreamingFileWriter.processChunk()` para:
-1. Enviar texto inmediatamente aunque no tenga newline (para texto normal)
-2. Solo buffear cuando está DENTRO de un bloque de código (`inCodeBlock = true`)
-3. Al detectar `\n` dentro de un bloque de código, escribir esa línea al archivo
+---
 
-### Código a modificar
-`src/main/java/com/boris/edit/StreamingFileWriter.java`:
-```java
-public String processChunk(String chunk) {
-    // Si NO estamos en bloque de código, enviar todo inmediatamente
-    if (!inCodeBlock) {
-        // Buscar inicio de bloque en el chunk
-        // Si no hay, devolver todo el chunk
-        // Si hay, procesar el inicio y buffear el resto
-    }
-    
-    // Si estamos en bloque de código, buffear hasta encontrar newlines
-    // Cada newline = una línea para escribir al archivo
-}
-```
+## Completado: Loop infinito de comandos ✅ (2026-10-17)
 
-### Estado actual
-- ✅ `StreamingFileWriter.processChunk()` corregido - devuelve texto parcial inmediatamente fuera de bloques de código
-- ✅ `ChatService.sendMessageStream()` reconectado con `StreamingFileWriter`
-- ✅ El streaming real funciona con escritura de archivos estilo Aider
+### Problema
+El modelo entraba en loop infinito reintentando `ls`, `find`, `cat` porque el mensaje de error era incorrecto ("Redirigiendo a GitHub API" en vez de "USA list_files").
 
-### Feature completado ✅
-1. ~~Arreglar `StreamingFileWriter` según la solución descrita~~ ✅
-2. ~~Volver a conectar en `ChatService.sendMessageStream()`~~ ✅
-3. (Opcional) Agregar tests para chunks parciales
+### Solución aplicada
+- ✅ `BatchExecuteCommandTool.java`: Corregido mensaje de error para usar `blockedReason` real
+- ✅ Agregado circuit breaker para comandos redirigidos (máx 3 intentos)
+- ✅ Mensajes claros: "REDIRIGIR (intento 1/3): USA list_files en lugar de ls"
+
+---
+
+## Completado: Archivos en directorio incorrecto ✅ (2026-10-17)
+
+### Problema
+Al escribir `/ruta/proyecto comando`, el modelo creaba archivos en el directorio de boris-ai en vez del proyecto especificado.
+
+### Solución aplicada
+- ✅ `ProjectContext.java` (nuevo): ThreadLocal para compartir ruta del proyecto
+- ✅ `ChatService.java`: Extrae ruta del mensaje y setea ProjectContext
+- ✅ `StreamingFileWriter.java`: Usa `resolveRelativePath()` para rutas Aider
+- ✅ `BulkEditTool.java`: Usa `resolveRelativePath()` + quitó prints
+- ✅ `SearchReplaceEditTool.java`: Usa `resolveRelativePath()`
+- ✅ `WriteTool.java`: Usa `resolveRelativePath()`
+- ✅ `EditTool.java`: Usa `resolveRelativePath()`
+
+---
+
+## Completado: Búsquedas excesivas antes de escribir ✅ (2026-10-17)
+
+### Problema
+El modelo hacía decenas de `search_context` para "verificar" cada clase/método ANTES de escribir código, causando lentitud extrema.
+
+### Solución aplicada
+- ✅ `default-system-prompt.md`: Cambió de "verificar antes" a "validación automática post-escritura"
+- ✅ `AGENTS.md`: Mismo cambio - escribir directo, validar después
+- ✅ Nuevo flujo: escribir → validación automática → corregir errores
+
+---
+
+## Pendiente: Autocorrección de Alucinaciones
+
+**Plan detallado:** `plans/autocorreccion-alucinaciones.md`
+
+### Problema
+El modelo local alucina código (APIs incorrectas). Se valida DESPUÉS de generar pero no hay autocorrección.
+
+### Solución propuesta
+Autocorrección determinística SIN llamar al LLM cuando hay 1 sugerencia clara:
+- `client.fetch()` → `client.send()` (autocorregir automáticamente)
+- Múltiples opciones → micro-prompt de ~20 tokens
+
+### Estado
+- [ ] Fase 1: Autocorrección determinística (LineValidator + BulkEditTool)
+- [ ] Fase 2: Micro-prompts para casos ambiguos
 
 ---
 
@@ -52,4 +76,3 @@ public String processChunk(String chunk) {
 ### Mejora sugerida
 - Opción para requerir CONTEXT.md antes de escribir código de librerías externas
 - Warning cuando se escribe código sin contexto
-
