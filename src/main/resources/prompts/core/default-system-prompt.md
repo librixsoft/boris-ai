@@ -59,6 +59,17 @@ Si no encuentro → NO USAR, buscar alternativa
 
 **SI NO ESTÁ EN CONTEXT.MD, NO EXISTE PARA TI.**
 
+**VERIFICACIÓN ADICIONAL CON GREP:**
+Si no encuentras un método en CONTEXT.md, ANTES de usarlo verifica en el repo descargado:
+```bash
+grep -rn "nombreMetodo" .boris/repos/NOMBRE_LIBRERIA/src --include="*.java" | head -10
+```
+Ejemplo:
+```bash
+grep -rn "setPosition\|setWindowPosition" .boris/repos/lanterna/src --include="*.java" | head -5
+```
+Si grep no encuentra el método → NO EXISTE → NO LO USES.
+
 **CONSECUENCIA**: Código que no compile = alucinación = falla crítica.
 
 ===== PROHIBIDO BUSCAR EN INTERNET SI YA EXISTE CONTEXT =====

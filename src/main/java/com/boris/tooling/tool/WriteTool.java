@@ -60,6 +60,14 @@ public class WriteTool {
                         "BLOQUEADO: Debes leer .boris/CONTEXT.md antes de escribir codigo. " +
                         "Ejecuta: batch_read_files([\".boris/CONTEXT.md\"]) y usa SOLO las clases documentadas ahi.");
                 }
+
+                // Validar que las clases usadas estén en CONTEXT.md
+                String validationWarning = validateClassesInContext(content, contextFile);
+                if (validationWarning != null) {
+                    return formatOutput(false,
+                        "ADVERTENCIA DE ALUCINACIÓN: " + validationWarning + "\n" +
+                        "Verifica en .boris/repos/ si el método existe: grep -rn 'nombreMetodo' .boris/repos/*/src --include='*.java'");
+                }
             }
         }
 
@@ -93,6 +101,48 @@ public class WriteTool {
             current = current.getParent();
         }
         return null;
+    }
+
+    /**
+     * Valida que las clases instanciadas con "new" estén documentadas en CONTEXT.md
+     */
+    private static String validateClassesInContext(String code, Path contextFile) {
+        try {
+            String contextContent = Files.readString(contextFile);
+
+            // Buscar instanciaciones: new ClassName(
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("new\\s+([A-Z][\\w]+)\\s*\\(");
+            java.util.regex.Matcher matcher = pattern.matcher(code);
+
+            java.util.Set<String> missingClasses = new java.util.TreeSet<>();
+            java.util.Set<String> standardClasses = java.util.Set.of(
+                "ArrayList", "HashMap", "HashSet", "LinkedList", "StringBuilder",
+                "String", "Integer", "Long", "Double", "Thread", "Exception",
+                "File", "Date", "Random", "SimpleDateFormat", "Arrays"
+            );
+
+            while (matcher.find()) {
+                String className = matcher.group(1);
+                // Ignorar clases estándar de Java
+                if (standardClasses.contains(className)) continue;
+
+                // Verificar si la clase está en CONTEXT.md
+                if (!contextContent.contains(className) &&
+                    !contextContent.contains("### `" + className + "`") &&
+                    !contextContent.contains("import " + className)) {
+                    missingClasses.add(className);
+                }
+            }
+
+            if (!missingClasses.isEmpty() && missingClasses.size() <= 3) {
+                return "Clases NO encontradas en CONTEXT.md: " + missingClasses +
+                       ". Verifica que existan antes de usarlas.";
+            }
+
+        } catch (IOException e) {
+            // Si no puede leer el contexto, no bloquear
+        }
+        return null; // OK
     }
 
     private static String formatOutput(boolean success, String message) {

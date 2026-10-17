@@ -594,19 +594,61 @@ public class LibraryContextTool {
         }
         if (className == null) return;
 
+        // Pattern mejorado que captura parámetros
         Pattern methodPattern = Pattern.compile(
-            "public\\s+(?:static\\s+)?(?:final\\s+)?(?:abstract\\s+)?(?:<[^>]+>\\s+)?(\\w+(?:<[^>]+>)?)\\s+(\\w+)\\s*\\([^)]*\\)");
+            "public\\s+(?:static\\s+)?(?:final\\s+)?(?:synchronized\\s+)?(?:abstract\\s+)?(?:<[^>]+>\\s+)?(\\w+(?:<[^>]+>)?)\\s+(\\w+)\\s*\\(([^)]*)\\)");
         Matcher methodMatcher = methodPattern.matcher(content);
 
         List<String> methods = classMethods.computeIfAbsent(className, k -> new ArrayList<>());
         while (methodMatcher.find()) {
             String returnType = methodMatcher.group(1);
             String methodName = methodMatcher.group(2);
-            String signature = methodName + "() : " + returnType;
+            String params = methodMatcher.group(3).trim();
+
+            // Simplificar parámetros: solo tipos, no nombres
+            String simpleParams = simplifyParams(params);
+            String signature = methodName + "(" + simpleParams + ") : " + returnType;
+
             if (!methods.contains(signature) && !methodName.equals(className)) {
                 methods.add(signature);
             }
         }
+
+        // También extraer constructores
+        Pattern constructorPattern = Pattern.compile(
+            "public\\s+" + className + "\\s*\\(([^)]*)\\)");
+        Matcher constructorMatcher = constructorPattern.matcher(content);
+        while (constructorMatcher.find()) {
+            String params = constructorMatcher.group(1).trim();
+            String simpleParams = simplifyParams(params);
+            String signature = "new " + className + "(" + simpleParams + ")";
+            if (!methods.contains(signature)) {
+                methods.add(0, signature); // Constructores primero
+            }
+        }
+    }
+
+    private static String simplifyParams(String params) {
+        if (params.isEmpty()) return "";
+        // Extraer solo los tipos de los parámetros
+        String[] parts = params.split(",");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i].trim();
+            // Obtener el tipo (última palabra antes del nombre de variable)
+            String[] tokens = part.split("\\s+");
+            if (tokens.length >= 2) {
+                // El tipo es todo menos el último token (que es el nombre)
+                for (int j = 0; j < tokens.length - 1; j++) {
+                    if (j > 0) sb.append(" ");
+                    sb.append(tokens[j]);
+                }
+            } else if (tokens.length == 1) {
+                sb.append(tokens[0]);
+            }
+            if (i < parts.length - 1) sb.append(", ");
+        }
+        return sb.toString();
     }
 
     private static String extractUsefulExample(String content) {
