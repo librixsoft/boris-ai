@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class ToolCallLimiter {
 
-    private static final int DEFAULT_MAX_CALLS = 50;
+    private static final int DEFAULT_MAX_CALLS = 1000;
     private static final int MAX_SAME_CALL_TOTAL = 3;
     private static final ThreadLocal<String> lastToolCall = ThreadLocal.withInitial(() -> "");
     private static final ThreadLocal<AtomicInteger> sameCallCount = ThreadLocal.withInitial(() -> new AtomicInteger(0));
