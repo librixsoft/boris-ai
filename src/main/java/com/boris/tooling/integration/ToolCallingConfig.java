@@ -634,15 +634,18 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "create_library_context",
-            description = "Creates .boris/CONTEXT.md with REAL API documentation extracted from GitHub source code. Use this BEFORE writing code that uses external libraries. Extracts real imports, classes, and usage examples from the repository.")
+            description = "Downloads GitHub repo as ZIP (once), analyzes source code locally, and creates .boris/CONTEXT.md. " +
+                         "NO API rate limits. After first download, uses local cache. Use BEFORE writing library code.")
     public String create_library_context(
             @ToolParam(description = "GitHub repository in format owner/repo (e.g., mabe02/lanterna)") String repo,
-            @ToolParam(description = "Library version (e.g., 3.1.5)") String version,
-            @ToolParam(description = "Path to project where .boris/CONTEXT.md will be created") String project_path) {
+            @ToolParam(description = "Branch or version (e.g., master, main, 3.1.5)") String version,
+            @ToolParam(description = "Path to project where .boris/CONTEXT.md will be created") String project_path,
+            @ToolParam(description = "Force re-download even if repo already exists locally") Boolean force) {
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("repo", repo);
-        args.put("version", version != null ? version : "latest");
+        args.put("version", version != null ? version : "main");
         args.put("project_path", project_path != null ? project_path : ".");
+        args.put("force", force != null ? force : false);
         String result = LibraryContextTool.execute(args);
         notifyToolTokens("create_library_context", repo, result);
         return result;
