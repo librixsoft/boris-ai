@@ -29,6 +29,7 @@ import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
+import com.boris.tooling.tool.LibraryContextTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchEditTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
@@ -626,6 +627,24 @@ public class ToolCallingConfig {
     public String list_active_plans() {
         String result = taskPlannerTool.executeListActivePlans(Map.of());
         notifyToolTokens("list_active_plans", "", result);
+        return result;
+    }
+
+    // ========== Library Context Tool ==========
+
+    @Tool(
+            name = "create_library_context",
+            description = "Creates .boris/CONTEXT.md with REAL API documentation extracted from GitHub source code. Use this BEFORE writing code that uses external libraries. Extracts real imports, classes, and usage examples from the repository.")
+    public String create_library_context(
+            @ToolParam(description = "GitHub repository in format owner/repo (e.g., mabe02/lanterna)") String repo,
+            @ToolParam(description = "Library version (e.g., 3.1.5)") String version,
+            @ToolParam(description = "Path to project where .boris/CONTEXT.md will be created") String project_path) {
+        Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("repo", repo);
+        args.put("version", version != null ? version : "latest");
+        args.put("project_path", project_path != null ? project_path : ".");
+        String result = LibraryContextTool.execute(args);
+        notifyToolTokens("create_library_context", repo, result);
         return result;
     }
 }
