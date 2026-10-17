@@ -3,25 +3,29 @@ package com.boris.edit;
 import com.boris.tooling.DiffLineNotifier;
 import com.boris.context.ProjectContext;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * StreamingFileWriter - Estilo Aider
  *
- * Parsea texto del modelo en streaming y escribe archivos conforme llegan.
+ * Parsea texto del modelo en streaming y muestra el código en el chat.
  * Detecta bloques con formato:
  *
  * ```java:src/MiClase.java
  * contenido...
  * ```
  *
- * Escribe cada línea al archivo conforme llega, mostrando en UI.
+ * FLUJO:
+ * 1. Muestra cada línea en el chat conforme llega (rápido, sin I/O)
+ * 2. Acumula el contenido en memoria
+ * 3. Guarda TODO al final cuando cierra el bloque ```
  */
 public class StreamingFileWriter {
 
@@ -32,7 +36,7 @@ public class StreamingFileWriter {
     private StringBuilder buffer = new StringBuilder();
     private String currentFilePath = null;
     private String currentLanguage = null;
-    private BufferedWriter currentWriter = null;
+    private List<String> contentLines = new ArrayList<>();
     private int lineNumber = 0;
     private boolean inCodeBlock = false;
 
@@ -81,7 +85,7 @@ public class StreamingFileWriter {
     /**
      * Procesa una línea completa.
      *
-     * @return La línea si es texto normal, null si es código (ya fue escrito)
+     * @return La línea si es texto normal, null si es código (ya fue mostrado)
      */
     private String processLine(String line) {
         // ¿Inicio de bloque de código con archivo?
@@ -101,7 +105,7 @@ public class StreamingFileWriter {
 
         // ¿Dentro de bloque de código?
         if (inCodeBlock) {
-            writeLineToFile(line);
+            accumulateLine(line);
             return null;
         }
 
@@ -110,66 +114,63 @@ public class StreamingFileWriter {
     }
 
     private void startFileBlock(String path, String language) {
-        try {
-            // Cerrar archivo anterior si existe
-            if (currentWriter != null) {
-                endFileBlock();
-            }
-
-            // Resolver ruta relativa usando el proyecto actual
-            String resolvedPath = ProjectContext.resolveRelativePath(path);
-
-            currentFilePath = resolvedPath;
-            currentLanguage = language;
-            lineNumber = 0;
-            inCodeBlock = true;
-
-            Path filePath = Paths.get(resolvedPath);
-            Files.createDirectories(filePath.getParent());
-            currentWriter = Files.newBufferedWriter(filePath);
-
-            // Notificar UI
-            DiffLineNotifier.notify("@@@ " + filePath.getFileName() + " @@@");
-
-        } catch (IOException e) {
-            DiffLineNotifier.notify("⚠ Error creando archivo: " + e.getMessage());
-            inCodeBlock = false;
-            currentWriter = null;
+        // Cerrar archivo anterior si existe
+        if (inCodeBlock) {
+            endFileBlock();
         }
+
+        // Resolver ruta relativa usando el proyecto actual
+        String resolvedPath = ProjectContext.resolveRelativePath(path);
+
+        currentFilePath = resolvedPath;
+        currentLanguage = language;
+        lineNumber = 0;
+        contentLines.clear();
+        inCodeBlock = true;
+
+        // Notificar UI - inicio de archivo
+        Path filePath = Paths.get(resolvedPath);
+        DiffLineNotifier.notify("@@@ " + filePath.getFileName() + " @@@");
     }
 
-    private void writeLineToFile(String line) {
-        if (currentWriter == null) {
-            return;
-        }
+    /**
+     * Acumula una línea en memoria y la muestra en el chat.
+     * NO escribe al disco todavía.
+     */
+    private void accumulateLine(String line) {
+        lineNumber++;
+        contentLines.add(line);
 
-        try {
-            lineNumber++;
-            currentWriter.write(line);
-            currentWriter.newLine();
-            currentWriter.flush(); // Flush inmediato para ver progreso
-
-            // Notificar UI
-            DiffLineNotifier.notify(String.format("%3d │+ %s", lineNumber, line));
-
-        } catch (IOException e) {
-            DiffLineNotifier.notify("⚠ Error escribiendo línea: " + e.getMessage());
-        }
+        // Notificar UI para mostrar la línea (esto es instantáneo, sin I/O)
+        DiffLineNotifier.notify(String.format("%3d │+ %s", lineNumber, line));
     }
 
+    /**
+     * Finaliza el bloque y guarda TODO el contenido al archivo de una sola vez.
+     */
     private void endFileBlock() {
-        if (currentWriter != null) {
+        if (currentFilePath != null && !contentLines.isEmpty()) {
             try {
-                currentWriter.close();
-                DiffLineNotifier.notify(String.format("─── +%d ✓ %s ───", lineNumber, currentFilePath));
+                Path filePath = Paths.get(currentFilePath);
+                Files.createDirectories(filePath.getParent());
+
+                // Escribir TODO el contenido de una sola vez
+                String content = String.join("\n", contentLines);
+                if (!content.endsWith("\n")) {
+                    content += "\n";
+                }
+                Files.writeString(filePath, content);
+
+                DiffLineNotifier.notify(String.format("─── +%d ✓ %s guardado ───", lineNumber, currentFilePath));
+
             } catch (IOException e) {
-                DiffLineNotifier.notify("⚠ Error cerrando archivo: " + e.getMessage());
+                DiffLineNotifier.notify("⚠ Error guardando archivo: " + e.getMessage());
             }
         }
 
-        currentWriter = null;
         currentFilePath = null;
         currentLanguage = null;
+        contentLines.clear();
         lineNumber = 0;
         inCodeBlock = false;
     }
@@ -184,7 +185,7 @@ public class StreamingFileWriter {
             buffer.setLength(0);
         }
 
-        // Cerrar archivo si quedó abierto
+        // Guardar archivo si quedó abierto
         if (inCodeBlock) {
             endFileBlock();
         }
@@ -194,15 +195,10 @@ public class StreamingFileWriter {
      * Resetear estado para nuevo mensaje.
      */
     public void reset() {
-        if (currentWriter != null) {
-            try {
-                currentWriter.close();
-            } catch (IOException ignored) {}
-        }
         buffer.setLength(0);
-        currentWriter = null;
         currentFilePath = null;
         currentLanguage = null;
+        contentLines.clear();
         lineNumber = 0;
         inCodeBlock = false;
     }

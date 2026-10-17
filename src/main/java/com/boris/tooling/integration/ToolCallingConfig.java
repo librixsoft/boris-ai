@@ -705,45 +705,36 @@ public class ToolCallingConfig {
         return result;
     }
 
-    // ========== Streaming Line Edit Tools ==========
-
+    // ========== Streaming Line Edit Tools (DISABLED - using text format instead) ==========
+    // El modelo escribe código con formato ```java:path y StreamingFileWriter lo detecta
+    // y guarda automáticamente. No se necesitan herramientas.
+    /*
     @Tool(
             name = "streaming_line_start",
-            description = "STEP 1: Start writing a file line by line. Call ONLY ONCE per file. " +
-                         "After this, use streaming_line_write for EACH line. " +
-                         "Flow: start(1x) -> write(Nx) -> end(1x)")
+            description = "STEP 1: Start writing a file line by line.")
     public String streaming_line_start(
             @ToolParam(description = "Path for the file to create/edit") String path) {
-        ToolProgressNotifier.notify("streaming_line_start", "Iniciando archivo: " + path);
-        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
-        args.put("path", path);
-        String result = com.boris.edit.StreamingLineEditTool.streaming_line_start(args);
-        notifyToolTokens("streaming_line_start", path, result);
-        return result;
+        // DISABLED - use text format ```java:path instead
+        return "{\"error\": \"Use text format ```java:path instead of this tool\"}";
     }
 
     @Tool(
             name = "streaming_line_write",
-            description = "STEP 2: Write ONE line of code. Call this for EACH line, one at a time. " +
-                         "The line is shown in real-time in the chat. " +
-                         "Continue until all lines are written, then call streaming_line_end.")
+            description = "STEP 2: Write ONE line of code.")
     public String streaming_line_write(
             @ToolParam(description = "Single line of code to write") String line) {
-        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
-        args.put("line", line != null ? line : "");
-        String result = com.boris.edit.StreamingLineEditTool.streaming_line_write(args);
-        notifyToolTokens("streaming_line_write", line, result);
-        return result;
+        // DISABLED - use text format ```java:path instead
+        return "{\"error\": \"Use text format ```java:path instead of this tool\"}";
     }
 
     @Tool(
             name = "streaming_line_end",
-            description = "STEP 3: Finish and save the file. Call ONLY ONCE after all lines are written.")
+            description = "STEP 3: Finish and save the file.")
     public String streaming_line_end() {
-        String result = com.boris.edit.StreamingLineEditTool.streaming_line_end(java.util.Map.of());
-        notifyToolTokens("streaming_line_end", "", result);
-        return result;
+        // DISABLED - use text format ```java:path instead
+        return "{\"error\": \"Use text format ```java:path instead of this tool\"}";
     }
+    */
 
     // ========== Code Symbol Query Tools ==========
 
