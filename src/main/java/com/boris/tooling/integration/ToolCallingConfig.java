@@ -420,59 +420,8 @@ public class ToolCallingConfig {
         return result;
     }
 
-    // ========== DESHABILITADO TEMPORALMENTE - execute_command causa problemas con el flujo ==========
-    /*
-    @Tool(
-            name = "execute_command",
-            description = "Execute shell commands. For multiple INDEPENDENT commands, use batch_execute_commands tool.")
-    public String execute_command(
-            @ToolParam(description = "The terminal command string to execute") String command,
-            @ToolParam(description = "Optional working directory path where the command should run") String workingDirectory) {
-
-        if (command == null || command.isBlank()) {
-            return "{\"success\":false,\"error\":\"No valid command provided\"}";
-        }
-
-        List<BatchExecuteCommandTool.CommandSpec> specs = new ArrayList<>();
-        specs.add(new BatchExecuteCommandTool.CommandSpec(command, workingDirectory));
-
-        String result = batchExecuteCommandTool.execute(specs);
-        notifyToolTokens("execute_command", command, result);
-        return result;
-    }
-
-    @Tool(
-            name = "batch_execute_commands",
-            description = "Execute multiple INDEPENDENT shell commands IN PARALLEL for faster results. Commands that modify the same resource should NOT be run in parallel.")
-    public String batch_execute_commands(
-            @ToolParam(description = "Array of command objects [{command, workingDirectory}]") java.util.List<java.util.Map<String, Object>> commands) {
-
-        List<BatchExecuteCommandTool.CommandSpec> specs = new ArrayList<>();
-
-        if (commands != null) {
-            for (Map<?, ?> map : commands) {
-                String cmd = (String) map.get("command");
-                String dir = (String) map.get("workingDirectory");
-                if (cmd != null && !cmd.isBlank()) {
-                    specs.add(new BatchExecuteCommandTool.CommandSpec(cmd, dir));
-                }
-            }
-        }
-
-        if (specs.isEmpty()) {
-            return "{\"success\":false,\"error\":\"No valid commands provided\"}";
-        }
-
-        ToolProgressNotifier.notify("batch_execute_commands", "Ejecutando " + specs.size() + " comandos en paralelo...");
-        String result = batchExecuteCommandTool.execute(specs);
-        String cmdsStr = specs.stream().map(BatchExecuteCommandTool.CommandSpec::command).toList().toString();
-        notifyToolTokens("batch_execute_commands", cmdsStr, result);
-        return result;
-    }
-    */
-    // ========== FIN DESHABILITADO ==========
-
-    // github_api_search ELIMINADO - usar create_library_context en su lugar
+    // execute_command y batch_execute_commands ELIMINADOS
+    // Ver TODO.md para plan de reemplazo con git_tool y build_tool
 
     // ========== Existing Batch Tools ==========
 
