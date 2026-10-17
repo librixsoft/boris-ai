@@ -49,14 +49,25 @@ public class WriteTool {
         if (isCodeFile(pathStr)) {
             long lineCount = content.lines().count();
             if (lineCount > 50) {
+                String className = extractClassName(pathStr);
                 return formatOutput(false,
                     "BLOQUEADO: Escritura incremental obligatoria.\n" +
-                    "El archivo tiene " + lineCount + " líneas (máximo permitido: 50).\n" +
-                    "DEBES usar este flujo:\n" +
-                    "1. write_file → solo esqueleto base (< 50 líneas)\n" +
-                    "2. batch_read_files → leer .boris/CONTEXT.md\n" +
-                    "3. apply_edit → implementar método por método (máx 30 líneas por edición)\n" +
-                    "NO intentes escribir el archivo completo de una vez.");
+                    "El archivo tiene " + lineCount + " líneas (máximo permitido: 50).\n\n" +
+                    "PASO 1 - Crea SOLO este esqueleto con write_file:\n" +
+                    "```\n" +
+                    "package com.example;\n\n" +
+                    "// TODO: imports (verificar en CONTEXT.md)\n\n" +
+                    "public class " + className + " {\n" +
+                    "    public static void main(String[] args) {\n" +
+                    "        // TODO: implementar\n" +
+                    "    }\n" +
+                    "}\n" +
+                    "```\n\n" +
+                    "PASO 2 - Lee el contexto:\n" +
+                    "batch_read_files([\".boris/CONTEXT.md\"])\n\n" +
+                    "PASO 3 - Implementa con apply_edit, método por método.\n" +
+                    "Máximo 30 líneas por edición. Verifica cada clase/método en CONTEXT.md.\n\n" +
+                    "NO vuelvas a intentar write_file con el archivo completo.");
             }
         }
 
@@ -107,6 +118,15 @@ public class WriteTool {
             .anyMatch(imp -> !imp.startsWith("java.") &&
                            !imp.startsWith("javax.") &&
                            !imp.startsWith("jdk."));
+    }
+
+    private static String extractClassName(String path) {
+        String fileName = Paths.get(path).getFileName().toString();
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex > 0) {
+            return fileName.substring(0, dotIndex);
+        }
+        return fileName;
     }
 
     private static boolean isCodeFile(String path) {
