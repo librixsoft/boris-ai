@@ -50,7 +50,7 @@ public class StreamingFileWriter {
         buffer.append(chunk);
         StringBuilder nonCodeOutput = new StringBuilder();
 
-        // Procesar líneas completas
+        // Procesar líneas completas (tienen \n)
         int newlineIdx;
         while ((newlineIdx = buffer.indexOf("\n")) != -1) {
             String line = buffer.substring(0, newlineIdx);
@@ -60,6 +60,18 @@ public class StreamingFileWriter {
             if (result != null) {
                 nonCodeOutput.append(result).append("\n");
             }
+        }
+
+        // Si NO estamos en bloque de código, devolver buffer parcial inmediatamente
+        // Esto permite que texto como "Hey" se muestre sin esperar newline
+        if (!inCodeBlock && buffer.length() > 0) {
+            // Verificar si el buffer podría ser inicio de bloque de código
+            String pending = buffer.toString();
+            if (!pending.startsWith("`")) {
+                nonCodeOutput.append(pending);
+                buffer.setLength(0);
+            }
+            // Si empieza con `, esperar más datos para ver si es ```lang:path
         }
 
         return nonCodeOutput.toString();

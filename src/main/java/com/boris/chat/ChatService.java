@@ -177,8 +177,12 @@ public class ChatService {
 
                     if (content != null && !content.isEmpty()) {
                         fullResponse.append(content);
-                        // Enviar directamente al chat (sin pasar por StreamingFileWriter por ahora)
-                        onChunk.accept(content);
+                        // Procesar con StreamingFileWriter: detecta bloques ```lang:path
+                        // y escribe archivos en streaming estilo Aider
+                        String chatText = fileWriter.processChunk(content);
+                        if (chatText != null && !chatText.isEmpty()) {
+                            onChunk.accept(chatText);
+                        }
                     }
                 })
                 .doOnError(error -> {
@@ -196,6 +200,9 @@ public class ChatService {
             if (errorRef.get() != null) {
                 throw new RuntimeException(errorRef.get());
             }
+
+            // Finalizar StreamingFileWriter (cierra archivos pendientes)
+            fileWriter.finish();
 
             // Guardar en historial
             String finalResponse = fullResponse.toString();

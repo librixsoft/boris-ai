@@ -31,14 +31,14 @@ public String processChunk(String chunk) {
 ```
 
 ### Estado actual
-- `ChatService.sendMessageStream()` envía chunks directamente a `onChunk.accept()` sin pasar por `StreamingFileWriter`
-- El streaming real funciona (confirmado con logs)
-- La escritura de archivos estilo Aider está deshabilitada
+- ✅ `StreamingFileWriter.processChunk()` corregido - devuelve texto parcial inmediatamente fuera de bloques de código
+- ✅ `ChatService.sendMessageStream()` reconectado con `StreamingFileWriter`
+- ✅ El streaming real funciona con escritura de archivos estilo Aider
 
-### Para reactivar el feature
-1. Arreglar `StreamingFileWriter` según la solución descrita
-2. Agregar tests para chunks parciales
-3. Volver a conectar en `ChatService.sendMessageStream()`
+### Feature completado ✅
+1. ~~Arreglar `StreamingFileWriter` según la solución descrita~~ ✅
+2. ~~Volver a conectar en `ChatService.sendMessageStream()`~~ ✅
+3. (Opcional) Agregar tests para chunks parciales
 
 ---
 
