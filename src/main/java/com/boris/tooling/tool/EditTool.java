@@ -53,15 +53,27 @@ public class EditTool {
         }
 
         // === VALIDACIÓN: Verificar CONTEXT.md antes de editar con imports externos ===
-        if (isCodeFile(pathStr) && hasExternalImports(newText)) {
+        if (isCodeFile(pathStr)) {
             Path projectRoot = findProjectRoot(path);
             if (projectRoot != null) {
                 Path contextFile = projectRoot.resolve(".boris/CONTEXT.md");
-                if (Files.exists(contextFile) && !ContextTracker.wasRead(projectRoot)) {
-                    return formatOutput(false,
-                        "BLOQUEADO: Debes leer .boris/CONTEXT.md ANTES de editar código con bibliotecas externas.\n" +
-                        "Ejecuta: batch_read_files([\".boris/CONTEXT.md\"])\n" +
-                        "Luego verifica que las clases y métodos que usas estén documentados ahí.");
+                if (Files.exists(contextFile)) {
+                    // Verificar que se leyó el contexto
+                    if (hasExternalImports(newText) && !ContextTracker.wasRead(projectRoot)) {
+                        return formatOutput(false,
+                            "BLOQUEADO: Debes leer .boris/CONTEXT.md ANTES de editar código con bibliotecas externas.\n" +
+                            "Ejecuta: batch_read_files([\".boris/CONTEXT.md\"])\n" +
+                            "Luego verifica que las clases y métodos que usas estén documentados ahí.");
+                    }
+
+                    // Validar clases y métodos contra CONTEXT.md
+                    String validationError = validateCodeAgainstContext(newText, contextFile);
+                    if (validationError != null) {
+                        return formatOutput(false,
+                            "BLOQUEADO - POSIBLE ALUCINACIÓN:\n" + validationError + "\n\n" +
+                            "USA search_context para verificar qué clases/métodos existen.\n" +
+                            "Ejemplo: search_context(query: \"NombreClase\", project_path: \".\")");
+                    }
                 }
             }
         }
@@ -336,6 +348,83 @@ public class EditTool {
                 return current;
             }
             current = current.getParent();
+        }
+        return null;
+    }
+
+    /**
+     * Valida que clases instanciadas y métodos llamados existan en CONTEXT.md.
+     * @return mensaje de error o null si está OK
+     */
+    private static String validateCodeAgainstContext(String code, Path contextFile) {
+        try {
+            String contextContent = Files.readString(contextFile);
+
+            java.util.Set<String> standardClasses = java.util.Set.of(
+                "ArrayList", "HashMap", "HashSet", "LinkedList", "StringBuilder",
+                "String", "Integer", "Long", "Double", "Thread", "Exception",
+                "File", "Date", "Random", "SimpleDateFormat", "Arrays", "List",
+                "Map", "Set", "Properties", "System", "Math", "Object", "Class"
+            );
+
+            java.util.List<String> errors = new java.util.ArrayList<>();
+
+            // 1. Verificar instanciaciones: new ClassName(
+            java.util.regex.Pattern newPattern = java.util.regex.Pattern.compile("new\\s+([A-Z][\\w]+)\\s*\\(");
+            java.util.regex.Matcher newMatcher = newPattern.matcher(code);
+            while (newMatcher.find()) {
+                String className = newMatcher.group(1);
+                if (standardClasses.contains(className)) continue;
+
+                // Verificar si la clase está en CONTEXT.md
+                if (!contextContent.contains("### `" + className + "`") &&
+                    !contextContent.contains("new " + className + "(")) {
+                    errors.add("Clase '" + className + "' no encontrada en CONTEXT.md");
+                }
+            }
+
+            // 2. Verificar extends/implements de clases externas
+            java.util.regex.Pattern extendsPattern = java.util.regex.Pattern.compile("extends\\s+([A-Z][\\w]+)");
+            java.util.regex.Matcher extendsMatcher = extendsPattern.matcher(code);
+            while (extendsMatcher.find()) {
+                String className = extendsMatcher.group(1);
+                if (standardClasses.contains(className)) continue;
+
+                if (!contextContent.contains("### `" + className + "`")) {
+                    errors.add("Clase padre '" + className + "' no encontrada en CONTEXT.md");
+                }
+            }
+
+            // 3. Verificar llamadas a métodos estáticos o constructores con parámetros específicos
+            // Buscar .metodo( o super(
+            java.util.regex.Pattern methodPattern = java.util.regex.Pattern.compile("(?:super|set|get)\\s*\\(");
+            java.util.regex.Matcher methodMatcher = methodPattern.matcher(code);
+            if (methodMatcher.find()) {
+                // Si usa super() o set(), verificar que la clase padre tenga esos métodos
+                String context = code.substring(Math.max(0, methodMatcher.start() - 50),
+                                                Math.min(code.length(), methodMatcher.end() + 50));
+
+                // Verificar super() en clase que extiende algo no estándar
+                if (code.contains("super(") && code.contains("extends")) {
+                    java.util.regex.Matcher em = extendsPattern.matcher(code);
+                    if (em.find()) {
+                        String parentClass = em.group(1);
+                        if (!standardClasses.contains(parentClass)) {
+                            // Verificar que el constructor existe
+                            if (!contextContent.contains("new " + parentClass + "(")) {
+                                errors.add("Constructor de '" + parentClass + "' no verificado. Usa search_context.");
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!errors.isEmpty() && errors.size() <= 5) {
+                return String.join("\n", errors);
+            }
+
+        } catch (IOException e) {
+            // Si no puede leer el contexto, no bloquear
         }
         return null;
     }
