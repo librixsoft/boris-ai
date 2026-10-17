@@ -73,7 +73,11 @@ public class BatchListDirectoriesTool {
         }
 
         // Capturar ProjectContext ANTES de crear virtual threads (ThreadLocal no se propaga)
-        String capturedProjectPath = ProjectContext.getProjectPath();
+        String rawProjectPath = ProjectContext.getProjectPath();
+        // Fallback: si no hay projectPath, usar el directorio actual del proceso
+        final String capturedProjectPath = (rawProjectPath == null || rawProjectPath.isBlank())
+            ? System.getProperty("user.dir")
+            : rawProjectPath;
 
         ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
         List<Future<ListResult>> futures = new ArrayList<>();

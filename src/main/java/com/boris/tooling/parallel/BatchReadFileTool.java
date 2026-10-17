@@ -69,7 +69,11 @@ public class BatchReadFileTool {
         ToolProgressNotifier.notify("batch_read_files", "Leyendo " + uniquePaths.size() + " archivo(s) en paralelo: " + fileList);
 
         // Capturar ProjectContext ANTES de crear virtual threads (ThreadLocal no se propaga)
-        String capturedProjectPath = ProjectContext.getProjectPath();
+        String rawProjectPath = ProjectContext.getProjectPath();
+        // Fallback: si no hay projectPath, usar el directorio actual del proceso
+        final String capturedProjectPath = (rawProjectPath == null || rawProjectPath.isBlank())
+            ? System.getProperty("user.dir")
+            : rawProjectPath;
 
         for (String p : uniquePaths) {
             futures.add(executor.submit(() -> readFileTask(p, maxLinesPerFile, aborter, capturedProjectPath)));
