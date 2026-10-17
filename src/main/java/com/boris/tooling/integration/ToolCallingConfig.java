@@ -213,6 +213,8 @@ public class ToolCallingConfig {
 
     // ========== Core Single-Item Tools ==========
 
+    // DISABLED: bulk_edit - replaced by streaming_line_* tools
+    /*
     @Tool(
             name = "bulk_edit",
             description = "Create or replace a file with streaming visual feedback. Validates classes against indexed symbols BEFORE writing. Shows each line as it writes (green diff). Use query_symbols() first to verify classes exist.")
@@ -227,6 +229,7 @@ public class ToolCallingConfig {
         notifyToolTokens("bulk_edit", path + "\n" + content, result);
         return result;
     }
+    */
 
     @Tool(
             name = "delete_file",
@@ -702,9 +705,8 @@ public class ToolCallingConfig {
         return result;
     }
 
-    // ========== Streaming Line Edit Tools (DISABLED - sin validación contra índice) ==========
-    // TODO: Habilitar cuando se agregue validación en streaming_line_end
-    /*
+    // ========== Streaming Line Edit Tools ==========
+
     @Tool(
             name = "streaming_line_start",
             description = "STEP 1: Start writing a file line by line. Call ONLY ONCE per file. " +
@@ -742,7 +744,6 @@ public class ToolCallingConfig {
         notifyToolTokens("streaming_line_end", "", result);
         return result;
     }
-    */
 
     // ========== Code Symbol Query Tools ==========
 
