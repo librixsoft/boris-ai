@@ -66,6 +66,35 @@ public class BatchExecuteCommandTool {
         "xxd"
     );
 
+    /**
+     * Comandos que tienen herramientas dedicadas y no deben usar execute_command.
+     */
+    private static final java.util.Map<String, String> REDIRECT_COMMANDS = java.util.Map.ofEntries(
+        // Listar archivos → list_files
+        java.util.Map.entry("ls ", "USA list_files en lugar de ls"),
+        java.util.Map.entry("ls\t", "USA list_files en lugar de ls"),
+        java.util.Map.entry("find ", "USA list_files o parallel_search en lugar de find"),
+        java.util.Map.entry("tree ", "USA list_files en lugar de tree"),
+        java.util.Map.entry("dir ", "USA list_files en lugar de dir"),
+        // Leer archivos → batch_read_files
+        java.util.Map.entry("cat ", "USA batch_read_files en lugar de cat"),
+        java.util.Map.entry("head ", "USA batch_read_files en lugar de head"),
+        java.util.Map.entry("tail ", "USA batch_read_files en lugar de tail"),
+        java.util.Map.entry("less ", "USA batch_read_files en lugar de less"),
+        java.util.Map.entry("more ", "USA batch_read_files en lugar de more"),
+        java.util.Map.entry("sed -n", "USA batch_read_files en lugar de sed"),
+        // Buscar texto → parallel_search o search_context
+        java.util.Map.entry("grep ", "USA parallel_search o search_context en lugar de grep"),
+        java.util.Map.entry("egrep ", "USA parallel_search en lugar de egrep"),
+        java.util.Map.entry("fgrep ", "USA parallel_search en lugar de fgrep"),
+        java.util.Map.entry("rg ", "USA parallel_search en lugar de rg"),
+        java.util.Map.entry("ag ", "USA parallel_search en lugar de ag"),
+        // Escribir archivos → write_file o apply_edit
+        java.util.Map.entry("echo ", "USA write_file o apply_edit en lugar de echo"),
+        java.util.Map.entry("printf ", "USA write_file en lugar de printf"),
+        java.util.Map.entry("tee ", "USA write_file en lugar de tee")
+    );
+
     public record CommandSpec(String command, String workingDirectory) {}
     public record CommandResult(String command, boolean success, int exitCode, String stdout, String stderr, String message) {}
 
@@ -195,16 +224,24 @@ public class BatchExecuteCommandTool {
     }
 
     /**
-     * Verifica si un comando está en la lista de bloqueados.
-     * Incrementa contador de intentos y devuelve mensaje progresivamente más fuerte.
+     * Verifica si un comando está en la lista de bloqueados o debe redirigirse.
      * @return razón del bloqueo o null si está permitido
      */
     private String checkBlockedCommand(String command) {
         if (command == null) return null;
-        String cmdLower = command.toLowerCase();
+        String cmdLower = command.toLowerCase().trim();
 
+        // 1. Verificar comandos que deben usar herramientas dedicadas
+        for (java.util.Map.Entry<String, String> entry : REDIRECT_COMMANDS.entrySet()) {
+            if (cmdLower.startsWith(entry.getKey())) {
+                return "REDIRIGIR: " + entry.getValue() + ".\n" +
+                       "execute_command es para compilar, git, mvn, etc.\n" +
+                       "NO para operaciones de archivos que tienen tools dedicadas.";
+            }
+        }
+
+        // 2. Verificar patrones prohibidos (JARs, .m2, etc.)
         boolean isBlocked = false;
-
         for (String pattern : BLOCKED_PATTERNS) {
             if (cmdLower.contains(pattern.toLowerCase())) {
                 isBlocked = true;
