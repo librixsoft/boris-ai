@@ -89,7 +89,7 @@ public class Transcript {
 
     public void activateQueuedMessage(String messageContent) {
         uiExecutor.run(() -> {
-            String pattern = ">> " + messageContent + " <queued:#\\d+>";
+            String pattern = ">> " + java.util.regex.Pattern.quote(messageContent) + " <queued:#\\d+>";
             String replacement = ">> " + messageContent;
             for (int i = 0; i < entries.size(); i++) {
                 Entry e = entries.get(i);
