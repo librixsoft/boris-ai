@@ -48,11 +48,11 @@ public class WriteTool {
         // Bloquear archivos de código con más de 50 líneas
         if (isCodeFile(pathStr)) {
             long lineCount = content.lines().count();
-            if (lineCount > 50) {
+            if (lineCount > 10) {
                 String className = extractClassName(pathStr);
                 return formatOutput(false,
                     "BLOQUEADO: Escritura incremental obligatoria.\n" +
-                    "El archivo tiene " + lineCount + " líneas (máximo permitido: 50).\n\n" +
+                    "El archivo tiene " + lineCount + " líneas (máximo permitido: 10).\n\n" +
                     "PASO 1 - Crea SOLO este esqueleto con write_file:\n" +
                     "```\n" +
                     "package com.example;\n\n" +

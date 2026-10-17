@@ -283,9 +283,9 @@ Leer qué imports, clases y métodos están disponibles.
 - Verificar cada bloque contra CONTEXT.md antes de escribirlo
 
 **LÍMITE POR EDICIÓN:**
-- Máximo 30 líneas por llamada a apply_edit
+- Máximo 20 líneas por llamada a apply_edit
 - Si necesitas más → dividir en múltiples ediciones
 
 **VIOLACIÓN = FALLA CRÍTICA:**
-- write_file con más de 50 líneas de código → BLOQUEADO
+- write_file con más de 10 líneas de código → BLOQUEADO
 - Escribir archivo completo sin usar apply_edit → IGNORANDO INSTRUCCIONES
