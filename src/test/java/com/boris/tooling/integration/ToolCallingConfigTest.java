@@ -37,12 +37,12 @@ class ToolCallingConfigTest {
                 .map(cb -> cb.getToolDefinition().name())
                 .toList();
 
-        assertTrue(names.contains("write_file"));
+        assertTrue(names.contains("bulk_edit"));
         assertTrue(names.contains("delete_file"));
         assertTrue(names.contains("list_files"));
         assertTrue(names.contains("get_system_info"));
         assertTrue(names.contains("generate_pdf"));
-        assertTrue(names.contains("execute_command"));
+        assertTrue(names.contains("apply_edit"));
     }
 
     @Test
@@ -82,24 +82,6 @@ class ToolCallingConfigTest {
 
         assertNotNull(result);
         assertTrue(result.contains("success") || result.contains("error"));
-    }
-
-    @Test
-    void executeCommandTool_callbackCanBeInvoked() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
-
-        var execCb = java.util.Arrays.stream(callbacks)
-                .filter(cb -> "execute_command".equals(cb.getToolDefinition().name()))
-                .findFirst()
-                .orElseThrow();
-
-        assertEquals("execute_command", execCb.getToolDefinition().name());
-        String result = execCb.call("{\"command\":\"echo hello_world\"}");
-
-        assertNotNull(result);
-        assertTrue(result.contains("success") && result.contains("true"),
-            "Expected success in result: " + result);
-        assertTrue(result.contains("hello_world"), "Expected command output in result: " + result);
     }
 
 }

@@ -59,27 +59,6 @@ public class WriteTool {
             }
         }
 
-        // Verificar contexto para archivos .java con imports externos
-        if (pathStr.endsWith(".java") && hasExternalImports(content)) {
-            Path projectRoot = findProjectRoot(path);
-            if (projectRoot != null) {
-                Path contextFile = projectRoot.resolve(".boris/CONTEXT.md");
-                if (!Files.exists(contextFile)) {
-                    return formatOutput(false,
-                        "BLOQUEADO: Antes de escribir codigo con bibliotecas externas, " +
-                        "debes crear .boris/CONTEXT.md. Usa: create_library_context(repo, version, project_path)");
-                }
-
-                // Validar que las clases usadas estén en CONTEXT.md
-                String validationWarning = validateClassesInContext(content, contextFile);
-                if (validationWarning != null) {
-                    return formatOutput(false,
-                        "ADVERTENCIA DE ALUCINACIÓN: " + validationWarning + "\n" +
-                        "Verifica en .boris/repos/ si el método existe: grep -rn 'nombreMetodo' .boris/repos/*/src --include='*.java'");
-                }
-            }
-        }
-
         try {
             Files.createDirectories(path.getParent());
             Files.writeString(path, content);
@@ -88,15 +67,6 @@ public class WriteTool {
         } catch (IOException e) {
             throw new com.boris.exceptions.BorisException("Error writing file: " + pathStr, e);
         }
-    }
-
-    private static boolean hasExternalImports(String content) {
-        return content.lines()
-            .filter(line -> line.trim().startsWith("import "))
-            .map(line -> line.trim().substring(7).replace(";", "").trim())
-            .anyMatch(imp -> !imp.startsWith("java.") &&
-                           !imp.startsWith("javax.") &&
-                           !imp.startsWith("jdk."));
     }
 
     private static boolean isCodeFile(String path) {
@@ -120,61 +90,6 @@ public class WriteTool {
                lower.endsWith(".php") ||
                lower.endsWith(".swift") ||
                lower.endsWith(".m");
-    }
-
-    private static Path findProjectRoot(Path filePath) {
-        Path current = filePath.toAbsolutePath().getParent();
-        while (current != null) {
-            if (Files.exists(current.resolve("pom.xml")) ||
-                Files.exists(current.resolve("build.gradle")) ||
-                Files.exists(current.resolve("package.json"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        return null;
-    }
-
-    /**
-     * Valida que las clases instanciadas con "new" estén documentadas en CONTEXT.md
-     */
-    private static String validateClassesInContext(String code, Path contextFile) {
-        try {
-            String contextContent = Files.readString(contextFile);
-
-            // Buscar instanciaciones: new ClassName(
-            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("new\\s+([A-Z][\\w]+)\\s*\\(");
-            java.util.regex.Matcher matcher = pattern.matcher(code);
-
-            java.util.Set<String> missingClasses = new java.util.TreeSet<>();
-            java.util.Set<String> standardClasses = java.util.Set.of(
-                "ArrayList", "HashMap", "HashSet", "LinkedList", "StringBuilder",
-                "String", "Integer", "Long", "Double", "Thread", "Exception",
-                "File", "Date", "Random", "SimpleDateFormat", "Arrays"
-            );
-
-            while (matcher.find()) {
-                String className = matcher.group(1);
-                // Ignorar clases estándar de Java
-                if (standardClasses.contains(className)) continue;
-
-                // Verificar si la clase está en CONTEXT.md
-                if (!contextContent.contains(className) &&
-                    !contextContent.contains("### `" + className + "`") &&
-                    !contextContent.contains("import " + className)) {
-                    missingClasses.add(className);
-                }
-            }
-
-            if (!missingClasses.isEmpty() && missingClasses.size() <= 3) {
-                return "Clases NO encontradas en CONTEXT.md: " + missingClasses +
-                       ". Verifica que existan antes de usarlas.";
-            }
-
-        } catch (IOException e) {
-            // Si no puede leer el contexto, no bloquear
-        }
-        return null; // OK
     }
 
     private static String formatOutput(boolean success, String message) {

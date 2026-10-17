@@ -544,41 +544,6 @@ public class ToolCallingConfig {
         return result;
     }
 
-    // ========== Library Context Tool ==========
-
-    @Tool(
-            name = "create_library_context",
-            description = "Downloads GitHub repo as ZIP (once), analyzes source code locally, and creates .boris/CONTEXT.md. " +
-                         "NO API rate limits. After first download, uses local cache. Use BEFORE writing library code.")
-    public String create_library_context(
-            @ToolParam(description = "GitHub repository in format owner/repo (e.g., mabe02/lanterna)") String repo,
-            @ToolParam(description = "Branch or version (e.g., master, main, 3.1.5)") String version,
-            @ToolParam(description = "Path to project where .boris/CONTEXT.md will be created") String project_path,
-            @ToolParam(description = "Force re-download even if repo already exists locally") Boolean force) {
-        Map<String, Object> args = new java.util.LinkedHashMap<>();
-        args.put("repo", repo);
-        args.put("version", version != null ? version : "main");
-        args.put("project_path", project_path != null ? project_path : ".");
-        args.put("force", force != null ? force : false);
-        String result = LibraryContextTool.execute(args);
-        notifyToolTokens("create_library_context", repo, result);
-        return result;
-    }
-
-    // ========== Search Context Tool ==========
-
-    @Tool(
-            name = "search_context",
-            description = "Busca clases y métodos en .boris/CONTEXT.md. Devuelve resultados estructurados. " +
-                         "USA ESTE TOOL en lugar de grep para buscar en CONTEXT.md.")
-    public String search_context(
-            @ToolParam(description = "Clase o método a buscar (ej: 'Panel', 'TextGraphics', 'putString')") String query,
-            @ToolParam(description = "Path al proyecto donde está .boris/CONTEXT.md") String project_path) {
-        String result = SearchContextTool.execute(query, project_path);
-        notifyToolTokens("search_context", query, result);
-        return result;
-    }
-
     // ========== Search Replace Tool (Para ediciones parciales) ==========
 
     @Tool(
@@ -598,47 +563,4 @@ public class ToolCallingConfig {
 
     // ========== Validated Line Edit Tools (Just-in-time context) ==========
 
-    @Tool(
-            name = "validated_line_start",
-            description = "STEP 1: Start editing a file. Call ONLY ONCE per file. " +
-                         "After this, use validated_line_write for EACH line. " +
-                         "NEVER call this again for the same file - it will RESET and lose all progress. " +
-                         "Flow: start(1x) -> write(Nx) -> end(1x)")
-    public String validated_line_start(
-            @ToolParam(description = "Path for the file to create/edit") String path) {
-        ToolProgressNotifier.notify("validated_line_start", "Iniciando edición validada: " + path);
-        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
-        args.put("path", path);
-        String result = com.boris.edit.ValidatedLineEditTool.validated_line_start(args);
-        notifyToolTokens("validated_line_start", path, result);
-        return result;
-    }
-
-    @Tool(
-            name = "validated_line_write",
-            description = "STEP 2: Write ONE line. Call this for EACH line of code, one at a time. " +
-                         "Validates against CONTEXT.md. If error: fix and retry the SAME line. " +
-                         "Do NOT repeat lines already written. Do NOT restart the file. " +
-                         "Continue until all lines are written, then call validated_line_end.")
-    public String validated_line_write(
-            @ToolParam(description = "Single line of code to write") String line) {
-        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
-        args.put("line", line != null ? line : "");
-        String result = com.boris.edit.ValidatedLineEditTool.validated_line_write(args);
-        notifyToolTokens("validated_line_write", line, result);
-        return result;
-    }
-
-    @Tool(
-            name = "validated_line_end",
-            description = "STEP 3: Finish and save the file. Call ONLY ONCE after all lines are written. " +
-                         "This closes the file. After this, the file is complete.")
-    public String validated_line_end() {
-        String result = com.boris.edit.ValidatedLineEditTool.validated_line_end(java.util.Map.of());
-        notifyToolTokens("validated_line_end", "", result);
-        return result;
-    }
-
-    // streaming_edit_* ELIMINADOS - no tenían validación contra CONTEXT.md
-    // El agente debe usar bulk_edit que SÍ valida
 }

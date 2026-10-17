@@ -59,13 +59,6 @@ public class SearchReplaceEditTool {
             String originalContent = Files.readString(filePath);
             String[] originalLines = originalContent.split("\n", -1);
 
-            Path contextFile = findContextFile(path);
-            SymbolCache symbolCache = new SymbolCache();
-            if (contextFile != null && Files.exists(contextFile)) {
-                symbolCache.loadFromContext(contextFile);
-            }
-            LineValidator validator = new LineValidator(symbolCache);
-
             // FASE 1: Validar que todos los SEARCH existen y son únicos
             List<ReplaceError> errors = new ArrayList<>();
             List<ValidatedReplacement> validReplacements = new ArrayList<>();
@@ -94,33 +87,14 @@ public class SearchReplaceEditTool {
                 return formatReplaceErrors(path, errors);
             }
 
-            // FASE 2: Aplicar reemplazos y validar líneas nuevas
+            // FASE 2: Aplicar reemplazos
             String newContent = originalContent;
-            List<ValidationError> validationErrors = new ArrayList<>();
-
             for (ValidatedReplacement vr : validReplacements) {
                 newContent = newContent.replace(vr.search, vr.replace);
             }
-
-            // Validar líneas del nuevo contenido
             String[] newLines = newContent.split("\n", -1);
-            for (int i = 0; i < newLines.length; i++) {
-                LineValidator.ValidationResult result = validator.validate(newLines[i]);
-                if (!result.isValid()) {
-                    validationErrors.add(new ValidationError(
-                        i + 1,
-                        newLines[i],
-                        result.errorMessage(),
-                        result.suggestions()
-                    ));
-                }
-            }
 
-            if (!validationErrors.isEmpty()) {
-                return formatValidationErrors(path, validationErrors, newLines.length);
-            }
-
-            // FASE 3: Todo válido -> Escribir
+            // FASE 3: Escribir
             Files.writeString(filePath, newContent);
 
             // Mostrar diff
@@ -204,36 +178,6 @@ public class SearchReplaceEditTool {
         }
     }
 
-    private static String formatValidationErrors(String path, List<ValidationError> errors, int totalLines) {
-        try {
-            ObjectNode root = MAPPER.createObjectNode();
-            root.put("success", false);
-            root.put("path", path);
-            root.put("totalLines", totalLines);
-            root.put("errorCount", errors.size());
-            root.put("message", "Validación fallida: " + errors.size() + " errores en código resultante.");
-
-            ArrayNode errorsArray = MAPPER.createArrayNode();
-            for (ValidationError error : errors) {
-                ObjectNode errorNode = MAPPER.createObjectNode();
-                errorNode.put("line", error.lineNumber);
-                errorNode.put("content", truncate(error.lineContent, 60));
-                errorNode.put("error", error.message);
-                if (error.suggestions != null && !error.suggestions.isEmpty()) {
-                    ArrayNode sugg = MAPPER.createArrayNode();
-                    error.suggestions.forEach(sugg::add);
-                    errorNode.set("suggestions", sugg);
-                }
-                errorsArray.add(errorNode);
-            }
-            root.set("errors", errorsArray);
-
-            return MAPPER.writeValueAsString(root);
-        } catch (IOException e) {
-            return "{\"success\":false,\"message\":\"Error formateando\"}";
-        }
-    }
-
     private static String formatSuccess(String path, int replacements) {
         try {
             ObjectNode root = MAPPER.createObjectNode();
@@ -258,25 +202,6 @@ public class SearchReplaceEditTool {
         }
     }
 
-    private static Path findContextFile(String filePath) {
-        Path file = Paths.get(filePath).toAbsolutePath();
-        Path current = file.getParent();
-
-        while (current != null) {
-            Path contextFile = current.resolve(".boris/CONTEXT.md");
-            if (Files.exists(contextFile)) {
-                return contextFile;
-            }
-            if (Files.exists(current.resolve("pom.xml")) ||
-                Files.exists(current.resolve("build.gradle")) ||
-                Files.exists(current.resolve("package.json"))) {
-                return current.resolve(".boris/CONTEXT.md");
-            }
-            current = current.getParent();
-        }
-        return null;
-    }
-
     private static String truncate(String s, int maxLen) {
         if (s == null) return "";
         if (s.length() <= maxLen) return s;
@@ -285,5 +210,4 @@ public class SearchReplaceEditTool {
 
     private record ReplaceError(int blockNumber, String message, String content) {}
     private record ValidatedReplacement(String search, String replace) {}
-    private record ValidationError(int lineNumber, String lineContent, String message, List<String> suggestions) {}
 }

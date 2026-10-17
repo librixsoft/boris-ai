@@ -1,31 +1,20 @@
 package com.boris.edit;
 
+import com.boris.context.ProjectContext;
 import com.boris.tooling.DiffLineNotifier;
 import com.boris.tooling.ToolDefinition;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
-import com.boris.context.ProjectContext;
-
 /**
- * BulkEditTool - Estilo Aider
- *
- * El modelo envía el contenido completo UNA vez.
- * Boris valida TODAS las líneas ANTES de escribir.
- * Si hay errores, reporta TODOS juntos (no uno por uno).
- * Solo escribe cuando TODO está válido.
- *
- * Ventaja: Reduce de N round-trips (uno por error) a máximo 2-3.
+ * BulkEditTool - Crea/reemplaza archivos con visualización línea por línea.
  */
 public class BulkEditTool {
 
@@ -53,9 +42,7 @@ public class BulkEditTool {
 
     /**
      * Ejecuta la edición bulk con visualización en tiempo real.
-     * Muestra cada línea mientras valida (experiencia visual de streaming).
-     * Si hay errores, reporta todos sin escribir.
-     * Si todo está válido, escribe.
+     * Muestra cada línea mientras escribe (experiencia visual de streaming).
      */
     public static String bulk_edit(Map<String, Object> args) {
         String pathStr = (String) args.get("path");
@@ -69,51 +56,18 @@ public class BulkEditTool {
         pathStr = ProjectContext.resolveRelativePath(pathStr);
 
         try {
-            Path contextFile = findContextFile(pathStr);
-            SymbolCache symbolCache = new SymbolCache();
-            if (contextFile != null && Files.exists(contextFile)) {
-                symbolCache.loadFromContext(contextFile);
-            }
-            LineValidator validator = new LineValidator(symbolCache);
-
             Path filePath = Paths.get(pathStr);
             String[] lines = content.split("\n", -1);
-            List<ValidationError> errors = new ArrayList<>();
 
             // Mostrar header INMEDIATAMENTE para feedback visual
             DiffLineNotifier.notify("@@@ " + filePath.getFileName() + " @@@");
 
-            // FASE 1: Validar y MOSTRAR cada línea en tiempo real
+            // Mostrar cada línea en tiempo real
             for (int i = 0; i < lines.length; i++) {
-                String line = lines[i];
-                LineValidator.ValidationResult result = validator.validate(line);
-
-                if (result.isValid()) {
-                    // Línea OK - mostrar en verde (será escrita si todo pasa)
-                    DiffLineNotifier.notify(String.format("%3d │+ %s", i + 1, line));
-                } else {
-                    // Línea con error - mostrar en rojo con detalles
-                    DiffLineNotifier.notify(String.format("%3d │⚠ %s", i + 1, truncate(line, 50)));
-                    DiffLineNotifier.notify("    └─ " + result.errorMessage());
-                    if (result.hasSuggestions()) {
-                        DiffLineNotifier.notify("    └─ Usa: " + String.join(", ", result.suggestions()));
-                    }
-                    errors.add(new ValidationError(
-                        i + 1,
-                        line,
-                        result.errorMessage(),
-                        result.suggestions()
-                    ));
-                }
+                DiffLineNotifier.notify(String.format("%3d │+ %s", i + 1, lines[i]));
             }
 
-            // FASE 2: Si hay errores, NO escribir
-            if (!errors.isEmpty()) {
-                DiffLineNotifier.notify(String.format("─── ⚠ %d errores, NO guardado ───", errors.size()));
-                return formatValidationErrors(pathStr, errors, lines.length);
-            }
-
-            // FASE 3: Todo válido -> Escribir archivo
+            // Escribir archivo
             Files.createDirectories(filePath.getParent());
             Files.writeString(filePath, content);
             DiffLineNotifier.notify(String.format("─── +%d ✓ guardado ───", lines.length));
@@ -122,43 +76,6 @@ public class BulkEditTool {
 
         } catch (IOException e) {
             return formatError("Error IO: " + e.getMessage());
-        }
-    }
-
-    private static String formatValidationErrors(String path, List<ValidationError> errors, int totalLines) {
-        try {
-            ObjectNode root = MAPPER.createObjectNode();
-            root.put("success", false);
-            root.put("path", path);
-            root.put("totalLines", totalLines);
-            root.put("errorCount", errors.size());
-            root.put("message", String.format(
-                "Validación fallida: %d errores en %d líneas. Corrige TODOS y re-envía el contenido completo.",
-                errors.size(), totalLines
-            ));
-
-            ArrayNode errorsArray = MAPPER.createArrayNode();
-            for (ValidationError error : errors) {
-                ObjectNode errorNode = MAPPER.createObjectNode();
-                errorNode.put("line", error.lineNumber);
-                errorNode.put("content", truncate(error.lineContent, 60));
-                errorNode.put("error", error.message);
-
-                if (error.suggestions != null && !error.suggestions.isEmpty()) {
-                    ArrayNode suggestionsArray = MAPPER.createArrayNode();
-                    for (String suggestion : error.suggestions) {
-                        suggestionsArray.add(suggestion);
-                    }
-                    errorNode.set("suggestions", suggestionsArray);
-                }
-                errorsArray.add(errorNode);
-            }
-            root.set("errors", errorsArray);
-
-            // Los errores ya se mostraron en tiempo real durante el procesamiento
-            return MAPPER.writeValueAsString(root);
-        } catch (IOException e) {
-            return "{\"success\":false,\"message\":\"Error formateando respuesta\"}";
         }
     }
 
@@ -185,39 +102,4 @@ public class BulkEditTool {
             return "{\"success\":false,\"message\":\"" + message + "\"}";
         }
     }
-
-    private static Path findContextFile(String filePath) {
-        Path file = Paths.get(filePath).toAbsolutePath();
-        Path current = file.getParent();
-
-        while (current != null) {
-            Path contextFile = current.resolve(".boris/CONTEXT.md");
-            if (Files.exists(contextFile)) {
-                return contextFile;
-            }
-
-            if (Files.exists(current.resolve("pom.xml")) ||
-                Files.exists(current.resolve("build.gradle")) ||
-                Files.exists(current.resolve("package.json"))) {
-                return current.resolve(".boris/CONTEXT.md");
-            }
-
-            current = current.getParent();
-        }
-
-        return null;
-    }
-
-    private static String truncate(String s, int maxLen) {
-        if (s == null) return "";
-        if (s.length() <= maxLen) return s;
-        return s.substring(0, maxLen - 3) + "...";
-    }
-
-    private record ValidationError(
-        int lineNumber,
-        String lineContent,
-        String message,
-        List<String> suggestions
-    ) {}
 }
