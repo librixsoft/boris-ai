@@ -16,6 +16,7 @@ public class LineContextResolver {
     private static final Pattern METHOD_CALL = Pattern.compile("\\.([a-z][a-zA-Z0-9]+)\\s*\\(");
     private static final Pattern CONSTRUCTOR_CALL = Pattern.compile("new\\s+([A-Z][a-zA-Z0-9]+)\\s*\\(([^)]*)\\)");
     private static final Pattern VARIABLE_TYPE = Pattern.compile("([A-Z][a-zA-Z0-9]+)\\s+[a-z][a-zA-Z0-9]*\\s*[=;]");
+    private static final Pattern IMPORT_PATTERN = Pattern.compile("^\\s*import\\s+([\\w.]+);?\\s*$");
 
     public LineContextResolver(SymbolCache symbolCache) {
         this.symbolCache = symbolCache;
@@ -25,11 +26,37 @@ public class LineContextResolver {
      * Analiza una línea y devuelve el contexto mínimo necesario.
      */
     public LineContext resolve(String line) {
+        LineContext context = new LineContext(line);
+
+        // Validar imports por path completo, no solo nombre de clase
+        Matcher importMatcher = IMPORT_PATTERN.matcher(line);
+        if (importMatcher.matches()) {
+            String importPath = importMatcher.group(1);
+            // Java standard imports siempre OK
+            if (importPath.startsWith("java.") || importPath.startsWith("javax.") || importPath.startsWith("jdk.")) {
+                return context; // Valid, no errors
+            }
+            // Verificar si el import completo existe
+            if (!symbolCache.isValidImport(importPath)) {
+                String className = importPath.substring(importPath.lastIndexOf('.') + 1);
+                context.unknownClasses.add(importPath); // Usar path completo como "clase desconocida"
+                List<String> similarImports = symbolCache.findSimilarImports(importPath);
+                if (!similarImports.isEmpty()) {
+                    context.suggestions.put(importPath, similarImports);
+                } else {
+                    // Buscar por nombre de clase
+                    List<String> byClassName = symbolCache.findSimilarImports(className);
+                    if (!byClassName.isEmpty()) {
+                        context.suggestions.put(importPath, byClassName);
+                    }
+                }
+            }
+            return context;
+        }
+
         Set<String> classesUsed = extractClasses(line);
         Map<String, MethodCall> methodCalls = extractMethodCalls(line);
         List<ConstructorCall> constructorCalls = extractConstructorCalls(line);
-
-        LineContext context = new LineContext(line);
 
         for (String className : classesUsed) {
             if (symbolCache.isKnownClass(className)) {
