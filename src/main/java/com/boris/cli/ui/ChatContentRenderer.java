@@ -203,7 +203,7 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
     }
 
     private boolean isStatsLine(String line) {
-        return line != null && line.startsWith("\u0001stats\u0002");
+        return line != null && line.startsWith("[stats]");
     }
 
     private void renderToolDetailLine(TextGUIGraphics graphics, String line, int row, int contentWidth) {
@@ -213,7 +213,7 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
     }
 
     private void renderStatsLine(TextGUIGraphics graphics, String line, int row, int contentWidth) {
-        String content = line.substring("\u0001stats\u0002".length());
+        String content = line.substring("[stats]".length());
         graphics.setBackgroundColor(UiTheme.BG);
         graphics.setForegroundColor(UiTheme.LINE_NUMBER);
         graphics.putString(0, row, padOrTruncate(content, contentWidth));

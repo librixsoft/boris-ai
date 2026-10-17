@@ -187,7 +187,7 @@ public class Transcript {
                 sb.append("\n");
             }
             if (e.type() == EntryType.STATS) {
-                sb.append("\u0001stats\u0002").append(e.content());
+                sb.append("[stats]").append(e.content());
             } else {
                 sb.append(e.content());
             }

@@ -174,10 +174,7 @@ public class ChatController implements InputArea.InputListener {
             public void onMessageStarted(ChatMessage message) {
                 transcript.activateQueuedMessage(message.content());
                 waiting.set(true);
-                // Save starting values for per-response stats
                 responseStartTime = System.currentTimeMillis();
-                responseStartInputTokens = tokenCounter.inputTokens();
-                responseStartOutputTokens = tokenCounter.outputTokens();
                 spinner.start();
             }
 
@@ -313,6 +310,9 @@ public class ChatController implements InputArea.InputListener {
         }
 
         commandHistory.record(text);
+        // Capture tokens before adding input for accurate per-response stats
+        responseStartInputTokens = tokenCounter.inputTokens();
+        responseStartOutputTokens = tokenCounter.outputTokens();
         tokenCounter.addInputTokens(text);
         statusBar.showTokenStatus(tokenCounter);
 
