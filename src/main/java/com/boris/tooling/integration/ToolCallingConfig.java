@@ -29,7 +29,6 @@ import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.LibraryContextTool;
-import com.boris.tooling.tool.SearchContextTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchEditTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
@@ -215,7 +214,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "bulk_edit",
-            description = "Create or replace a file. Validates ALL lines against CONTEXT.md BEFORE writing. If errors found, reports ALL together without writing. Shows diff line-by-line in real-time.")
+            description = "Create or replace a file with streaming visual feedback. Validates classes against indexed symbols BEFORE writing. Shows each line as it writes (green diff). Use query_symbols() first to verify classes exist.")
     public String bulk_edit(
             @ToolParam(description = "Path for the file to create/overwrite") String path,
             @ToolParam(description = "Complete file content") String content) {
@@ -449,31 +448,18 @@ public class ToolCallingConfig {
         return result;
     }
 
+    // batch_apply_edits ELIMINADO - usar bulk_edit para crear archivos, apply_edit para ediciones
+    /*
     @Tool(
             name = "batch_apply_edits",
-            description = "Apply surgical edits across multiple files in parallel. Much faster than applying edits one by one. Use this when modifying multiple files simultaneously.")
+            description = "Apply surgical edits across multiple files in parallel.")
     @SuppressWarnings("unchecked")
     public String batch_apply_edits(
-            @ToolParam(description = "List of edit specifications. Each must have: path, old_text, new_text") java.util.List<java.util.Map<String, Object>> edits) {
-        ToolProgressNotifier.notify("batch_apply_edits", "Aplicando " + (edits != null ? edits.size() : 0) + " ediciones en paralelo...");
-
-        java.util.List<?> rawEdits = (java.util.List<?>) (edits != null ? edits : new java.util.ArrayList<>());
-        java.util.List<BatchEditTool.FileEditSpec> specs = new java.util.ArrayList<>();
-        for (Object rawEdit : rawEdits) {
-            java.util.Map<String, Object> edit = (java.util.Map<String, Object>) rawEdit;
-            String path = edit != null ? (String) edit.get("path") : null;
-            String oldText = edit != null ? (String) edit.get("old_text") : null;
-            String newText = edit != null ? (String) edit.get("new_text") : null;
-            String content = edit != null ? (String) edit.get("content") : null;
-            boolean doDelete = edit != null && "true".equals(edit.get("do_delete"));
-            specs.add(new BatchEditTool.FileEditSpec(path, oldText, newText, doDelete, content));
-        }
-
-        String result = batchEditTool.execute(specs);
-        String inputSummary = specs.stream().map(s -> s.path()).collect(java.util.stream.Collectors.joining(", "));
-        notifyToolTokens("batch_apply_edits", inputSummary, result);
-        return result;
+            @ToolParam(description = "List of edit specifications") java.util.List<java.util.Map<String, Object>> edits) {
+        // DISABLED
+        return "{\"error\": \"batch_apply_edits disabled. Use bulk_edit or apply_edit.\"}";
     }
+    */
 
     @Tool(
             name = "parallel_search",
@@ -561,8 +547,9 @@ public class ToolCallingConfig {
         return result;
     }
 
-    // ========== Streaming Line Edit Tools (linea por linea) ==========
-
+    // ========== Streaming Line Edit Tools (DISABLED - sin validación contra índice) ==========
+    // TODO: Habilitar cuando se agregue validación en streaming_line_end
+    /*
     @Tool(
             name = "streaming_line_start",
             description = "STEP 1: Start writing a file line by line. Call ONLY ONCE per file. " +
@@ -598,6 +585,62 @@ public class ToolCallingConfig {
     public String streaming_line_end() {
         String result = com.boris.edit.StreamingLineEditTool.streaming_line_end(java.util.Map.of());
         notifyToolTokens("streaming_line_end", "", result);
+        return result;
+    }
+    */
+
+    // ========== Code Symbol Query Tools ==========
+
+    @Tool(
+            name = "query_symbols",
+            description = "Search for classes, methods, constructors or fields in indexed code. " +
+                         "ALWAYS use this BEFORE writing code to verify what actually exists. " +
+                         "Returns real signatures from the source code.")
+    public String query_symbols(
+            @ToolParam(description = "Name to search (class, method, etc)") String query,
+            @ToolParam(description = "Filter by type: CLASS, METHOD, CONSTRUCTOR, FIELD, INTERFACE, ENUM (optional)") String type,
+            @ToolParam(description = "Filter by repo name (optional)") String repo) {
+        String result = com.boris.context.SymbolQueryTool.search(query, type, repo);
+        notifyToolTokens("query_symbols", query, result);
+        return result;
+    }
+
+    @Tool(
+            name = "query_methods",
+            description = "Get all public methods of a class. Use when you need to see what methods are available.")
+    public String query_methods(
+            @ToolParam(description = "Class name to get methods from") String className) {
+        String result = com.boris.context.SymbolQueryTool.findMethods(className);
+        notifyToolTokens("query_methods", className, result);
+        return result;
+    }
+
+    @Tool(
+            name = "list_classes",
+            description = "List all indexed classes and interfaces. Use to see what's available in a library.")
+    public String list_classes(
+            @ToolParam(description = "Filter by repo name (optional)") String repo) {
+        String result = com.boris.context.SymbolQueryTool.listClasses(repo);
+        notifyToolTokens("list_classes", repo != null ? repo : "", result);
+        return result;
+    }
+
+    @Tool(
+            name = "index_status",
+            description = "Show current indexing status: how many symbols are indexed and from which repos.")
+    public String index_status() {
+        String result = com.boris.context.SymbolQueryTool.indexStatus();
+        notifyToolTokens("index_status", "", result);
+        return result;
+    }
+
+    @Tool(
+            name = "index_project",
+            description = "Index a local project to enable symbol queries. Use for projects not auto-indexed at startup.")
+    public String index_project(
+            @ToolParam(description = "Path to project root (default: current directory)") String path) {
+        String result = com.boris.context.SymbolQueryTool.indexProject(path);
+        notifyToolTokens("index_project", path != null ? path : ".", result);
         return result;
     }
 

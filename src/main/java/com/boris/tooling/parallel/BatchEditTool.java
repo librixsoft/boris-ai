@@ -14,7 +14,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.task.TaskAborter;
 import com.boris.tooling.ToolResultNotifier;
 import com.boris.tooling.ToolProgressNotifier;
-import com.boris.tooling.tool.ContextTracker;
+import com.boris.context.CodeSymbol;
+import com.boris.context.SymbolRepository;
 
 /**
  * Herramienta para aplicar múltiples ediciones a diferentes archivos
@@ -48,22 +49,17 @@ public class BatchEditTool {
             return "{\"success\":false,\"error\":\"edits list is empty\"}";
         }
 
-        // === VALIDACIÓN: Verificar código contra CONTEXT.md ===
-        for (FileEditSpec edit : edits) {
-            if (edit.path() != null && isCodeFile(edit.path())) {
-                Path path = Path.of(edit.path()).toAbsolutePath();
-                Path projectRoot = findProjectRoot(path);
-                if (projectRoot != null) {
-                    Path contextFile = projectRoot.resolve(".boris/CONTEXT.md");
-                    if (Files.exists(contextFile)) {
-                        String codeToValidate = edit.newText() != null ? edit.newText() : edit.content();
-                        if (codeToValidate != null) {
-                            String validationError = validateCodeAgainstContext(codeToValidate, contextFile);
-                            if (validationError != null) {
-                                return "{\"success\":false,\"error\":\"BLOQUEADO - POSIBLE ALUCINACIÓN en " +
-                                       edit.path() + ":\\n" + validationError +
-                                       "\\n\\nUSA search_context para verificar qué clases/métodos existen.\"}";
-                            }
+        // === VALIDACIÓN: Verificar código contra índice SQLite ===
+        if (SymbolRepository.totalCount() > 0) {
+            for (FileEditSpec edit : edits) {
+                if (edit.path() != null && isCodeFile(edit.path())) {
+                    String codeToValidate = edit.newText() != null ? edit.newText() : edit.content();
+                    if (codeToValidate != null) {
+                        String validationError = validateCodeAgainstIndex(codeToValidate);
+                        if (validationError != null) {
+                            return "{\"success\":false,\"error\":\"BLOQUEADO - POSIBLE ALUCINACIÓN en " +
+                                   edit.path() + ":\\n" + validationError +
+                                   "\\n\\nUSA query_symbols() para verificar qué clases/métodos existen.\"}";
                         }
                     }
                 }
@@ -284,46 +280,48 @@ public class BatchEditTool {
         return null;
     }
 
-    private static String validateCodeAgainstContext(String code, Path contextFile) {
-        try {
-            String contextContent = Files.readString(contextFile);
-            java.util.Set<String> standardClasses = java.util.Set.of(
-                "ArrayList", "HashMap", "HashSet", "LinkedList", "StringBuilder",
-                "String", "Integer", "Long", "Double", "Thread", "Exception",
-                "File", "Date", "Random", "SimpleDateFormat", "Arrays", "List",
-                "Map", "Set", "Properties", "System", "Math", "Object", "Class"
-            );
+    private static String validateCodeAgainstIndex(String code) {
+        java.util.Set<String> standardClasses = java.util.Set.of(
+            "ArrayList", "HashMap", "HashSet", "LinkedList", "StringBuilder",
+            "String", "Integer", "Long", "Double", "Thread", "Exception",
+            "File", "Date", "Random", "SimpleDateFormat", "Arrays", "List",
+            "Map", "Set", "Properties", "System", "Math", "Object", "Class",
+            "Optional", "Stream", "Collectors", "Path", "Files", "Paths"
+        );
 
-            java.util.List<String> errors = new java.util.ArrayList<>();
+        java.util.List<String> errors = new java.util.ArrayList<>();
 
-            // Verificar instanciaciones: new ClassName(
-            java.util.regex.Pattern newPattern = java.util.regex.Pattern.compile("new\\s+([A-Z][\\w]+)\\s*\\(");
-            java.util.regex.Matcher newMatcher = newPattern.matcher(code);
-            while (newMatcher.find()) {
-                String className = newMatcher.group(1);
-                if (standardClasses.contains(className)) continue;
-                if (!contextContent.contains("### `" + className + "`") &&
-                    !contextContent.contains("new " + className + "(")) {
-                    errors.add("Clase '" + className + "' no encontrada en CONTEXT.md");
-                }
+        // Verificar instanciaciones: new ClassName(
+        java.util.regex.Pattern newPattern = java.util.regex.Pattern.compile("new\\s+([A-Z][\\w]+)\\s*\\(");
+        java.util.regex.Matcher newMatcher = newPattern.matcher(code);
+        while (newMatcher.find()) {
+            String className = newMatcher.group(1);
+            if (standardClasses.contains(className)) continue;
+
+            List<CodeSymbol> found = SymbolRepository.search(className, CodeSymbol.SymbolType.CLASS, null);
+            if (found.isEmpty()) {
+                found = SymbolRepository.search(className, CodeSymbol.SymbolType.INTERFACE, null);
             }
-
-            // Verificar extends
-            java.util.regex.Pattern extendsPattern = java.util.regex.Pattern.compile("extends\\s+([A-Z][\\w]+)");
-            java.util.regex.Matcher extendsMatcher = extendsPattern.matcher(code);
-            while (extendsMatcher.find()) {
-                String className = extendsMatcher.group(1);
-                if (standardClasses.contains(className)) continue;
-                if (!contextContent.contains("### `" + className + "`")) {
-                    errors.add("Clase padre '" + className + "' no encontrada en CONTEXT.md");
-                }
+            if (found.isEmpty()) {
+                errors.add("Clase '" + className + "' no encontrada en índice");
             }
+        }
 
-            if (!errors.isEmpty() && errors.size() <= 5) {
-                return String.join("\\n", errors);
+        // Verificar extends
+        java.util.regex.Pattern extendsPattern = java.util.regex.Pattern.compile("extends\\s+([A-Z][\\w]+)");
+        java.util.regex.Matcher extendsMatcher = extendsPattern.matcher(code);
+        while (extendsMatcher.find()) {
+            String className = extendsMatcher.group(1);
+            if (standardClasses.contains(className)) continue;
+
+            List<CodeSymbol> found = SymbolRepository.search(className, CodeSymbol.SymbolType.CLASS, null);
+            if (found.isEmpty()) {
+                errors.add("Clase padre '" + className + "' no encontrada en índice");
             }
-        } catch (Exception e) {
-            // Si no puede leer el contexto, no bloquear
+        }
+
+        if (!errors.isEmpty() && errors.size() <= 5) {
+            return String.join("\\n", errors);
         }
         return null;
     }

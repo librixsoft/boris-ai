@@ -17,7 +17,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.context.ProjectContext;
 import com.boris.task.TaskAborter;
 import com.boris.tooling.ToolProgressNotifier;
-import com.boris.tooling.tool.ContextTracker;
 
 /**
  * Herramienta para leer múltiples archivos concurrentemente del sistema
@@ -91,8 +90,6 @@ public class BatchReadFileTool {
                 if (r.success()) {
                     item.put("content", r.content());
                     totalSuccess++;
-                    // Track CONTEXT.md reads for WriteTool verification
-                    ContextTracker.markAsRead(r.path());
                 } else {
                     item.put("error", r.error());
                     totalFailed++;

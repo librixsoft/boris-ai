@@ -86,8 +86,8 @@ public class BatchExecuteCommandTool {
         java.util.Map.entry("less ", "USA batch_read_files en lugar de less"),
         java.util.Map.entry("more ", "USA batch_read_files en lugar de more"),
         java.util.Map.entry("sed -n", "USA batch_read_files en lugar de sed"),
-        // Buscar texto → parallel_search o search_context
-        java.util.Map.entry("grep ", "USA parallel_search o search_context en lugar de grep"),
+        // Buscar texto → parallel_search o query_symbols
+        java.util.Map.entry("grep ", "USA parallel_search o query_symbols en lugar de grep"),
         java.util.Map.entry("egrep ", "USA parallel_search en lugar de egrep"),
         java.util.Map.entry("fgrep ", "USA parallel_search en lugar de fgrep"),
         java.util.Map.entry("rg ", "USA parallel_search en lugar de rg"),

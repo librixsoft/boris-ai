@@ -1,6 +1,8 @@
 package com.boris.edit;
 
+import com.boris.context.CodeSymbol;
 import com.boris.context.ProjectContext;
+import com.boris.context.SymbolRepository;
 import com.boris.tooling.DiffLineNotifier;
 import com.boris.tooling.ToolDefinition;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,8 +12,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * BulkEditTool - Crea/reemplaza archivos con visualización línea por línea.
@@ -40,9 +47,19 @@ public class BulkEditTool {
         );
     }
 
+    private static final Set<String> STANDARD_CLASSES = Set.of(
+        "ArrayList", "HashMap", "HashSet", "LinkedList", "StringBuilder",
+        "String", "Integer", "Long", "Double", "Float", "Boolean",
+        "Thread", "Exception", "RuntimeException", "Error",
+        "File", "Date", "Random", "SimpleDateFormat", "Arrays", "List",
+        "Map", "Set", "Properties", "System", "Math", "Object", "Class",
+        "Optional", "Stream", "Collectors", "Path", "Files", "Paths",
+        "Pattern", "Matcher", "Scanner", "Consumer", "Supplier", "Function",
+        "CompletableFuture", "Future", "ExecutorService", "Executors"
+    );
+
     /**
-     * Ejecuta la edición bulk con visualización en tiempo real.
-     * Muestra cada línea mientras escribe (experiencia visual de streaming).
+     * Ejecuta la edición bulk con validación y visualización en tiempo real.
      */
     public static String bulk_edit(Map<String, Object> args) {
         String pathStr = (String) args.get("path");
@@ -54,6 +71,15 @@ public class BulkEditTool {
 
         // Resolver ruta relativa usando el proyecto actual
         pathStr = ProjectContext.resolveRelativePath(pathStr);
+
+        // Validar contra índice SQLite si hay símbolos indexados y es archivo Java
+        if (pathStr.endsWith(".java") && SymbolRepository.totalCount() > 0) {
+            String validationError = validateAgainstIndex(content);
+            if (validationError != null) {
+                return formatError("BLOQUEADO - Clases no encontradas en índice:\n" + validationError +
+                    "\n\nUsa query_symbols() para verificar qué clases existen.");
+            }
+        }
 
         try {
             Path filePath = Paths.get(pathStr);
@@ -77,6 +103,47 @@ public class BulkEditTool {
         } catch (IOException e) {
             return formatError("Error IO: " + e.getMessage());
         }
+    }
+
+    private static String validateAgainstIndex(String code) {
+        List<String> errors = new ArrayList<>();
+
+        // Verificar instanciaciones: new ClassName(
+        Pattern newPattern = Pattern.compile("new\\s+([A-Z][\\w]+)\\s*[(<]");
+        Matcher newMatcher = newPattern.matcher(code);
+        while (newMatcher.find()) {
+            String className = newMatcher.group(1);
+            if (STANDARD_CLASSES.contains(className)) continue;
+
+            List<CodeSymbol> found = SymbolRepository.search(className, CodeSymbol.SymbolType.CLASS, null);
+            if (found.isEmpty()) {
+                found = SymbolRepository.search(className, CodeSymbol.SymbolType.INTERFACE, null);
+            }
+            if (found.isEmpty() && !errors.contains("- " + className)) {
+                errors.add("- " + className);
+            }
+        }
+
+        // Verificar extends/implements
+        Pattern extendsPattern = Pattern.compile("(?:extends|implements)\\s+([A-Z][\\w]+)");
+        Matcher extendsMatcher = extendsPattern.matcher(code);
+        while (extendsMatcher.find()) {
+            String className = extendsMatcher.group(1);
+            if (STANDARD_CLASSES.contains(className)) continue;
+
+            List<CodeSymbol> found = SymbolRepository.search(className, CodeSymbol.SymbolType.CLASS, null);
+            if (found.isEmpty()) {
+                found = SymbolRepository.search(className, CodeSymbol.SymbolType.INTERFACE, null);
+            }
+            if (found.isEmpty() && !errors.contains("- " + className)) {
+                errors.add("- " + className);
+            }
+        }
+
+        if (!errors.isEmpty() && errors.size() <= 10) {
+            return String.join("\n", errors);
+        }
+        return null;
     }
 
     private static String formatSuccess(String path, int totalLines) {

@@ -4,62 +4,32 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.*;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.boris.context.CodeIndexerService;
+import com.boris.context.SymbolRepository;
 import com.boris.tooling.ToolDefinition;
 import com.boris.tooling.ToolProgressNotifier;
 
 /**
- * Tool that creates/updates .boris/CONTEXT.md with REAL API documentation
- * by downloading and analyzing GitHub repository source code locally.
+ * Tool that downloads GitHub repositories and indexes them into SQLite for fast symbol queries.
  *
- * OPTIMIZATIONS:
- * - Downloads ZIP once instead of multiple API calls
- * - Analyzes code locally (no rate limits)
- * - Caches downloaded repos in .boris/{repo}/
- * - Smart cache: skips download if context exists and is fresh
+ * - Downloads ZIP once from GitHub
+ * - Extracts and indexes with JavaParser
+ * - Stores symbols in SQLite RAM (shared with local project indexing)
+ * - Use query_symbols() to search indexed code
  */
 public class LibraryContextTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-    private static final int CACHE_DAYS = 15;
 
     // Rate limit: solo 1 llamada por repo por sesión
-    private static final Set<String> PROCESSED_REPOS = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
-
-    private static class LibraryMeta {
-        String repo;
-        String version;
-        LocalDateTime created;
-
-        LibraryMeta(String repo, String version, LocalDateTime created) {
-            this.repo = repo;
-            this.version = version;
-            this.created = created;
-        }
-    }
-
-    private static class ContextFile {
-        List<LibraryMeta> libraries = new ArrayList<>();
-        Map<String, String> librarySections = new LinkedHashMap<>();
-
-        boolean hasLibrary(String repo, String version) {
-            return libraries.stream()
-                .anyMatch(lib -> lib.repo.equals(repo) &&
-                         lib.version.equals(version) &&
-                         lib.created.isAfter(LocalDateTime.now().minusDays(CACHE_DAYS)));
-        }
-    }
+    private static final Set<String> PROCESSED_REPOS =
+        Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
 
     public static ToolDefinition create_library_context() {
         var repoProp = Map.of("type", "string", "description",
@@ -67,9 +37,9 @@ public class LibraryContextTool {
         var versionProp = Map.of("type", "string", "description",
             "Library version or branch (e.g., 3.1.5 or main)");
         var projectPathProp = Map.of("type", "string", "description",
-            "Path to project where .boris/CONTEXT.md will be created");
+            "Path to project where repo will be cached in .boris/repos/");
         var forceProp = Map.of("type", "boolean", "description",
-            "Force re-download and recreation even if context exists (default: false)");
+            "Force re-download and re-index even if already indexed (default: false)");
 
         var properties = new LinkedHashMap<String, Object>();
         properties.put("repo", repoProp);
@@ -84,8 +54,9 @@ public class LibraryContextTool {
 
         return ToolDefinition.of(
             "create_library_context",
-            "Downloads GitHub repo as ZIP, analyzes source code locally, and creates .boris/CONTEXT.md. " +
-            "No API rate limits. Supports multiple libraries. Use force=true to re-download.",
+            "Downloads GitHub repo and indexes it into SQLite for symbol queries. " +
+            "After indexing, use query_symbols() to search classes/methods. " +
+            "Use force=true to re-download and re-index.",
             schema);
     }
 
@@ -99,143 +70,70 @@ public class LibraryContextTool {
             return formatOutput(false, "Error: repo is required (format: owner/repo)");
         }
 
-        // === RATE LIMIT: 1 llamada por repo por sesión ===
         String repoKey = repo.toLowerCase();
+
+        // Rate limit check
         if (!force && PROCESSED_REPOS.contains(repoKey)) {
+            int count = SymbolRepository.countByRepo(repo);
             ToolProgressNotifier.notify("create_library_context",
-                "BLOQUEADO: " + repo + " ya fue procesado en esta sesión");
+                "Already processed: " + repo + " (" + count + " symbols)");
             return formatOutput(true,
-                "BLOQUEADO: " + repo + " ya fue procesado en esta sesión. " +
-                "USA el CONTEXT.md existente. NO vuelvas a llamar este tool. " +
-                "NO busques en internet. Lee .boris/CONTEXT.md y usa esa información.");
+                repo + " ya indexado con " + count + " símbolos. " +
+                "Usa query_symbols() para buscar. NO vuelvas a llamar este tool.");
+        }
+
+        // Check if already indexed
+        if (!force && SymbolRepository.isIndexed(repo)) {
+            int count = SymbolRepository.countByRepo(repo);
+            PROCESSED_REPOS.add(repoKey);
+            ToolProgressNotifier.notify("create_library_context",
+                "Cache hit: " + repo + " (" + count + " symbols)");
+            return formatOutput(true,
+                repo + " ya indexado con " + count + " símbolos. " +
+                "Usa query_symbols() para buscar.");
         }
 
         Path borisDir = Paths.get(projectPath, ".boris");
-        Path contextPath = borisDir.resolve("CONTEXT.md");
         String repoName = repo.split("/")[1];
         Path repoDir = borisDir.resolve("repos").resolve(repoName);
 
-        // === CACHE CHECK ===
-        if (!force && Files.exists(contextPath)) {
-            try {
-                ContextFile existing = parseContextFile(contextPath);
-                if (existing.hasLibrary(repo, version)) {
-                    PROCESSED_REPOS.add(repoKey); // Marcar como procesado
-                    ToolProgressNotifier.notify("create_library_context",
-                        "Cache hit: " + repo + " v" + version);
-                    return formatOutput(true,
-                        "CONTEXT.md ya contiene " + repo + " v" + version +
-                        " (cache válido por " + CACHE_DAYS + " días). " +
-                        "NO busques en web, usa el CONTEXT.md existente. NO vuelvas a llamar este tool.");
-                }
-            } catch (Exception e) {
-                // If parsing fails, continue to recreate
-            }
-        }
-
         try {
-            // === ENSURE .boris IS IN .gitignore ===
+            // Ensure .boris is in .gitignore
             ensureGitignore(Paths.get(projectPath));
 
-            // === DOWNLOAD ZIP ONLY IF NOT EXISTS ===
-            // Simple rule: if repo folder exists, NEVER re-download (unless force=true)
-            // This avoids ALL internet access after first download
+            // Download ZIP only if not exists locally
             if (force || !Files.exists(repoDir)) {
                 ToolProgressNotifier.notify("create_library_context",
-                    "Descargando " + repo + " (única vez)...");
+                    "Downloading " + repo + " v" + version + "...");
                 downloadAndExtractZip(repo, version, repoDir);
             } else {
                 ToolProgressNotifier.notify("create_library_context",
-                    "Usando repo local (sin internet)");
+                    "Using cached repo (no download)");
             }
 
-            // === ANALYZE LOCAL CODE ===
+            // Index into SQLite
             ToolProgressNotifier.notify("create_library_context",
-                "Analizando código fuente...");
+                "Indexing with JavaParser...");
 
-            Set<String> realImports = new TreeSet<>();
-            Set<String> realClasses = new TreeSet<>();
-            Map<String, List<String>> classMethods = new LinkedHashMap<>();
-            List<String> codeExamples = new ArrayList<>();
-            String libraryName = repoName;
+            int count = CodeIndexerService.indexRepository(repo, repoDir);
 
-            // Find and analyze Java files
-            List<Path> javaFiles = findJavaFiles(repoDir);
-            ToolProgressNotifier.notify("create_library_context",
-                "Encontrados " + javaFiles.size() + " archivos Java");
-
-            for (Path javaFile : javaFiles) {
-                try {
-                    String content = Files.readString(javaFile);
-                    String fileName = javaFile.getFileName().toString();
-
-                    // Extract imports (excluding standard Java)
-                    realImports.addAll(extractImports(content));
-
-                    // Extract class usage
-                    realClasses.addAll(extractClassUsage(content));
-
-                    // Extract method calls
-                    extractMethodCalls(content, classMethods);
-
-                    // Extract public methods from source files
-                    extractPublicMethods(content, classMethods);
-
-                    // Get examples from test/example files
-                    if (codeExamples.size() < 3 &&
-                        (fileName.contains("Test") || fileName.contains("Example") ||
-                         fileName.contains("Demo") || fileName.contains("Sample"))) {
-                        String example = extractUsefulExample(content);
-                        if (example != null && example.length() > 50) {
-                            codeExamples.add(example);
-                        }
-                    }
-                } catch (IOException e) {
-                    // Skip unreadable files
-                }
-            }
-
-            // Try to get library name from README
-            Path readmePath = findReadme(repoDir);
-            if (readmePath != null) {
-                try {
-                    String readmeContent = Files.readString(readmePath);
-                    String extractedName = extractLibraryName(readmeContent);
-                    if (extractedName != null && !extractedName.isBlank()) {
-                        libraryName = extractedName;
-                    }
-                } catch (IOException e) {
-                    // Use default name
-                }
-            }
-
-            // === GENERATE CONTEXT ===
-            String librarySection = generateLibrarySection(
-                libraryName, version, repo, realImports, realClasses, classMethods, codeExamples);
-
-            String finalContent = mergeOrCreateContext(contextPath, repo, version, librarySection);
-
-            Files.createDirectories(contextPath.getParent());
-            Files.writeString(contextPath, finalContent);
-
-            PROCESSED_REPOS.add(repoKey); // Marcar como procesado
+            PROCESSED_REPOS.add(repoKey);
 
             ToolProgressNotifier.notify("create_library_context",
-                "Contexto creado: " + realImports.size() + " imports, " +
-                realClasses.size() + " clases, " + javaFiles.size() + " archivos analizados");
+                "Indexed " + count + " symbols from " + repo);
 
             return formatOutput(true,
-                "CONTEXT.md actualizado con " + repo + " v" + version + ": " +
-                realImports.size() + " imports, " + realClasses.size() + " clases. " +
-                "USA SOLO esta información. NO busques en internet. NO vuelvas a llamar este tool.");
+                "Indexado " + repo + " v" + version + " con " + count + " símbolos. " +
+                "Usa query_symbols(\"ClassName\") para buscar clases/métodos.");
 
         } catch (Exception e) {
-            // Fallback: if download fails but context exists, use it
-            if (Files.exists(contextPath)) {
-                PROCESSED_REPOS.add(repoKey); // Marcar como procesado
+            // If download fails but already indexed, use that
+            if (SymbolRepository.isIndexed(repo)) {
+                int count = SymbolRepository.countByRepo(repo);
+                PROCESSED_REPOS.add(repoKey);
                 return formatOutput(true,
                     "Error descargando " + repo + ": " + e.getMessage() +
-                    ". Usando CONTEXT.md existente. NO busques en internet.");
+                    ". Usando índice existente (" + count + " símbolos).");
             }
             return formatOutput(false, "Error: " + e.getMessage());
         }
@@ -244,16 +142,13 @@ public class LibraryContextTool {
     // === ZIP DOWNLOAD & EXTRACTION ===
 
     private static void downloadAndExtractZip(String repo, String branch, Path targetDir) throws IOException {
-        // Clean target directory if exists
         if (Files.exists(targetDir)) {
             deleteDirectory(targetDir);
         }
         Files.createDirectories(targetDir);
 
-        // Download ZIP from GitHub
         String zipUrl = "https://github.com/" + repo + "/archive/refs/heads/" + branch + ".zip";
 
-        // Try branch first, then try as tag
         byte[] zipData;
         try {
             zipData = downloadUrl(zipUrl);
@@ -269,7 +164,6 @@ public class LibraryContextTool {
             }
         }
 
-        // Extract ZIP
         try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipData))) {
             ZipEntry entry;
             String rootFolder = null;
@@ -277,12 +171,10 @@ public class LibraryContextTool {
             while ((entry = zis.getNextEntry()) != null) {
                 String name = entry.getName();
 
-                // Get root folder name (e.g., "lanterna-main/")
                 if (rootFolder == null && name.contains("/")) {
                     rootFolder = name.substring(0, name.indexOf('/') + 1);
                 }
 
-                // Remove root folder from path
                 if (rootFolder != null && name.startsWith(rootFolder)) {
                     name = name.substring(rootFolder.length());
                 }
@@ -349,34 +241,6 @@ public class LibraryContextTool {
         }
     }
 
-    // === LOCAL FILE ANALYSIS ===
-
-    private static List<Path> findJavaFiles(Path rootDir) throws IOException {
-        if (!Files.exists(rootDir)) {
-            return List.of();
-        }
-        return Files.walk(rootDir)
-            .filter(p -> p.toString().endsWith(".java"))
-            .filter(p -> !p.toString().contains("/test/") ||
-                        p.getFileName().toString().contains("Example") ||
-                        p.getFileName().toString().contains("Demo"))
-            .limit(200) // Limit to avoid huge repos
-            .collect(Collectors.toList());
-    }
-
-    private static Path findReadme(Path rootDir) {
-        String[] readmeNames = {"README.md", "readme.md", "README.MD", "Readme.md", "README"};
-        for (String name : readmeNames) {
-            Path readme = rootDir.resolve(name);
-            if (Files.exists(readme)) {
-                return readme;
-            }
-        }
-        return null;
-    }
-
-    // === GITIGNORE ===
-
     private static void ensureGitignore(Path projectRoot) {
         Path gitignore = projectRoot.resolve(".gitignore");
         try {
@@ -390,350 +254,12 @@ public class LibraryContextTool {
                 if (!content.endsWith("\n") && !content.isEmpty()) {
                     newContent += "\n";
                 }
-                newContent += "\n# Boris AI context and downloaded repos\n.boris/\n";
+                newContent += "\n# Boris AI cached repos\n.boris/\n";
                 Files.writeString(gitignore, newContent);
             }
         } catch (IOException e) {
             // Ignore gitignore errors
         }
-    }
-
-    // === PARSING & MERGING ===
-
-    private static ContextFile parseContextFile(Path path) throws IOException {
-        String content = Files.readString(path);
-        ContextFile ctx = new ContextFile();
-
-        if (content.startsWith("---")) {
-            int endIdx = content.indexOf("---", 3);
-            if (endIdx > 0) {
-                String frontmatter = content.substring(3, endIdx).trim();
-                parseLibrariesFromYaml(frontmatter, ctx);
-                content = content.substring(endIdx + 3).trim();
-            }
-        }
-
-        Pattern sectionPattern = Pattern.compile("(?m)^# (.+?) v(.+?)$");
-        Matcher matcher = sectionPattern.matcher(content);
-
-        int lastEnd = 0;
-        String lastLib = null;
-        while (matcher.find()) {
-            if (lastLib != null) {
-                ctx.librarySections.put(lastLib, content.substring(lastEnd, matcher.start()).trim());
-            }
-            lastLib = matcher.group(1).toLowerCase().replace(" ", "-");
-            lastEnd = matcher.start();
-        }
-        if (lastLib != null) {
-            ctx.librarySections.put(lastLib, content.substring(lastEnd).trim());
-        }
-
-        return ctx;
-    }
-
-    private static void parseLibrariesFromYaml(String yaml, ContextFile ctx) {
-        Pattern libPattern = Pattern.compile(
-            "- repo: ([^\\n]+)\\n\\s+version: ([^\\n]+)\\n\\s+created: ([^\\n]+)");
-        Matcher matcher = libPattern.matcher(yaml);
-        while (matcher.find()) {
-            try {
-                ctx.libraries.add(new LibraryMeta(
-                    matcher.group(1).trim(),
-                    matcher.group(2).trim(),
-                    LocalDateTime.parse(matcher.group(3).trim(), DATE_FORMAT)
-                ));
-            } catch (Exception e) {
-                // Skip malformed entries
-            }
-        }
-    }
-
-    private static String mergeOrCreateContext(Path contextPath, String repo, String version, String newSection)
-            throws IOException {
-
-        List<LibraryMeta> libraries = new ArrayList<>();
-        Map<String, String> sections = new LinkedHashMap<>();
-
-        if (Files.exists(contextPath)) {
-            try {
-                ContextFile existing = parseContextFile(contextPath);
-                for (LibraryMeta lib : existing.libraries) {
-                    if (!lib.repo.equals(repo)) {
-                        libraries.add(lib);
-                    }
-                }
-                String repoKey = repo.split("/")[1].toLowerCase();
-                for (Map.Entry<String, String> entry : existing.librarySections.entrySet()) {
-                    if (!entry.getKey().contains(repoKey)) {
-                        sections.put(entry.getKey(), entry.getValue());
-                    }
-                }
-            } catch (Exception e) {
-                // Start fresh
-            }
-        }
-
-        libraries.add(new LibraryMeta(repo, version, LocalDateTime.now()));
-        String repoKey = repo.split("/")[1].toLowerCase();
-        sections.put(repoKey, newSection);
-
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("---\n");
-        sb.append("libraries:\n");
-        for (LibraryMeta lib : libraries) {
-            sb.append("  - repo: ").append(lib.repo).append("\n");
-            sb.append("    version: ").append(lib.version).append("\n");
-            sb.append("    created: ").append(lib.created.format(DATE_FORMAT)).append("\n");
-        }
-        sb.append("---\n\n");
-
-        sb.append("**IMPORTANTE: Este archivo contiene API REAL extraída del código fuente.**\n");
-        sb.append("**Solo usa clases y métodos listados aquí. No inventes otros.**\n\n");
-
-        for (String section : sections.values()) {
-            sb.append(section).append("\n\n");
-        }
-
-        sb.append("---\n\n");
-        sb.append("## PROHIBIDO\n");
-        sb.append("- NO usar clases que no estén listadas arriba\n");
-        sb.append("- NO inventar métodos que no aparezcan aquí\n");
-        sb.append("- Si necesitas algo que no está, usa force=true para re-analizar\n");
-
-        return sb.toString();
-    }
-
-    // === EXTRACTION HELPERS ===
-
-    private static Set<String> extractImports(String content) {
-        Set<String> imports = new TreeSet<>();
-
-        Pattern pattern = Pattern.compile("import\\s+(?:static\\s+)?([\\w.]+(?:\\.\\*)?);", Pattern.MULTILINE);
-        Matcher matcher = pattern.matcher(content);
-
-        while (matcher.find()) {
-            String imp = matcher.group(1);
-            if (!imp.startsWith("java.") &&
-                !imp.startsWith("javax.") &&
-                !imp.startsWith("org.junit") &&
-                !imp.startsWith("org.assertj") &&
-                !imp.startsWith("org.mockito") &&
-                !imp.startsWith("org.hamcrest")) {
-                imports.add(imp);
-            }
-        }
-
-        return imports;
-    }
-
-    private static final Set<String> JAVA_STANDARD_CLASSES = Set.of(
-        "ArrayList", "HashMap", "HashSet", "LinkedList", "TreeMap", "TreeSet",
-        "String", "StringBuilder", "StringBuffer", "Integer", "Long", "Double", "Float", "Boolean",
-        "Object", "Class", "Thread", "Runnable", "Exception", "Error", "Throwable",
-        "File", "Path", "Files", "Paths", "URL", "URI", "InputStream", "OutputStream",
-        "Reader", "Writer", "BufferedReader", "BufferedWriter", "PrintWriter", "PrintStream",
-        "Arrays", "Collections", "List", "Map", "Set", "Queue", "Deque", "Iterator",
-        "Pattern", "Matcher", "Scanner", "Random", "Math", "System", "Runtime",
-        "Date", "Calendar", "LocalDate", "LocalTime", "LocalDateTime", "Instant",
-        "Optional", "Stream", "Collectors", "Function", "Consumer", "Supplier", "Predicate"
-    );
-
-    private static Set<String> extractClassUsage(String content) {
-        Set<String> classes = new TreeSet<>();
-
-        Pattern newPattern = Pattern.compile("new\\s+([A-Z][\\w]+)\\s*[(<]");
-        Matcher matcher = newPattern.matcher(content);
-        while (matcher.find()) {
-            String cls = matcher.group(1);
-            if (!JAVA_STANDARD_CLASSES.contains(cls)) {
-                classes.add(cls);
-            }
-        }
-
-        Pattern staticPattern = Pattern.compile("([A-Z][\\w]+)\\.\\w+\\s*\\(");
-        matcher = staticPattern.matcher(content);
-        while (matcher.find()) {
-            String cls = matcher.group(1);
-            if (!JAVA_STANDARD_CLASSES.contains(cls)) {
-                classes.add(cls);
-            }
-        }
-
-        return classes;
-    }
-
-    private static void extractMethodCalls(String content, Map<String, List<String>> classMethods) {
-        Pattern pattern = Pattern.compile("([a-zA-Z][\\w]*)\\.([a-zA-Z][\\w]*)\\s*\\(");
-        Matcher matcher = pattern.matcher(content);
-
-        while (matcher.find()) {
-            String varOrClass = matcher.group(1);
-            String method = matcher.group(2);
-
-            if (!varOrClass.equals("System") && !varOrClass.equals("String") &&
-                !varOrClass.equals("Arrays") && !varOrClass.equals("Math") &&
-                !method.equals("toString") && !method.equals("equals") &&
-                !method.equals("hashCode") && !method.equals("getClass")) {
-
-                classMethods.computeIfAbsent(varOrClass, k -> new ArrayList<>());
-                if (!classMethods.get(varOrClass).contains(method)) {
-                    classMethods.get(varOrClass).add(method);
-                }
-            }
-        }
-    }
-
-    private static void extractPublicMethods(String content, Map<String, List<String>> classMethods) {
-        Pattern classPattern = Pattern.compile("public\\s+(?:abstract\\s+)?(?:class|interface)\\s+(\\w+)");
-        Matcher classMatcher = classPattern.matcher(content);
-        String className = null;
-        if (classMatcher.find()) {
-            className = classMatcher.group(1);
-        }
-        if (className == null) return;
-
-        // Pattern mejorado que captura parámetros
-        Pattern methodPattern = Pattern.compile(
-            "public\\s+(?:static\\s+)?(?:final\\s+)?(?:synchronized\\s+)?(?:abstract\\s+)?(?:<[^>]+>\\s+)?(\\w+(?:<[^>]+>)?)\\s+(\\w+)\\s*\\(([^)]*)\\)");
-        Matcher methodMatcher = methodPattern.matcher(content);
-
-        List<String> methods = classMethods.computeIfAbsent(className, k -> new ArrayList<>());
-        while (methodMatcher.find()) {
-            String returnType = methodMatcher.group(1);
-            String methodName = methodMatcher.group(2);
-            String params = methodMatcher.group(3).trim();
-
-            // Simplificar parámetros: solo tipos, no nombres
-            String simpleParams = simplifyParams(params);
-            String signature = methodName + "(" + simpleParams + ") : " + returnType;
-
-            if (!methods.contains(signature) && !methodName.equals(className)) {
-                methods.add(signature);
-            }
-        }
-
-        // También extraer constructores
-        Pattern constructorPattern = Pattern.compile(
-            "public\\s+" + className + "\\s*\\(([^)]*)\\)");
-        Matcher constructorMatcher = constructorPattern.matcher(content);
-        while (constructorMatcher.find()) {
-            String params = constructorMatcher.group(1).trim();
-            String simpleParams = simplifyParams(params);
-            String signature = "new " + className + "(" + simpleParams + ")";
-            if (!methods.contains(signature)) {
-                methods.add(0, signature); // Constructores primero
-            }
-        }
-    }
-
-    private static String simplifyParams(String params) {
-        if (params.isEmpty()) return "";
-        // Extraer solo los tipos de los parámetros
-        String[] parts = params.split(",");
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < parts.length; i++) {
-            String part = parts[i].trim();
-            // Obtener el tipo (última palabra antes del nombre de variable)
-            String[] tokens = part.split("\\s+");
-            if (tokens.length >= 2) {
-                // El tipo es todo menos el último token (que es el nombre)
-                for (int j = 0; j < tokens.length - 1; j++) {
-                    if (j > 0) sb.append(" ");
-                    sb.append(tokens[j]);
-                }
-            } else if (tokens.length == 1) {
-                sb.append(tokens[0]);
-            }
-            if (i < parts.length - 1) sb.append(", ");
-        }
-        return sb.toString();
-    }
-
-    private static String extractUsefulExample(String content) {
-        Pattern mainPattern = Pattern.compile(
-            "(public\\s+static\\s+void\\s+main\\s*\\([^)]*\\)\\s*\\{[^}]+\\})",
-            Pattern.DOTALL);
-        Matcher matcher = mainPattern.matcher(content);
-        if (matcher.find()) {
-            String main = matcher.group(1);
-            if (main.length() < 1500) {
-                return main;
-            }
-        }
-
-        Pattern testPattern = Pattern.compile(
-            "(@Test[^{]*\\{[^}]+\\})",
-            Pattern.DOTALL);
-        matcher = testPattern.matcher(content);
-        if (matcher.find()) {
-            String test = matcher.group(1);
-            if (test.length() < 1000) {
-                return test;
-            }
-        }
-
-        return null;
-    }
-
-    private static String extractLibraryName(String readme) {
-        Pattern titlePattern = Pattern.compile("^#\\s+(.+)$", Pattern.MULTILINE);
-        Matcher matcher = titlePattern.matcher(readme);
-        if (matcher.find()) {
-            return matcher.group(1).trim();
-        }
-        return null;
-    }
-
-    // === OUTPUT ===
-
-    private static String generateLibrarySection(
-            String libraryName,
-            String version,
-            String repo,
-            Set<String> imports,
-            Set<String> classes,
-            Map<String, List<String>> classMethods,
-            List<String> examples) {
-
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("# ").append(libraryName).append(" v").append(version).append("\n\n");
-        sb.append("Fuente: https://github.com/").append(repo).append("\n\n");
-
-        sb.append("## Imports Verificados\n");
-        sb.append("```java\n");
-        // Sin límite de imports - todos son importantes
-        for (String imp : imports) {
-            sb.append("import ").append(imp).append(";\n");
-        }
-        sb.append("```\n\n");
-
-        sb.append("## Clases y Métodos Reales\n\n");
-        // Sin límite de clases - el agente necesita ver todas
-        for (String cls : classes) {
-            sb.append("### `").append(cls).append("`\n");
-            List<String> methods = classMethods.get(cls);
-            if (methods != null && !methods.isEmpty()) {
-                // Sin límite de métodos - el agente necesita ver todos
-                for (String method : methods) {
-                    sb.append("- `").append(method).append("`\n");
-                }
-            }
-            sb.append("\n");
-        }
-
-        if (!examples.isEmpty()) {
-            sb.append("## Ejemplos de Uso\n");
-            for (String example : examples) {
-                sb.append("```java\n");
-                sb.append(example).append("\n");
-                sb.append("```\n\n");
-            }
-        }
-
-        return sb.toString();
     }
 
     private static String formatOutput(boolean success, String message) {
