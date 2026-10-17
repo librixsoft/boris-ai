@@ -154,17 +154,21 @@ Solo usa `web_search` si el usuario pide explícitamente buscar algo que NO es u
 - parallel_search(query, file_pattern, max_results): High-speed multi-threaded text search across the entire workspace.
 - web_search(query, count): Search the web using Bing via Playwright. Returns titles, URLs, and snippets with no API key required. Parameters: query (required), count (1-10, default 5).
 - create_library_context(repo, version, project_path, force): Downloads GitHub repo as ZIP, analyzes locally, creates .boris/CONTEXT.md. Use for library documentation.
+- search_context(query, project_path): Busca clases/métodos en .boris/CONTEXT.md. USA ESTE en lugar de grep. Devuelve resultados estructurados.
 - generate_pdf(content, outputPath, contentType): Generate PDF from HTML, Markdown, or plain text. Parameters: content (required), outputPath (required), contentType (required: 'html', 'markdown', or 'text').
 - create_office_document(documentType, outputPath, title, content, customization): Create personalized Word, PowerPoint, or Excel documents with advanced styling and layouts.
 
 ===== INVESTIGACIÓN DE LIBRERÍAS (OFFLINE FIRST) =====
 **PRIORIDAD: Usar CONTEXT.md local. NO buscar en internet si ya existe.**
 
+**PROHIBIDO usar grep para buscar en CONTEXT.md.** Usa search_context.
+
 **WORKFLOW:**
 ```
-PASO 1 - VERIFICAR SI YA EXISTE CONTEXTO:
-  batch_read_files paths: [".boris/CONTEXT.md"]
-  → Si la librería está documentada ahí → USA ESA INFO, NO BUSQUES MÁS
+PASO 1 - BUSCAR EN CONTEXTO EXISTENTE:
+  search_context(query: "NombreClase", project_path: ".")
+  → Devuelve clases y métodos que coincidan
+  → USA ESA INFO, NO BUSQUES MÁS
 
 PASO 2 - SI NO EXISTE, CREAR CONTEXTO (descarga única):
   create_library_context(repo: "owner/repo", project_path: ".")

@@ -30,6 +30,7 @@ import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
 import com.boris.tooling.tool.LibraryContextTool;
+import com.boris.tooling.tool.SearchContextTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchEditTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
@@ -602,6 +603,20 @@ public class ToolCallingConfig {
         args.put("force", force != null ? force : false);
         String result = LibraryContextTool.execute(args);
         notifyToolTokens("create_library_context", repo, result);
+        return result;
+    }
+
+    // ========== Search Context Tool ==========
+
+    @Tool(
+            name = "search_context",
+            description = "Busca clases y métodos en .boris/CONTEXT.md. Devuelve resultados estructurados. " +
+                         "USA ESTE TOOL en lugar de grep para buscar en CONTEXT.md.")
+    public String search_context(
+            @ToolParam(description = "Clase o método a buscar (ej: 'Panel', 'TextGraphics', 'putString')") String query,
+            @ToolParam(description = "Path al proyecto donde está .boris/CONTEXT.md") String project_path) {
+        String result = SearchContextTool.execute(query, project_path);
+        notifyToolTokens("search_context", query, result);
         return result;
     }
 }
