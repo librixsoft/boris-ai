@@ -10,8 +10,23 @@ public class ToolResultNotifier {
 
     public record ToolTokenUsage(String toolName, int inputTokens, int outputTokens) {}
 
+    /**
+     * Query results from tools like github_api_search, web_fetch, etc.
+     * These are cached to provide context in subsequent conversation turns.
+     */
+    public record ToolQueryResult(String toolName, String query, String result, long timestamp) {
+        private static final int MAX_RESULT_LENGTH = 8000;
+
+        public String truncatedResult() {
+            if (result == null) return "";
+            if (result.length() <= MAX_RESULT_LENGTH) return result;
+            return result.substring(0, MAX_RESULT_LENGTH) + "\n... [truncated, " + result.length() + " chars total]";
+        }
+    }
+
     private static final List<Consumer<ToolResult>> listeners = new CopyOnWriteArrayList<>();
     private static final List<Consumer<ToolTokenUsage>> tokenListeners = new CopyOnWriteArrayList<>();
+    private static final List<Consumer<ToolQueryResult>> queryListeners = new CopyOnWriteArrayList<>();
 
     public static void addListener(Consumer<ToolResult> listener) {
         if (listener != null) {
@@ -33,9 +48,20 @@ public class ToolResultNotifier {
         tokenListeners.remove(listener);
     }
 
+    public static void addQueryListener(Consumer<ToolQueryResult> listener) {
+        if (listener != null) {
+            queryListeners.add(listener);
+        }
+    }
+
+    public static void removeQueryListener(Consumer<ToolQueryResult> listener) {
+        queryListeners.remove(listener);
+    }
+
     public static void clearListeners() {
         listeners.clear();
         tokenListeners.clear();
+        queryListeners.clear();
     }
 
     public static void notify(ToolResult result) {
@@ -60,5 +86,14 @@ public class ToolResultNotifier {
 
     public static void notifyEdit(String filePath, String diff, boolean success) {
         notify(new ToolResult("apply_edit", filePath, diff, success));
+    }
+
+    public static void notifyQueryResult(String toolName, String query, String result) {
+        ToolQueryResult queryResult = new ToolQueryResult(toolName, query, result, System.currentTimeMillis());
+        for (Consumer<ToolQueryResult> listener : queryListeners) {
+            try {
+                listener.accept(queryResult);
+            } catch (Exception ignored) {}
+        }
     }
 }

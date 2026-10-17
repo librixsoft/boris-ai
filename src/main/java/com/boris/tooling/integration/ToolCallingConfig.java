@@ -358,6 +358,7 @@ public class ToolCallingConfig {
         String result = batchListDirectoriesTool.execute(pathList);
         String pathsStr = String.join(", ", pathList);
         notifyToolTokens("list_files", pathsStr, result);
+        ToolResultNotifier.notifyQueryResult("list_files", pathsStr, result);
         return result;
     }
 
@@ -374,6 +375,7 @@ public class ToolCallingConfig {
         if (count != null) args.put("count", count);
         String result = WebSearchTool.execute(args);
         notifyToolTokens("web_search", query, result);
+        ToolResultNotifier.notifyQueryResult("web_search", query, result);
         return result;
     }
 
@@ -414,6 +416,7 @@ public class ToolCallingConfig {
         String result = batchWebFetchTool.execute(specs);
         String urlsStr = specs.stream().map(BatchWebFetchTool.FetchSpec::url).toList().toString();
         notifyToolTokens("web_fetch", urlsStr, result);
+        ToolResultNotifier.notifyQueryResult("web_fetch", urlsStr, result);
         return result;
     }
 
@@ -509,6 +512,7 @@ public class ToolCallingConfig {
         String result = batchGitHubSearchTool.execute(specs);
         String queriesStr = specs.stream().map(s -> s.searchType() + ":" + s.query()).toList().toString();
         notifyToolTokens("github_api_search", queriesStr, result);
+        ToolResultNotifier.notifyQueryResult("github_api_search", queriesStr, result);
         return result;
     }
 
@@ -524,6 +528,7 @@ public class ToolCallingConfig {
         String result = batchReadFileTool.execute(paths, max_lines_per_file);
         String pathsStr = (paths != null && !paths.isEmpty()) ? String.join(", ", paths) : "empty";
         notifyToolTokens("batch_read_files", pathsStr, result);
+        ToolResultNotifier.notifyQueryResult("batch_read_files", pathsStr, result);
         return result;
     }
 
@@ -564,6 +569,7 @@ public class ToolCallingConfig {
         ToolProgressNotifier.notify("parallel_search", "Buscando: " + query);
         String result = parallelSearchTool.execute(query, file_pattern, max_results, base_path);
         notifyToolTokens("parallel_search", query, result);
+        ToolResultNotifier.notifyQueryResult("parallel_search", query, result);
         return result;
     }
 

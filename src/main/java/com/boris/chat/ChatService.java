@@ -13,6 +13,7 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.llm.think.ThinkContextHolder;
 import com.boris.tooling.ToolCallLimiter;
+import com.boris.tooling.ToolResultNotifier;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 import com.boris.task.TaskAborter;
@@ -25,6 +26,8 @@ public class ChatService {
     private final String botName;
     private final TaskAborter taskAborter;
     private final List<String> conversationHistory;
+    private final List<ToolResultNotifier.ToolQueryResult> queryResultsCache;
+    private static final int MAX_QUERY_CACHE_SIZE = 5;
     private final int maxHistorySize;
     private final boolean enableHistory;
     private boolean thinkingEnabled;
@@ -52,6 +55,7 @@ public class ChatService {
         this.botName = botName;
         this.taskAborter = taskAborter;
         this.conversationHistory = new ArrayList<>();
+        this.queryResultsCache = new ArrayList<>();
         this.maxHistorySize = maxHistorySize;
         this.enableHistory = enableHistory;
         this.thinkingEnabled = thinkingEnabled;
@@ -59,6 +63,16 @@ public class ChatService {
         this.modelName = modelName;
         if (taskAborter != null && modelName != null) {
             taskAborter.setActiveModel(modelName);
+        }
+        ToolResultNotifier.addQueryListener(this::onQueryResult);
+    }
+
+    private void onQueryResult(ToolResultNotifier.ToolQueryResult result) {
+        synchronized (queryResultsCache) {
+            queryResultsCache.add(result);
+            while (queryResultsCache.size() > MAX_QUERY_CACHE_SIZE) {
+                queryResultsCache.remove(0);
+            }
         }
     }
 
@@ -315,6 +329,9 @@ public class ChatService {
 
     public void clearHistory() {
         conversationHistory.clear();
+        synchronized (queryResultsCache) {
+            queryResultsCache.clear();
+        }
     }
 
     public List<String> getConversationHistory() {
@@ -328,15 +345,27 @@ public class ChatService {
     }
 
     private String buildPromptWithHistory(String currentMessage) {
-        if (!enableHistory || conversationHistory.isEmpty()) {
-            return currentMessage;
-        }
         StringBuilder promptBuilder = new StringBuilder();
-        promptBuilder.append("===== CONVERSATION HISTORY =====\n");
-        for (String message : conversationHistory) {
-            promptBuilder.append(message).append("\n");
+
+        synchronized (queryResultsCache) {
+            if (!queryResultsCache.isEmpty()) {
+                promptBuilder.append("===== CACHED TOOL RESULTS (from this session) =====\n");
+                for (ToolResultNotifier.ToolQueryResult qr : queryResultsCache) {
+                    promptBuilder.append("[").append(qr.toolName()).append("] Query: ").append(qr.query()).append("\n");
+                    promptBuilder.append(qr.truncatedResult()).append("\n\n");
+                }
+                promptBuilder.append("===== END CACHED RESULTS =====\n\n");
+            }
         }
-        promptBuilder.append("===== END HISTORY =====\n\n");
+
+        if (enableHistory && !conversationHistory.isEmpty()) {
+            promptBuilder.append("===== CONVERSATION HISTORY =====\n");
+            for (String message : conversationHistory) {
+                promptBuilder.append(message).append("\n");
+            }
+            promptBuilder.append("===== END HISTORY =====\n\n");
+        }
+
         promptBuilder.append(currentMessage);
         return promptBuilder.toString();
     }
