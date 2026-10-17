@@ -167,15 +167,18 @@ public class ChatService {
                     if (taskAborter != null && taskAborter.isAborted()) {
                         return;
                     }
-                    String content = response.getResult() != null ?
-                        response.getResult().getOutput().getText() : null;
+                    String content = null;
+                    try {
+                        if (response != null && response.getResult() != null &&
+                            response.getResult().getOutput() != null) {
+                            content = response.getResult().getOutput().getText();
+                        }
+                    } catch (Exception ignored) {}
+
                     if (content != null && !content.isEmpty()) {
                         fullResponse.append(content);
-                        // Procesar chunk con StreamingFileWriter
-                        String nonCodeText = fileWriter.processChunk(content);
-                        if (nonCodeText != null && !nonCodeText.isEmpty()) {
-                            onChunk.accept(nonCodeText);
-                        }
+                        // Enviar directamente al chat (sin pasar por StreamingFileWriter por ahora)
+                        onChunk.accept(content);
                     }
                 })
                 .doOnError(error -> {
@@ -183,7 +186,6 @@ public class ChatService {
                     latch.countDown();
                 })
                 .doOnComplete(() -> {
-                    fileWriter.finish();
                     latch.countDown();
                 })
                 .subscribe();
