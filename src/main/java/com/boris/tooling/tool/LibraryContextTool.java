@@ -122,36 +122,16 @@ public class LibraryContextTool {
             // === ENSURE .boris IS IN .gitignore ===
             ensureGitignore(Paths.get(projectPath));
 
-            // === CHECK IF REPO ALREADY DOWNLOADED ===
-            boolean needsDownload = force || !Files.exists(repoDir);
-
-            // Si el repo ya existe y hay CONTEXT.md reciente, no re-descargar
-            if (!needsDownload && Files.exists(contextPath)) {
-                try {
-                    ContextFile existing = parseContextFile(contextPath);
-                    boolean hasRecent = existing.libraries.stream()
-                        .anyMatch(lib -> lib.repo.equals(repo) &&
-                                 lib.created.isAfter(LocalDateTime.now().minusDays(CACHE_DAYS)));
-                    if (hasRecent) {
-                        // Repo ya descargado y contexto reciente - solo re-analizar si es necesario
-                        ToolProgressNotifier.notify("create_library_context",
-                            "Repo ya descargado, usando cache local");
-                        needsDownload = false;
-                    }
-                } catch (Exception e) {
-                    // Si no puede parsear, re-descargar
-                    needsDownload = true;
-                }
-            }
-
-            // === DOWNLOAD ZIP IF NEEDED ===
-            if (needsDownload) {
+            // === DOWNLOAD ZIP ONLY IF NOT EXISTS ===
+            // Simple rule: if repo folder exists, NEVER re-download (unless force=true)
+            // This avoids ALL internet access after first download
+            if (force || !Files.exists(repoDir)) {
                 ToolProgressNotifier.notify("create_library_context",
-                    "Descargando " + repo + "...");
+                    "Descargando " + repo + " (única vez)...");
                 downloadAndExtractZip(repo, version, repoDir);
             } else {
                 ToolProgressNotifier.notify("create_library_context",
-                    "Usando repo descargado previamente");
+                    "Usando repo local (sin internet)");
             }
 
             // === ANALYZE LOCAL CODE ===
