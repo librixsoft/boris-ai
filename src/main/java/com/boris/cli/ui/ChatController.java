@@ -35,6 +35,11 @@ public class ChatController implements InputArea.InputListener {
     private final AtomicLong sessionEpoch = new AtomicLong(0);
     private final MessageQueueService messageQueue;
 
+    // Per-response tracking for stats display
+    private volatile long responseStartTime;
+    private volatile int responseStartInputTokens;
+    private volatile int responseStartOutputTokens;
+
     public ChatController(ChatService chatService,
                           SkillManager skillManager,
                           TaskAborter taskAborter,
@@ -169,6 +174,10 @@ public class ChatController implements InputArea.InputListener {
             public void onMessageStarted(ChatMessage message) {
                 transcript.activateQueuedMessage(message.content());
                 waiting.set(true);
+                // Save starting values for per-response stats
+                responseStartTime = System.currentTimeMillis();
+                responseStartInputTokens = tokenCounter.inputTokens();
+                responseStartOutputTokens = tokenCounter.outputTokens();
                 spinner.start();
             }
 
@@ -373,6 +382,12 @@ public class ChatController implements InputArea.InputListener {
         synchronized (assistantBuffer) {
             finalText = assistantBuffer.toString();
         }
+
+        // Calculate per-response stats
+        long durationMs = System.currentTimeMillis() - responseStartTime;
+        int inputTokensDelta = tokenCounter.inputTokens() - responseStartInputTokens;
+        int outputTokensDelta = tokenCounter.outputTokens() - responseStartOutputTokens;
+        transcript.appendResponseStats(durationMs, inputTokensDelta, outputTokensDelta);
 
         statusBar.showTokenStatus(tokenCounter);
 

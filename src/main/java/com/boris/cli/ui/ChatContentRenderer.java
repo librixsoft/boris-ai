@@ -109,7 +109,9 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
                 inTable = false;
                 isHeader = false;
                 columnWidths.clear();
-                if (isToolDetailLine(line)) {
+                if (isStatsLine(line)) {
+                    renderStatsLine(graphics, line, i, contentWidth);
+                } else if (isToolDetailLine(line)) {
                     renderToolDetailLine(graphics, line, i, contentWidth);
                 } else {
                     markdownLineRenderer.render(graphics, line, i, contentWidth, inThinking, thinkingEnabled, inCodeBlock);
@@ -200,10 +202,21 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
         return line.startsWith("[") && line.contains("]") && line.indexOf(']') < 30;
     }
 
+    private boolean isStatsLine(String line) {
+        return line != null && line.startsWith("\u0001stats\u0002");
+    }
+
     private void renderToolDetailLine(TextGUIGraphics graphics, String line, int row, int contentWidth) {
         graphics.setBackgroundColor(UiTheme.BG);
         graphics.setForegroundColor(UiTheme.MUTED);
         graphics.putString(0, row, padOrTruncate(line, contentWidth));
+    }
+
+    private void renderStatsLine(TextGUIGraphics graphics, String line, int row, int contentWidth) {
+        String content = line.substring("\u0001stats\u0002".length());
+        graphics.setBackgroundColor(UiTheme.BG);
+        graphics.setForegroundColor(UiTheme.LINE_NUMBER);
+        graphics.putString(0, row, padOrTruncate(content, contentWidth));
     }
 
     private void drawScrollbar(TextGUIGraphics graphics, int totalWidth, int visibleRows, int maxOffset, int currentOffset) {

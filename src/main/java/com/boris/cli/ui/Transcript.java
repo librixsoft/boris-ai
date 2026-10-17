@@ -9,7 +9,7 @@ import java.util.function.Consumer;
 
 public class Transcript {
 
-    private enum EntryType { NORMAL, TOOL_DETAIL }
+    private enum EntryType { NORMAL, TOOL_DETAIL, STATS }
 
     private record Entry(EntryType type, String content) {}
 
@@ -142,6 +142,28 @@ public class Transcript {
         });
     }
 
+    public void appendResponseStats(long durationMs, int inputTokens, int outputTokens) {
+        uiExecutor.run(() -> {
+            String timeStr = formatDuration(durationMs);
+            String stats = timeStr + " · in: " + inputTokens + " tokens · out: " + outputTokens + " tokens";
+            entries.add(new Entry(EntryType.STATS, stats));
+            renderWrapped();
+            scrollToBottom();
+        });
+    }
+
+    private String formatDuration(long ms) {
+        if (ms < 1000) {
+            return ms + "ms";
+        } else if (ms < 60000) {
+            return String.format("%.1fs", ms / 1000.0);
+        } else {
+            long minutes = ms / 60000;
+            long seconds = (ms % 60000) / 1000;
+            return minutes + "m" + seconds + "s";
+        }
+    }
+
     public void clear() {
         uiExecutor.run(() -> {
             entries.clear();
@@ -164,7 +186,11 @@ public class Transcript {
             if (sb.length() > 0 && !sb.toString().endsWith("\n") && !e.content().startsWith("\n")) {
                 sb.append("\n");
             }
-            sb.append(e.content());
+            if (e.type() == EntryType.STATS) {
+                sb.append("\u0001stats\u0002").append(e.content());
+            } else {
+                sb.append(e.content());
+            }
         }
         return sb.toString();
     }
