@@ -71,8 +71,7 @@ public class QualityIterator {
                 return reviewed;
             }
         } catch (Exception e) {
-            // Si falla la revisión, devolver el original
-            System.err.println("[QualityIterator] Error en revisión, usando original: " + e.getMessage());
+            // Si falla la revisión, devolver el original silenciosamente
         }
 
         return content;

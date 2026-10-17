@@ -49,11 +49,9 @@ public final class ClipboardUtil {
                     success = copyViaAwt(text);
                 }
 
-                if (!success) {
-                    System.err.println("[ClipboardUtil] Warning: Unable to copy to clipboard. No supported clipboard command found (pbcopy/clip/xclip/xsel/wl-copy/AWT).");
-                }
+                // Silently ignore clipboard failures to avoid TUI corruption
             } catch (Exception e) {
-                System.err.println("[ClipboardUtil] Failed to copy to clipboard: " + e.getMessage());
+                // Silently ignore clipboard errors
             }
         });
     }
