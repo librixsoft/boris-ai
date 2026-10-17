@@ -521,6 +521,69 @@ public class ToolCallingConfig {
         return q;
     }
 
+    // ========== Maven Build Tool ==========
+
+    @Tool(
+            name = "maven_build",
+            description = "Execute Maven commands (compile, test, package, clean). Use to compile and check for errors.")
+    public String maven_build(
+            @ToolParam(description = "Maven goal: compile, test, package, clean, verify, install") String goal,
+            @ToolParam(description = "Project directory (optional, default: current)") String project_path) {
+
+        // Solo permitir goals seguros
+        java.util.Set<String> allowedGoals = java.util.Set.of(
+            "compile", "test", "package", "clean", "verify", "install",
+            "test-compile", "clean compile", "clean test", "clean package"
+        );
+
+        if (goal == null || goal.isBlank()) {
+            goal = "compile";
+        }
+
+        String normalizedGoal = goal.toLowerCase().trim();
+        if (!allowedGoals.contains(normalizedGoal)) {
+            return "{\"success\": false, \"error\": \"Goal no permitido: " + goal + ". Usa: compile, test, package, clean, verify, install\"}";
+        }
+
+        String dir = project_path != null && !project_path.isBlank()
+            ? project_path
+            : System.getProperty("user.dir");
+
+        ToolProgressNotifier.notify("maven_build", "mvn " + goal + " en " + dir);
+
+        try {
+            ProcessBuilder pb = new ProcessBuilder("mvn", goal, "-q");
+            pb.directory(new java.io.File(dir));
+            pb.redirectErrorStream(true);
+
+            Process process = pb.start();
+            String output = new String(process.getInputStream().readAllBytes());
+            int exitCode = process.waitFor();
+
+            if (exitCode == 0) {
+                return "{\"success\": true, \"message\": \"mvn " + goal + " completado OK\"}";
+            } else {
+                // Extraer errores de compilación
+                String errors = extractCompileErrors(output);
+                return "{\"success\": false, \"exit_code\": " + exitCode + ", \"errors\": \"" +
+                    errors.replace("\"", "\\\"").replace("\n", "\\n") + "\"}";
+            }
+        } catch (Exception e) {
+            return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    private String extractCompileErrors(String output) {
+        StringBuilder errors = new StringBuilder();
+        for (String line : output.split("\n")) {
+            if (line.contains("[ERROR]") || line.contains("error:") ||
+                line.contains("cannot find symbol") || line.contains("incompatible types")) {
+                errors.append(line.trim()).append("\n");
+            }
+        }
+        return errors.length() > 0 ? errors.toString() : output;
+    }
+
     // ========== Task Decomposition Tools ==========
 
     @Tool(
