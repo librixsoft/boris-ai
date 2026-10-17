@@ -16,22 +16,44 @@ import java.util.regex.Pattern;
  * StreamingFileWriter - Estilo Aider
  *
  * Parsea texto del modelo en streaming y muestra el código en el chat.
- * Detecta bloques con formato:
+ * Soporta DOS formatos:
  *
+ * 1. CREAR archivo nuevo:
  * ```java:src/MiClase.java
- * contenido...
+ * contenido completo...
+ * ```
+ *
+ * 2. EDITAR archivo existente (SEARCH/REPLACE):
+ * ```edit:src/MiClase.java
+ * <<<<<<< SEARCH
+ * código viejo
+ * =======
+ * código nuevo
+ * >>>>>>> REPLACE
  * ```
  *
  * FLUJO:
  * 1. Muestra cada línea en el chat conforme llega (rápido, sin I/O)
  * 2. Acumula el contenido en memoria
- * 3. Guarda TODO al final cuando cierra el bloque ```
+ * 3. Guarda/aplica TODO al final cuando cierra el bloque ```
  */
 public class StreamingFileWriter {
 
-    // Patrón: ```lenguaje:ruta/archivo.ext o ```ruta/archivo.ext
-    private static final Pattern BLOCK_START = Pattern.compile("^```(\\w+)?:?(.+\\.[a-zA-Z0-9]+)$");
+    // Patrón para CREAR: ```lenguaje:ruta/archivo.ext
+    private static final Pattern CREATE_BLOCK_START = Pattern.compile("^```(\\w+):(.+\\.[a-zA-Z0-9]+)$");
+    // Patrón para EDITAR: ```edit:ruta/archivo.ext
+    private static final Pattern EDIT_BLOCK_START = Pattern.compile("^```edit:(.+\\.[a-zA-Z0-9]+)$");
     private static final Pattern BLOCK_END = Pattern.compile("^```\\s*$");
+
+    // Marcadores SEARCH/REPLACE
+    private static final String SEARCH_START = "<<<<<<< SEARCH";
+    private static final String DIVIDER = "=======";
+    private static final String REPLACE_END = ">>>>>>> REPLACE";
+
+    // Patrones para detectar XML de herramientas (el modelo a veces mezcla formatos)
+    private static final Pattern TOOL_XML_PATTERN = Pattern.compile(
+        "^\\s*</(parameter|function|tool_call|invoke|antml).*>|^\\s*<(parameter|function|tool_call|invoke|antml).*>|^\\s*</.*>\\s*$"
+    );
 
     private StringBuilder buffer = new StringBuilder();
     private String currentFilePath = null;
@@ -39,14 +61,17 @@ public class StreamingFileWriter {
     private List<String> contentLines = new ArrayList<>();
     private int lineNumber = 0;
     private boolean inCodeBlock = false;
+    private boolean isEditMode = false;
 
-    /**
-     * Procesa un chunk de texto del modelo.
-     * Puede contener líneas parciales, completas, o múltiples líneas.
-     *
-     * @param chunk Texto recibido del modelo
-     * @return Texto que NO es código (para mostrar como chat normal)
-     */
+    // Estado para SEARCH/REPLACE
+    private boolean inSearchBlock = false;
+    private boolean inReplaceBlock = false;
+    private List<String> searchLines = new ArrayList<>();
+    private List<String> replaceLines = new ArrayList<>();
+    private List<SearchReplaceBlock> pendingEdits = new ArrayList<>();
+
+    private record SearchReplaceBlock(String search, String replace) {}
+
     public String processChunk(String chunk) {
         if (chunk == null || chunk.isEmpty()) {
             return "";
@@ -55,7 +80,6 @@ public class StreamingFileWriter {
         buffer.append(chunk);
         StringBuilder nonCodeOutput = new StringBuilder();
 
-        // Procesar líneas completas (tienen \n)
         int newlineIdx;
         while ((newlineIdx = buffer.indexOf("\n")) != -1) {
             String line = buffer.substring(0, newlineIdx);
@@ -67,140 +91,249 @@ public class StreamingFileWriter {
             }
         }
 
-        // Si NO estamos en bloque de código, devolver buffer parcial inmediatamente
-        // Esto permite que texto como "Hey" se muestre sin esperar newline
         if (!inCodeBlock && buffer.length() > 0) {
-            // Verificar si el buffer podría ser inicio de bloque de código
             String pending = buffer.toString();
             if (!pending.startsWith("`")) {
                 nonCodeOutput.append(pending);
                 buffer.setLength(0);
             }
-            // Si empieza con `, esperar más datos para ver si es ```lang:path
         }
 
         return nonCodeOutput.toString();
     }
 
-    /**
-     * Procesa una línea completa.
-     *
-     * @return La línea si es texto normal, null si es código (ya fue mostrado)
-     */
     private String processLine(String line) {
-        // ¿Inicio de bloque de código con archivo?
-        Matcher startMatcher = BLOCK_START.matcher(line.trim());
-        if (startMatcher.matches()) {
-            String lang = startMatcher.group(1);
-            String path = startMatcher.group(2);
-            startFileBlock(path, lang);
+        String trimmed = line.trim();
+
+        // ¿Inicio de bloque EDIT?
+        Matcher editMatcher = EDIT_BLOCK_START.matcher(trimmed);
+        if (editMatcher.matches()) {
+            String path = editMatcher.group(1);
+            startEditBlock(path);
             return null;
         }
 
-        // ¿Fin de bloque de código?
-        if (inCodeBlock && BLOCK_END.matcher(line.trim()).matches()) {
-            endFileBlock();
+        // ¿Inicio de bloque CREATE?
+        Matcher createMatcher = CREATE_BLOCK_START.matcher(trimmed);
+        if (createMatcher.matches()) {
+            String lang = createMatcher.group(1);
+            String path = createMatcher.group(2);
+            startCreateBlock(path, lang);
             return null;
         }
 
-        // ¿Dentro de bloque de código?
-        if (inCodeBlock) {
-            accumulateLine(line);
+        // ¿Fin de bloque?
+        if (inCodeBlock && BLOCK_END.matcher(trimmed).matches()) {
+            endBlock();
             return null;
         }
 
-        // Texto normal
+        // ¿XML de herramientas? Cerrar bloque
+        if (inCodeBlock && TOOL_XML_PATTERN.matcher(line).matches()) {
+            endBlock();
+            return null;
+        }
+
+        // Dentro de bloque EDIT (SEARCH/REPLACE)
+        if (inCodeBlock && isEditMode) {
+            processEditLine(line);
+            return null;
+        }
+
+        // Dentro de bloque CREATE
+        if (inCodeBlock && !isEditMode) {
+            accumulateCreateLine(line);
+            return null;
+        }
+
         return line;
     }
 
-    private void startFileBlock(String path, String language) {
-        // Cerrar archivo anterior si existe
+    private void startCreateBlock(String path, String language) {
         if (inCodeBlock) {
-            endFileBlock();
+            endBlock();
         }
 
-        // Resolver ruta relativa usando el proyecto actual
         String resolvedPath = ProjectContext.resolveRelativePath(path);
-
         currentFilePath = resolvedPath;
         currentLanguage = language;
         lineNumber = 0;
         contentLines.clear();
         inCodeBlock = true;
+        isEditMode = false;
 
-        // Notificar UI - inicio de archivo
         Path filePath = Paths.get(resolvedPath);
-        DiffLineNotifier.notify("@@@ " + filePath.getFileName() + " @@@");
+        DiffLineNotifier.notify("@@@ " + filePath.getFileName() + " (crear) @@@");
     }
 
-    /**
-     * Acumula una línea en memoria y la muestra en el chat.
-     * NO escribe al disco todavía.
-     */
-    private void accumulateLine(String line) {
+    private void startEditBlock(String path) {
+        if (inCodeBlock) {
+            endBlock();
+        }
+
+        String resolvedPath = ProjectContext.resolveRelativePath(path);
+        currentFilePath = resolvedPath;
+        lineNumber = 0;
+        inCodeBlock = true;
+        isEditMode = true;
+        inSearchBlock = false;
+        inReplaceBlock = false;
+        searchLines.clear();
+        replaceLines.clear();
+        pendingEdits.clear();
+
+        Path filePath = Paths.get(resolvedPath);
+        DiffLineNotifier.notify("@@@ " + filePath.getFileName() + " (editar) @@@");
+    }
+
+    private void accumulateCreateLine(String line) {
         lineNumber++;
         contentLines.add(line);
-
-        // Notificar UI para mostrar la línea (esto es instantáneo, sin I/O)
         DiffLineNotifier.notify(String.format("%3d │+ %s", lineNumber, line));
     }
 
-    /**
-     * Finaliza el bloque y guarda TODO el contenido al archivo de una sola vez.
-     */
-    private void endFileBlock() {
-        if (currentFilePath != null && !contentLines.isEmpty()) {
-            try {
-                Path filePath = Paths.get(currentFilePath);
-                Files.createDirectories(filePath.getParent());
+    private void processEditLine(String line) {
+        String trimmed = line.trim();
 
-                // Escribir TODO el contenido de una sola vez
-                String content = String.join("\n", contentLines);
-                if (!content.endsWith("\n")) {
-                    content += "\n";
-                }
-                Files.writeString(filePath, content);
-
-                DiffLineNotifier.notify(String.format("─── +%d ✓ %s guardado ───", lineNumber, currentFilePath));
-
-            } catch (IOException e) {
-                DiffLineNotifier.notify("⚠ Error guardando archivo: " + e.getMessage());
-            }
+        if (trimmed.equals(SEARCH_START)) {
+            inSearchBlock = true;
+            inReplaceBlock = false;
+            searchLines.clear();
+            DiffLineNotifier.notify("    │ SEARCH:");
+            return;
         }
 
+        if (trimmed.equals(DIVIDER)) {
+            inSearchBlock = false;
+            inReplaceBlock = true;
+            replaceLines.clear();
+            DiffLineNotifier.notify("    │ REPLACE:");
+            return;
+        }
+
+        if (trimmed.equals(REPLACE_END)) {
+            // Guardar el bloque SEARCH/REPLACE
+            String search = String.join("\n", searchLines);
+            String replace = String.join("\n", replaceLines);
+            pendingEdits.add(new SearchReplaceBlock(search, replace));
+
+            inSearchBlock = false;
+            inReplaceBlock = false;
+            searchLines.clear();
+            replaceLines.clear();
+            DiffLineNotifier.notify("    │ ─── bloque listo ───");
+            return;
+        }
+
+        if (inSearchBlock) {
+            searchLines.add(line);
+            DiffLineNotifier.notify(String.format("    │- %s", line));
+        } else if (inReplaceBlock) {
+            replaceLines.add(line);
+            DiffLineNotifier.notify(String.format("    │+ %s", line));
+        }
+    }
+
+    private void endBlock() {
+        if (currentFilePath == null) {
+            resetState();
+            return;
+        }
+
+        if (isEditMode) {
+            applyEdits();
+        } else {
+            saveNewFile();
+        }
+
+        resetState();
+    }
+
+    private void saveNewFile() {
+        if (contentLines.isEmpty()) {
+            return;
+        }
+
+        try {
+            Path filePath = Paths.get(currentFilePath);
+            Files.createDirectories(filePath.getParent());
+
+            String content = String.join("\n", contentLines);
+            if (!content.endsWith("\n")) {
+                content += "\n";
+            }
+            Files.writeString(filePath, content);
+
+            DiffLineNotifier.notify(String.format("─── +%d ✓ %s guardado ───", lineNumber, currentFilePath));
+
+        } catch (IOException e) {
+            DiffLineNotifier.notify("⚠ Error guardando: " + e.getMessage());
+        }
+    }
+
+    private void applyEdits() {
+        if (pendingEdits.isEmpty()) {
+            DiffLineNotifier.notify("⚠ No hay ediciones pendientes");
+            return;
+        }
+
+        try {
+            Path filePath = Paths.get(currentFilePath);
+            if (!Files.exists(filePath)) {
+                DiffLineNotifier.notify("⚠ Archivo no existe: " + currentFilePath);
+                return;
+            }
+
+            String content = Files.readString(filePath);
+            int applied = 0;
+
+            for (SearchReplaceBlock edit : pendingEdits) {
+                if (content.contains(edit.search)) {
+                    content = content.replace(edit.search, edit.replace);
+                    applied++;
+                } else {
+                    DiffLineNotifier.notify("⚠ No encontrado: " + edit.search.substring(0, Math.min(50, edit.search.length())) + "...");
+                }
+            }
+
+            if (applied > 0) {
+                Files.writeString(filePath, content);
+                DiffLineNotifier.notify(String.format("─── %d ediciones ✓ %s guardado ───", applied, currentFilePath));
+            }
+
+        } catch (IOException e) {
+            DiffLineNotifier.notify("⚠ Error aplicando ediciones: " + e.getMessage());
+        }
+    }
+
+    private void resetState() {
         currentFilePath = null;
         currentLanguage = null;
         contentLines.clear();
         lineNumber = 0;
         inCodeBlock = false;
+        isEditMode = false;
+        inSearchBlock = false;
+        inReplaceBlock = false;
+        searchLines.clear();
+        replaceLines.clear();
+        pendingEdits.clear();
     }
 
-    /**
-     * Llamar al final del streaming para cerrar archivos pendientes.
-     */
     public void finish() {
-        // Procesar buffer restante
         if (buffer.length() > 0) {
             processLine(buffer.toString());
             buffer.setLength(0);
         }
 
-        // Guardar archivo si quedó abierto
         if (inCodeBlock) {
-            endFileBlock();
+            endBlock();
         }
     }
 
-    /**
-     * Resetear estado para nuevo mensaje.
-     */
     public void reset() {
         buffer.setLength(0);
-        currentFilePath = null;
-        currentLanguage = null;
-        contentLines.clear();
-        lineNumber = 0;
-        inCodeBlock = false;
+        resetState();
     }
 
     public boolean isWritingFile() {
