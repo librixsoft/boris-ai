@@ -129,6 +129,8 @@ Solo usa `web_search` si el usuario pide explícitamente buscar algo que NO es u
 - Each message should be treated independently unless it clearly references ongoing work.
 
 ===== TOOL USAGE GUIDELINES =====
+- **PROHIBIDO usar `cat` para leer archivos.** Usa `batch_read_files` siempre.
+- `cat` con execute_command NO registra lo que leíste y es más lento.
 - Always inspect existing files using `batch_read_files` or `list_files` before making edits to ensure accuracy.
 - Use `apply_edit` or `multi_edit` for precise, surgical changes to existing files.
 - **IMPORTANT**: When `apply_edit` returns a result with a "diff" field, you MUST show that diff to the user exactly as received, inside a markdown code block with ```diff syntax. This shows the user what changed with line numbers and +/- indicators.
