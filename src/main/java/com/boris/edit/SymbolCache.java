@@ -132,6 +132,35 @@ public class SymbolCache {
         return all;
     }
 
+    public boolean isValidImport(String fullImportPath) {
+        if (fullImportPath.startsWith("java.") || fullImportPath.startsWith("javax.") || fullImportPath.startsWith("jdk.")) {
+            return true;
+        }
+        // Si no hay imports verificados, hacer fallback a verificar la clase
+        if (knownImports.isEmpty()) {
+            String className = fullImportPath.substring(fullImportPath.lastIndexOf('.') + 1);
+            return isKnownClass(className);
+        }
+        return knownImports.contains(fullImportPath);
+    }
+
+    public boolean hasVerifiedImports() {
+        return !knownImports.isEmpty();
+    }
+
+    public List<String> findSimilarImports(String importPath) {
+        List<String> similar = new ArrayList<>();
+        String className = importPath.substring(importPath.lastIndexOf('.') + 1).toLowerCase();
+
+        for (String known : knownImports) {
+            String knownClass = known.substring(known.lastIndexOf('.') + 1).toLowerCase();
+            if (knownClass.contains(className) || className.contains(knownClass)) {
+                similar.add(known);
+            }
+        }
+        return similar;
+    }
+
     public List<String> findSimilarClasses(String unknownClass) {
         List<String> similar = new ArrayList<>();
         String lower = unknownClass.toLowerCase();

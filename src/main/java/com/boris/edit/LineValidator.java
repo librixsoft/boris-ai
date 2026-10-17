@@ -72,13 +72,45 @@ public class LineValidator {
         }
 
         String importPath = matcher.group(1);
+
+        // Java standard imports always OK
         if (importPath.startsWith("java.") || importPath.startsWith("javax.") || importPath.startsWith("jdk.")) {
             return Optional.of(ValidationResult.ok());
         }
 
-        String className = importPath.substring(importPath.lastIndexOf('.') + 1);
-        if (symbolCache.isKnownClass(className)) {
+        // Wildcard imports (com.example.*) - check if package exists in known imports
+        if (importPath.endsWith(".*")) {
+            String packagePrefix = importPath.substring(0, importPath.length() - 1);
+            boolean hasMatchingImport = symbolCache.findSimilarImports(packagePrefix).stream()
+                .anyMatch(imp -> imp.startsWith(packagePrefix));
+            if (hasMatchingImport) {
+                return Optional.of(ValidationResult.ok());
+            }
+        }
+
+        // Verificar si el import completo está en los imports verificados
+        if (symbolCache.isValidImport(importPath)) {
             return Optional.of(ValidationResult.ok());
+        }
+
+        // Si no está en imports verificados, buscar alternativas
+        List<String> similarImports = symbolCache.findSimilarImports(importPath);
+        String className = importPath.substring(importPath.lastIndexOf('.') + 1);
+
+        if (!similarImports.isEmpty()) {
+            return Optional.of(ValidationResult.error(
+                "Import '" + importPath + "' no está en los imports verificados",
+                similarImports
+            ));
+        }
+
+        // Fallback: verificar si al menos la clase existe
+        if (symbolCache.isKnownClass(className)) {
+            List<String> suggestions = symbolCache.findSimilarImports(className);
+            return Optional.of(ValidationResult.error(
+                "Clase '" + className + "' existe pero el import no está verificado",
+                suggestions
+            ));
         }
 
         List<String> similar = symbolCache.findSimilarClasses(className);
