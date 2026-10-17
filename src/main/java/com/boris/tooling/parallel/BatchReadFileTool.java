@@ -32,6 +32,20 @@ public class BatchReadFileTool {
 
     public record FileResult(String path, boolean success, String content, String error, int lineCount) {}
 
+    private static String resolvePathWithProject(String pathStr, String projectPath) {
+        if (pathStr == null || pathStr.isBlank()) {
+            return pathStr;
+        }
+        Path path = Paths.get(pathStr);
+        if (path.isAbsolute()) {
+            return pathStr;
+        }
+        if (projectPath != null && !projectPath.isBlank()) {
+            return Paths.get(projectPath, pathStr).toString();
+        }
+        return pathStr;
+    }
+
     /**
      * Lee múltiples archivos en paralelo y devuelve un JSON agregado.
      * 
@@ -55,8 +69,11 @@ public class BatchReadFileTool {
         String fileList = String.join(", ", uniquePaths);
         ToolProgressNotifier.notify("batch_read_files", "Leyendo " + uniquePaths.size() + " archivo(s) en paralelo: " + fileList);
 
+        // Capturar ProjectContext ANTES de crear virtual threads (ThreadLocal no se propaga)
+        String capturedProjectPath = ProjectContext.getProjectPath();
+
         for (String p : uniquePaths) {
-            futures.add(executor.submit(() -> readFileTask(p, maxLinesPerFile, aborter)));
+            futures.add(executor.submit(() -> readFileTask(p, maxLinesPerFile, aborter, capturedProjectPath)));
         }
 
         ObjectNode root = MAPPER.createObjectNode();
@@ -110,11 +127,11 @@ public class BatchReadFileTool {
     /**
      * Ejecuta la tarea de lectura de un solo archivo.
      */
-    private FileResult readFileTask(String pathStr, Integer maxLines, TaskAborter aborter) {
+    private FileResult readFileTask(String pathStr, Integer maxLines, TaskAborter aborter, String projectPath) {
         if (aborter != null && aborter.isAborted()) {
             return new FileResult(pathStr, false, null, "Aborted", 0);
         }
-        String resolvedPath = ProjectContext.resolveRelativePath(pathStr);
+        String resolvedPath = resolvePathWithProject(pathStr, projectPath);
         Path path = Paths.get(resolvedPath);
         if (!Files.exists(path)) {
             return new FileResult(pathStr, false, null, "File not found", 0);

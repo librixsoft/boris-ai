@@ -36,6 +36,20 @@ public class BatchListDirectoriesTool {
     public record DirectoryEntry(String type, long size, String name) {}
     public record ListResult(String path, boolean success, List<DirectoryEntry> entries, String error) {}
 
+    private static String resolvePathWithProject(String pathStr, String projectPath) {
+        if (pathStr == null || pathStr.isBlank()) {
+            return pathStr;
+        }
+        Path path = Paths.get(pathStr);
+        if (path.isAbsolute()) {
+            return pathStr;
+        }
+        if (projectPath != null && !projectPath.isBlank()) {
+            return Paths.get(projectPath, pathStr).toString();
+        }
+        return pathStr;
+    }
+
     public String execute(List<String> paths, TaskAborter aborter) {
         if (paths == null || paths.isEmpty()) {
             return formatError("paths list is empty");
@@ -58,12 +72,15 @@ public class BatchListDirectoriesTool {
             ToolProgressNotifier.notify("list_files", "Listando " + totalDirs + " directorios en paralelo...");
         }
 
+        // Capturar ProjectContext ANTES de crear virtual threads (ThreadLocal no se propaga)
+        String capturedProjectPath = ProjectContext.getProjectPath();
+
         ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
         List<Future<ListResult>> futures = new ArrayList<>();
 
         try {
             for (String path : uniquePaths) {
-                futures.add(executor.submit(() -> listDirectory(path, aborter)));
+                futures.add(executor.submit(() -> listDirectory(path, aborter, capturedProjectPath)));
             }
 
             List<ListResult> results = new ArrayList<>();
@@ -100,7 +117,7 @@ public class BatchListDirectoriesTool {
         return execute(paths, null);
     }
 
-    private ListResult listDirectory(String pathStr, TaskAborter aborter) {
+    private ListResult listDirectory(String pathStr, TaskAborter aborter, String projectPath) {
         if (aborter != null && aborter.isAborted()) {
             return new ListResult(pathStr, false, List.of(), "Aborted");
         }
@@ -109,8 +126,8 @@ public class BatchListDirectoriesTool {
             pathStr = ".";
         }
 
-        // Resolver ruta usando ProjectContext (respeta el proyecto del usuario)
-        String resolvedPath = ProjectContext.resolveRelativePath(pathStr);
+        // Resolver ruta usando projectPath capturado (ThreadLocal no se propaga a virtual threads)
+        String resolvedPath = resolvePathWithProject(pathStr, projectPath);
         Path dirPath = Paths.get(resolvedPath);
         if (!Files.exists(dirPath)) {
             return new ListResult(pathStr, false, List.of(), "Directory not found: " + pathStr);

@@ -420,6 +420,8 @@ public class ToolCallingConfig {
         return result;
     }
 
+    // ========== DESHABILITADO TEMPORALMENTE - execute_command causa problemas con el flujo ==========
+    /*
     @Tool(
             name = "execute_command",
             description = "Execute shell commands. For multiple INDEPENDENT commands, use batch_execute_commands tool.")
@@ -467,6 +469,8 @@ public class ToolCallingConfig {
         notifyToolTokens("batch_execute_commands", cmdsStr, result);
         return result;
     }
+    */
+    // ========== FIN DESHABILITADO ==========
 
     // github_api_search ELIMINADO - usar create_library_context en su lugar
 
