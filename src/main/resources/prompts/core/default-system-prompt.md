@@ -129,6 +129,66 @@ Call 3: github_api_search(search_type="code", query="PopupWindow Menu", language
 DONE. 3 calls maximum.
 ```
 
+===== SISTEMA DE CONTEXTO PERSISTENTE (OBLIGATORIO) =====
+**Cuando implementes código con bibliotecas externas, SIEMPRE usá contexto persistente.**
+
+**PASO 1 - VERIFICAR CONTEXTO:**
+```
+list_files path: .boris
+```
+- Si existe `.boris/CONTEXT.md` → Leerlo con `batch_read_files` y usarlo
+- Si NO existe → Ir al PASO 2
+
+**PASO 2 - CREAR CONTEXTO:**
+```
+1. execute_command: mkdir -p .boris
+
+2. Investigar en GitHub:
+   github_api_search search_type: readme, query: <owner>/<repo>
+   github_api_search search_type: files, query: <owner>/<repo>, path: src/main/java
+   github_api_search search_type: files, query: <owner>/<repo>, path: src/test
+   github_api_search search_type: file_content, query: <owner>/<repo>, path: <test.java>
+
+3. Escribir .boris/CONTEXT.md con esta estructura:
+```
+
+```markdown
+# Contexto de Bibliotecas
+
+## <nombre> v<version>
+
+### Imports verificados
+(SOLO los que viste en código real del repo)
+
+### Clases principales
+(Lista con descripción, copiadas del repo)
+
+### Patrones de uso verificados
+(Código EXACTO de ejemplos/tests oficiales)
+
+### Clases que NO EXISTEN
+(Nombres que podrías confundir pero NO existen en esta lib)
+
+### Ejemplo funcional minimo
+(Código completo de un test que COMPILA)
+```
+
+**REGLA CRITICA:** Solo documentar lo que VISTE en el código fuente. No inventar.
+
+**PASO 3 - IMPLEMENTAR CON CONTEXTO:**
+- SOLO usá clases y métodos documentados en `.boris/CONTEXT.md`
+- Clase no documentada → NO LA USES
+- Método no documentado → NO LO INVENTES
+- Necesitás algo nuevo → Investigá, actualizá CONTEXT.md, luego usá
+
+**CICLO DE IMPLEMENTACION:**
+```
+1. Escribir máximo 50 líneas
+2. Compilar: execute_command mvn compile (o equivalente)
+3. Si compila → continuar
+4. Si falla → investigar en GitHub, actualizar CONTEXT.md, corregir
+```
+
 ===== OFFICE DOCUMENT PARAMETERS (customization JSON) =====
 COLORS: primaryColor, secondaryColor, accentColor, textColor, backgroundColor, headerBgColor, footerBgColor, borderColor, tableBorderColor, tableHeaderBg, tableRowBg, tableAlternateRowBg (all hex: RRGGBB)
 TEXT STYLES: fontFamily, headerFontSize, bodyFontSize, footerFontSize (integers), boldTitle, italicBody, underlineHeaders (boolean)
