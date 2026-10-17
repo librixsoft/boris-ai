@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.LinkedHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -77,29 +78,41 @@ public class LibraryContextTool {
             Set<String> realImports = new TreeSet<>();
             Set<String> realClasses = new TreeSet<>();
             List<String> codeExamples = new ArrayList<>();
+            Map<String, List<String>> classMethods = new LinkedHashMap<>();
 
             for (String examplePath : exampleFiles) {
-                // DEBUG: Reading file: " + examplePath);
                 String content = getFileContent(repo, examplePath);
-                // DEBUG: Content length: " + (content != null ? content.length() : 0));
                 if (content != null && !content.isEmpty()) {
                     Set<String> fileImports = extractImports(content, repo);
                     Set<String> fileClasses = extractClassUsage(content);
-                    // DEBUG: Extracted " + fileImports.size() + " imports, " + fileClasses.size() + " classes from " + examplePath);
                     realImports.addAll(fileImports);
                     realClasses.addAll(fileClasses);
-                    if (codeExamples.size() < 2) {
+
+                    // Extract method calls to understand API usage
+                    extractMethodCalls(content, classMethods);
+
+                    if (codeExamples.size() < 3) {
                         String example = extractUsefulExample(content);
-                        if (example != null) {
+                        if (example != null && example.length() > 100) {
                             codeExamples.add(example);
                         }
                     }
                 }
             }
 
+            // 4.5 Read main source files to extract public methods
+            List<String> mainSourceFiles = findMainSourceFiles(repo);
+            for (String sourceFile : mainSourceFiles) {
+                String content = getFileContent(repo, sourceFile);
+                if (content != null && !content.isEmpty()) {
+                    extractPublicMethods(content, classMethods);
+                    realImports.addAll(extractImports(content, repo));
+                }
+            }
+
             // 5. Generate CONTEXT.md
             String contextContent = generateContextFile(
-                libraryName, version, repo, realImports, realClasses, codeExamples, readmeContent);
+                libraryName, version, repo, realImports, realClasses, classMethods, codeExamples, readmeContent);
 
             // 6. Write to project
             Path contextPath = Paths.get(projectPath, ".boris", "CONTEXT.md");
@@ -337,12 +350,85 @@ public class LibraryContextTool {
         return repo.contains("/") ? repo.split("/")[1] : repo;
     }
 
+    private static List<String> findMainSourceFiles(String repo) {
+        List<String> sources = new ArrayList<>();
+        // Key classes for GUI libraries
+        String[] keyClasses = {
+            "src/main/java/com/googlecode/lanterna/gui2/BasicWindow.java",
+            "src/main/java/com/googlecode/lanterna/gui2/Panel.java",
+            "src/main/java/com/googlecode/lanterna/gui2/MultiWindowTextGUI.java",
+            "src/main/java/com/googlecode/lanterna/gui2/Label.java",
+            "src/main/java/com/googlecode/lanterna/gui2/Button.java",
+            "src/main/java/com/googlecode/lanterna/gui2/TextBox.java",
+            "src/main/java/com/googlecode/lanterna/gui2/LinearLayout.java",
+            "src/main/java/com/googlecode/lanterna/gui2/GridLayout.java",
+            "src/main/java/com/googlecode/lanterna/screen/Screen.java",
+            "src/main/java/com/googlecode/lanterna/screen/TerminalScreen.java",
+            "src/main/java/com/googlecode/lanterna/terminal/DefaultTerminalFactory.java"
+        };
+
+        for (String path : keyClasses) {
+            sources.add(path);
+        }
+        return sources;
+    }
+
+    private static void extractMethodCalls(String content, Map<String, List<String>> classMethods) {
+        // Pattern: object.methodName( or ClassName.methodName(
+        Pattern pattern = Pattern.compile("([a-zA-Z][\\w]*)\\.([a-zA-Z][\\w]*)\\s*\\(");
+        Matcher matcher = pattern.matcher(content);
+
+        while (matcher.find()) {
+            String varOrClass = matcher.group(1);
+            String method = matcher.group(2);
+
+            // Skip common Java methods
+            if (!varOrClass.equals("System") && !varOrClass.equals("String") &&
+                !varOrClass.equals("Arrays") && !varOrClass.equals("Math") &&
+                !method.equals("toString") && !method.equals("equals") &&
+                !method.equals("hashCode") && !method.equals("getClass")) {
+
+                classMethods.computeIfAbsent(varOrClass, k -> new ArrayList<>());
+                if (!classMethods.get(varOrClass).contains(method)) {
+                    classMethods.get(varOrClass).add(method);
+                }
+            }
+        }
+    }
+
+    private static void extractPublicMethods(String content, Map<String, List<String>> classMethods) {
+        // Extract class name
+        Pattern classPattern = Pattern.compile("public\\s+(?:abstract\\s+)?class\\s+(\\w+)");
+        Matcher classMatcher = classPattern.matcher(content);
+        String className = null;
+        if (classMatcher.find()) {
+            className = classMatcher.group(1);
+        }
+        if (className == null) return;
+
+        // Extract public methods
+        Pattern methodPattern = Pattern.compile(
+            "public\\s+(?:static\\s+)?(?:final\\s+)?(?:<[^>]+>\\s+)?(\\w+(?:<[^>]+>)?)\\s+(\\w+)\\s*\\([^)]*\\)");
+        Matcher methodMatcher = methodPattern.matcher(content);
+
+        List<String> methods = classMethods.computeIfAbsent(className, k -> new ArrayList<>());
+        while (methodMatcher.find()) {
+            String returnType = methodMatcher.group(1);
+            String methodName = methodMatcher.group(2);
+            String signature = methodName + "() : " + returnType;
+            if (!methods.contains(signature) && !methodName.equals(className)) {
+                methods.add(signature);
+            }
+        }
+    }
+
     private static String generateContextFile(
             String libraryName,
             String version,
             String repo,
             Set<String> imports,
             Set<String> classes,
+            Map<String, List<String>> classMethods,
             List<String> examples,
             String readme) {
 
@@ -361,12 +447,18 @@ public class LibraryContextTool {
         }
         sb.append("```\n\n");
 
-        // Classes section
-        sb.append("## Clases Reales Encontradas\n");
+        // Classes and their methods section
+        sb.append("## Clases y Metodos Reales\n\n");
         for (String cls : classes) {
-            sb.append("- `").append(cls).append("`\n");
+            sb.append("### `").append(cls).append("`\n");
+            List<String> methods = classMethods.get(cls);
+            if (methods != null && !methods.isEmpty()) {
+                for (String method : methods) {
+                    sb.append("- `").append(method).append("`\n");
+                }
+            }
+            sb.append("\n");
         }
-        sb.append("\n");
 
         // Examples section
         if (!examples.isEmpty()) {
@@ -379,10 +471,10 @@ public class LibraryContextTool {
         }
 
         // Add note about what NOT to use
-        sb.append("## PROHIBIDO (clases que NO existen)\n");
+        sb.append("## PROHIBIDO\n");
         sb.append("- NO usar clases que no esten listadas arriba\n");
-        sb.append("- NO inventar metodos\n");
-        sb.append("- Si necesitas algo que no esta aqui, busca en el repo primero\n");
+        sb.append("- NO inventar metodos que no aparezcan aqui\n");
+        sb.append("- Si necesitas algo que no esta, busca en el repo primero\n");
 
         return sb.toString();
     }

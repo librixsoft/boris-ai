@@ -39,9 +39,21 @@ class LibraryContextToolTest {
             System.out.println("\n=== CONTEXT.MD ===");
             System.out.println(content);
 
-            // Verificar que tiene contenido real
+            // Verificar que tiene contenido básico
             assertTrue(content.contains("lanterna"), "Debe mencionar lanterna");
             assertTrue(content.contains("import"), "Debe tener imports");
+
+            // Verificar que tiene clases importantes de GUI
+            assertTrue(content.contains("BasicWindow"), "Debe tener BasicWindow");
+            assertTrue(content.contains("Panel"), "Debe tener Panel");
+            assertTrue(content.contains("MultiWindowTextGUI"), "Debe tener MultiWindowTextGUI");
+
+            // Verificar que tiene algunos métodos reales
+            assertTrue(content.contains("createLayoutData") || content.contains("singleLine"),
+                "Debe tener al menos algunos métodos documentados");
+
+            // Verificar que tiene estructura de clases con métodos
+            assertTrue(content.contains("### `"), "Debe tener secciones de clases");
 
         } catch (Exception e) {
             fail("Error leyendo CONTEXT.md: " + e.getMessage());
