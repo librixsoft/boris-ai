@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.boris.context.ProjectContext;
 import com.boris.task.TaskAborter;
 import com.boris.tooling.ToolProgressNotifier;
 
@@ -108,7 +109,9 @@ public class BatchListDirectoriesTool {
             pathStr = ".";
         }
 
-        Path dirPath = Paths.get(pathStr);
+        // Resolver ruta usando ProjectContext (respeta el proyecto del usuario)
+        String resolvedPath = ProjectContext.resolveRelativePath(pathStr);
+        Path dirPath = Paths.get(resolvedPath);
         if (!Files.exists(dirPath)) {
             return new ListResult(pathStr, false, List.of(), "Directory not found: " + pathStr);
         }

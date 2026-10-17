@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.boris.context.ProjectContext;
 import com.boris.task.TaskAborter;
 
 /**
@@ -45,9 +46,11 @@ public class ParallelSearchTool {
             return "{\"success\":false,\"error\":\"query is required\"}";
         }
 
-        Path searchRoot = basePath != null ? Paths.get(basePath) : Paths.get(".").toAbsolutePath().normalize();
+        String resolvedBase = basePath != null ? basePath : ProjectContext.resolveRelativePath(".");
+        Path searchRoot = Paths.get(resolvedBase).toAbsolutePath().normalize();
         if (!Files.isDirectory(searchRoot)) {
-            searchRoot = Paths.get(".").toAbsolutePath().normalize();
+            String fallback = ProjectContext.resolveRelativePath(".");
+            searchRoot = Paths.get(fallback).toAbsolutePath().normalize();
         }
 
         // Find all matching files first

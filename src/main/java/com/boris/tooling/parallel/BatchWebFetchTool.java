@@ -120,7 +120,6 @@ public class BatchWebFetchTool {
                 browser.close();
             }
         } catch (Exception e) {
-            e.printStackTrace();
             return formatError("Error en fetch: " + e.getMessage());
         } finally {
             executor.shutdown();

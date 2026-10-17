@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.boris.context.ProjectContext;
 import com.boris.task.TaskAborter;
 import com.boris.tooling.ToolProgressNotifier;
 import com.boris.tooling.tool.ContextTracker;
@@ -113,7 +114,8 @@ public class BatchReadFileTool {
         if (aborter != null && aborter.isAborted()) {
             return new FileResult(pathStr, false, null, "Aborted", 0);
         }
-        Path path = Paths.get(pathStr);
+        String resolvedPath = ProjectContext.resolveRelativePath(pathStr);
+        Path path = Paths.get(resolvedPath);
         if (!Files.exists(path)) {
             return new FileResult(pathStr, false, null, "File not found", 0);
         }

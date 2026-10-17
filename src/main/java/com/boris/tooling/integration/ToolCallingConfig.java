@@ -635,6 +635,47 @@ public class ToolCallingConfig {
 
     // ========== Streaming Edit Tools (DEPRECATED - usar write_file) ==========
 
+    // ========== Validated Line Edit Tools (Just-in-time context) ==========
+
+    @Tool(
+            name = "validated_line_start",
+            description = "Start validated line-by-line editing. Each line is validated against CONTEXT.md BEFORE writing. " +
+                         "If error found, returns relevant API context so you can correct. Sacrifices speed for accuracy.")
+    public String validated_line_start(
+            @ToolParam(description = "Path for the file to create/edit") String path) {
+        ToolProgressNotifier.notify("validated_line_start", "Iniciando edición validada: " + path);
+        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("path", path);
+        String result = com.boris.edit.ValidatedLineEditTool.validated_line_start(args);
+        notifyToolTokens("validated_line_start", path, result);
+        return result;
+    }
+
+    @Tool(
+            name = "validated_line_write",
+            description = "Write one line of code. Validates against CONTEXT.md. " +
+                         "If valid: writes and returns OK. " +
+                         "If error: does NOT write, returns the correct API to use so you can fix and retry.")
+    public String validated_line_write(
+            @ToolParam(description = "Single line of code to write") String line) {
+        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("line", line != null ? line : "");
+        String result = com.boris.edit.ValidatedLineEditTool.validated_line_write(args);
+        notifyToolTokens("validated_line_write", line, result);
+        return result;
+    }
+
+    @Tool(
+            name = "validated_line_end",
+            description = "Finish validated line-by-line editing and close the file.")
+    public String validated_line_end() {
+        String result = com.boris.edit.ValidatedLineEditTool.validated_line_end(java.util.Map.of());
+        notifyToolTokens("validated_line_end", "", result);
+        return result;
+    }
+
+    // ========== Streaming Edit Tools (DEPRECATED - usar write_file) ==========
+
     @Tool(
             name = "streaming_edit_start",
             description = "DEPRECATED: Use write_file instead. Starts line-by-line editing session.")

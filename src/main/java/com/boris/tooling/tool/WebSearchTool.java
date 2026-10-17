@@ -167,7 +167,6 @@ public class WebSearchTool {
                 browser.close();
             }
         } catch (Exception e) {
-            e.printStackTrace();
             ToolProgressNotifier.notify("web_search", "Error: " + e.getMessage());
             return formatError("Error en búsqueda: " + e.getMessage());
         } finally {

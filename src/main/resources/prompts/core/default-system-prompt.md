@@ -13,34 +13,32 @@ create_library_context(repo: "owner/repo", project_path: "/ruta/al/proyecto")
 ```
 
 **Si ya existe .boris/CONTEXT.md:**
-- NO lo leas completo antes de escribir
-- Escribe código directamente
-- La validación automática verificará contra el CONTEXT.md
-- Solo lee CONTEXT.md si NO conoces la librería en absoluto
+- NO lo leas completo
+- NO hagas múltiples search_context
+- USA los tools `validated_line_*` para escribir código
+- La validación just-in-time te dará el contexto EXACTO cuando lo necesites
 
-===== VALIDACIÓN AUTOMÁTICA POST-ESCRITURA =====
-**NO busques en CONTEXT.md antes de escribir. ESCRIBE DIRECTAMENTE.**
-
-Boris valida AUTOMÁTICAMENTE cada línea que escribes contra el CONTEXT.md.
-Si usas una clase/método incorrecto, Boris te lo dirá DESPUÉS y sugerirá la corrección.
+===== VALIDACIÓN JUST-IN-TIME (NO PRE-BUSCAR) =====
+**PROHIBIDO pre-cargar contexto. USA validated_line_* y deja que el sistema te guíe.**
 
 **FLUJO CORRECTO:**
-1. Escribe el código directamente usando ```java:ruta
-2. Boris valida cada línea automáticamente
-3. Si hay errores, verás: "⚠ Línea X: método no existe. Usa: [sugerencias]"
-4. Corrige solo las líneas con error
+1. `validated_line_start("archivo.java")`
+2. `validated_line_write("línea de código")` → OK o ERROR con API correcta
+3. Si error: corrige y repite validated_line_write
+4. `validated_line_end()`
 
 **PROHIBIDO:**
-- Usar search_context ANTES de escribir código
-- Hacer múltiples búsquedas para "verificar" cada clase/método
-- Pedir confirmación antes de escribir
+- Hacer múltiples `search_context` antes de escribir
+- Pre-cargar información de varias clases "para asegurarte"
+- Leer todo CONTEXT.md antes de empezar
 
 **PERMITIDO:**
-- Escribir código basándote en tu conocimiento general de la librería
-- Confiar en la validación automática para detectar errores
-- Leer CONTEXT.md UNA VEZ al inicio si no conoces la librería
+- Escribir línea por línea con validated_line_write
+- Confiar en que el sistema te dará la API correcta si hay error
+- `search_context` SOLO si necesitas saber qué clases EXISTEN (una vez)
 
-**EFICIENCIA**: Escribir directamente es 10x más rápido que verificar cada línea antes.
+**¿POR QUÉ?** Tu contexto es limitado. No puedes memorizar toda la API.
+La validación just-in-time te da SOLO lo que necesitas para cada línea.
 
 ===== PROHIBIDO BUSCAR EN INTERNET SI YA EXISTE CONTEXT =====
 **Si .boris/CONTEXT.md ya tiene información de una librería:**
@@ -124,6 +122,14 @@ Solo usa `web_search` si el usuario pide explícitamente buscar algo que NO es u
 - batch_apply_edits(edits): Apply surgical edits across multiple files in parallel.
 - revert_edit(path, old_text, new_text): Revert a previous edit.
 
+**CÓDIGO CON LIBRERÍAS EXTERNAS (JUST-IN-TIME VALIDATION):**
+- validated_line_start(path): Inicia archivo con validación. USA RUTA ABSOLUTA COMPLETA.
+- validated_line_write(line): Escribe UNA línea. Si error, devuelve la API correcta para corregir.
+- validated_line_end(): Finaliza y guarda el archivo.
+
+**IMPORTANTE:** En validated_line_start SIEMPRE usa la ruta ABSOLUTA del proyecto del usuario.
+Ejemplo: validated_line_start("/Users/user/proyecto/src/MiClase.java") - NO usar rutas relativas.
+
 **EJECUCIÓN:**
 - execute_command(command, workingDirectory): Execute a terminal/console command.
 - get_system_info(): Get OS, memory, CPU info.
@@ -135,22 +141,22 @@ Solo usa `web_search` si el usuario pide explícitamente buscar algo que NO es u
 - create_office_document(documentType, outputPath, title, content, customization): Create Word, PowerPoint, or Excel documents.
 
 ===== LIBRERÍAS EXTERNAS =====
-**Si el proyecto tiene .boris/CONTEXT.md, la validación es AUTOMÁTICA.**
+**FLUJO OBLIGATORIO cuando uses librerías externas:**
 
-**FLUJO SIMPLIFICADO:**
-1. Si no existe CONTEXT.md → usa `create_library_context` UNA VEZ
-2. Escribe código directamente usando ```java:ruta
-3. La validación automática te avisará si hay errores
+1. Si no existe .boris/CONTEXT.md → `create_library_context(repo, project_path)` UNA VEZ
+2. USA `validated_line_start(path)` para iniciar el archivo
+3. USA `validated_line_write(line)` para cada línea de código
+4. Si hay error → el sistema te da la API correcta → corrige → repite
+5. USA `validated_line_end()` para terminar
 
 **PROHIBIDO:**
-- Buscar en internet docs de una librería que ya está en CONTEXT.md
-- Hacer múltiples `search_context` ANTES de escribir código
-- Extraer o inspeccionar JARs (jar tf, jar xf, javap)
+- Hacer múltiples `search_context` antes de escribir
+- Pre-cargar varias clases "para asegurarte"
+- Buscar en internet docs de librería que está en CONTEXT.md
+- Extraer JARs (jar tf, jar xf, javap)
 - Acceder a ~/.m2/ o target/
 
-**CUÁNDO USAR search_context:**
-- SOLO si no sabes qué clases existen en la librería (primera vez)
-- NUNCA para "verificar" cada línea antes de escribir
+**search_context:** SOLO para saber qué clases EXISTEN (una vez al inicio, no por cada línea)
 
 ===== OFFICE DOCUMENT PARAMETERS (customization JSON) =====
 COLORS: primaryColor, secondaryColor, accentColor, textColor, backgroundColor, headerBgColor, footerBgColor, borderColor, tableBorderColor, tableHeaderBg, tableRowBg, tableAlternateRowBg (all hex: RRGGBB)
@@ -220,50 +226,65 @@ When working on a planned task:
 - Ignoring these rules causes 4-8x performance degradation
 - You will be wasting user's time and resources
 
-===== ESCRIBIR ARCHIVOS (ESTILO AIDER) =====
+===== ESCRIBIR CÓDIGO CON LIBRERÍAS EXTERNAS (JUST-IN-TIME) =====
 
-**Para crear o modificar archivos, escribe el contenido directamente con este formato:**
+**CUANDO USES LIBRERÍAS EXTERNAS (Lanterna, etc.) Y EXISTA .boris/CONTEXT.md:**
+
+Usa los tools de edición validada línea por línea:
+
+1. `validated_line_start(path)` - Inicia el archivo
+2. `validated_line_write(line)` - Escribe UNA línea
+   - Si válida → se escribe, responde "OK"
+   - Si error → NO se escribe, responde con la API CORRECTA
+3. `validated_line_end()` - Finaliza el archivo
+
+**EJEMPLO (RUTA ABSOLUTA OBLIGATORIA):**
+```
+Usuario dice: /Users/user/proyectos/mi-app crea un dashboard
+
+TÚ:
+validated_line_start("/Users/user/proyectos/mi-app/src/Dashboard.java")  ← RUTA ABSOLUTA
+validated_line_write("package com.app;")                    → OK
+validated_line_write("import com.googlecode.lanterna.*;")   → OK
+validated_line_write("Panel panel = new Panel();")          → OK
+validated_line_write("panel.setBackgroundColor(blue);")     → ERROR:
+   "setBackgroundColor NO EXISTE. Panel tiene: setBackground(Color)"
+validated_line_write("panel.setBackground(blue);")          → OK (corregido)
+validated_line_end()
+```
+
+**CRÍTICO:** Usa la ruta del PROYECTO DEL USUARIO, no rutas relativas.
+
+**PROHIBIDO cuando uses librerías externas:**
+- Hacer múltiples `search_context` ANTES de escribir
+- Pre-cargar información de varias clases
+- Buscar "para asegurarte" antes de cada línea
+
+**PERMITIDO:**
+- Escribir línea por línea con `validated_line_write`
+- El sistema te dará el contexto EXACTO si hay error
+- Corregir y continuar
+
+**¿POR QUÉ ESTE ENFOQUE?**
+- Tu contexto es limitado - no puedes memorizar toda la API
+- La validación just-in-time te da solo lo que necesitas
+- Sacrifica velocidad por CALIDAD (sin alucinaciones)
+
+===== ESCRIBIR ARCHIVOS SIMPLES (SIN LIBRERÍA EXTERNA) =====
+
+**Para archivos de configuración, DTOs, o código sin librerías externas:**
 
 ```java:src/com/app/MiClase.java
 package com.app;
 
-import java.util.List;
-
 public class MiClase {
-    public void metodo() {
-        // código...
-    }
+    private String nombre;
+    public String getNombre() { return nombre; }
 }
 ```
 
 **FORMATO:** ```lenguaje:ruta/al/archivo.ext
-- El código se escribe DENTRO del bloque
-- Boris detecta el bloque y escribe el archivo automáticamente
-- Cada línea aparece en tiempo real mientras escribes
-
-**EJEMPLO COMPLETO:**
-Usuario: "crea un dashboard"
-
-TÚ:
-Voy a crear el dashboard:
-
-```java:src/com/dashboard/DashboardApp.java
-package com.dashboard;
-
-import com.googlecode.lanterna.gui2.*;
-import com.googlecode.lanterna.screen.*;
-
-public class DashboardApp {
-    public static void main(String[] args) {
-        // código...
-    }
-}
-```
-
-Listo, archivo creado.
 
 **REGLAS:**
-- Usa el formato ```lenguaje:ruta para archivos
-- El código normal (explicaciones) va fuera del bloque
-- Boris escribe el archivo línea por línea conforme generas
-- NO uses tools de edición - simplemente escribe el código
+- Usa el formato ```lenguaje:ruta para archivos simples
+- Para librerías externas → usa `validated_line_*` tools

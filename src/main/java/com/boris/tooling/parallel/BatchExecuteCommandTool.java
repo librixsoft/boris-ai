@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.boris.context.ProjectContext;
 import com.boris.task.TaskAborter;
 import com.boris.tooling.ToolProgressNotifier;
 
@@ -156,14 +157,21 @@ public class BatchExecuteCommandTool {
 
         File workingDir = null;
         if (dirStr != null && !dirStr.isBlank()) {
-            Path path = Paths.get(dirStr);
+            String resolvedDir = ProjectContext.resolveRelativePath(dirStr);
+            Path path = Paths.get(resolvedDir);
             if (!Files.exists(path) || !Files.isDirectory(path)) {
                 return new CommandResult(command, false, -1, "", "",
                     "Error: working directory does not exist: " + dirStr);
             }
             workingDir = path.toFile();
         } else {
-            workingDir = new File(System.getProperty("user.dir", "."));
+            // Usar el proyecto del usuario si está definido, sino el directorio actual
+            String projectPath = ProjectContext.getProjectPath();
+            if (projectPath != null && !projectPath.isBlank()) {
+                workingDir = new File(projectPath);
+            } else {
+                workingDir = new File(System.getProperty("user.dir", "."));
+            }
         }
 
         ProcessBuilder processBuilder = new ProcessBuilder();
