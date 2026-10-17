@@ -71,7 +71,7 @@ public class LibraryContextTool {
 
             // 3. Get example/test files to extract real usage patterns
             List<String> exampleFiles = findExampleFiles(repo);
-            System.out.println("[DEBUG] Found " + exampleFiles.size() + " example files: " + exampleFiles);
+            // DEBUG: Found " + exampleFiles.size() + " example files: " + exampleFiles);
 
             // 4. Extract real imports and classes from examples
             Set<String> realImports = new TreeSet<>();
@@ -79,13 +79,13 @@ public class LibraryContextTool {
             List<String> codeExamples = new ArrayList<>();
 
             for (String examplePath : exampleFiles) {
-                System.out.println("[DEBUG] Reading file: " + examplePath);
+                // DEBUG: Reading file: " + examplePath);
                 String content = getFileContent(repo, examplePath);
-                System.out.println("[DEBUG] Content length: " + (content != null ? content.length() : 0));
+                // DEBUG: Content length: " + (content != null ? content.length() : 0));
                 if (content != null && !content.isEmpty()) {
                     Set<String> fileImports = extractImports(content, repo);
                     Set<String> fileClasses = extractClassUsage(content);
-                    System.out.println("[DEBUG] Extracted " + fileImports.size() + " imports, " + fileClasses.size() + " classes from " + examplePath);
+                    // DEBUG: Extracted " + fileImports.size() + " imports, " + fileClasses.size() + " classes from " + examplePath);
                     realImports.addAll(fileImports);
                     realClasses.addAll(fileClasses);
                     if (codeExamples.size() < 2) {
@@ -160,12 +160,12 @@ public class LibraryContextTool {
         };
 
         for (String basePath : basePaths) {
-            System.out.println("[DEBUG] Exploring: " + basePath);
+            // DEBUG: Exploring: " + basePath);
             exploreDirectory(repo, basePath, examples, 0);
             if (examples.size() >= 10) break;
         }
 
-        System.out.println("[DEBUG] Total files found: " + examples.size());
+        // DEBUG: Total files found: " + examples.size());
         return examples;
     }
 
@@ -203,7 +203,7 @@ public class LibraryContextTool {
                 if (examples.size() >= 10) return;
             }
         } catch (Exception e) {
-            System.out.println("[DEBUG] Error exploring " + path + ": " + e.getMessage());
+            // DEBUG: Error exploring " + path + ": " + e.getMessage());
         }
     }
 
