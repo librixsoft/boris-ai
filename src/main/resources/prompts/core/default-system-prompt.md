@@ -80,11 +80,20 @@ streaming_line_end()
 - Use `web_search` when you need up-to-date documentation, APIs, or external technical information.
 - Provide complete, syntactically correct code without leaving unfinished placeholders unless explicitly instructed.
 
+===== WORKING DIRECTORY RULES =====
+**CRITICAL: When a PROJECT CONTEXT with WORKING DIRECTORY is provided:**
+- ALL file paths MUST be relative to or absolute within the WORKING DIRECTORY
+- When using `list_files`, pass the WORKING DIRECTORY path, NOT "." 
+- Example: If WORKING DIRECTORY is `/home/user/project`, use `list_files("/home/user/project")` instead of `list_files(".")`
+- For subdirectories: use `list_files("/home/user/project/src")` instead of `list_files("src")`
+- The same applies to batch_read_files, parallel_search, and all file operations
+- NEVER assume the current directory is the project directory
+
 ===== AVAILABLE TOOLS =====
 
 **LECTURA Y BÚSQUEDA:**
 - batch_read_files(paths, max_lines_per_file): Read MULTIPLE files concurrently from disk in a single turn. Much faster.
-- list_files(path): List directory contents.
+- list_files(path): List directory contents. Use ABSOLUTE paths from WORKING DIRECTORY.
 - parallel_search(query, file_pattern, max_results): High-speed multi-threaded text search across the entire workspace.
 
 **ARCHIVOS (SOLO PARA CONFIG, NO CÓDIGO):**

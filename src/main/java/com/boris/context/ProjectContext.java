@@ -5,18 +5,29 @@ import java.nio.file.Paths;
 
 public class ProjectContext {
 
-    private static final ThreadLocal<String> currentProjectPath = new ThreadLocal<>();
+    // Primary: InheritableThreadLocal for child threads
+    private static final InheritableThreadLocal<String> currentProjectPath = new InheritableThreadLocal<>();
+
+    // Fallback: static variable for thread pools that don't inherit ThreadLocal
+    private static volatile String globalProjectPath;
 
     public static void setProjectPath(String path) {
         currentProjectPath.set(path);
+        globalProjectPath = path; // Also set the global fallback
     }
 
     public static String getProjectPath() {
-        return currentProjectPath.get();
+        String path = currentProjectPath.get();
+        if (path == null || path.isBlank()) {
+            // Fallback to global path if ThreadLocal is empty
+            path = globalProjectPath;
+        }
+        return path;
     }
 
     public static void clear() {
         currentProjectPath.remove();
+        globalProjectPath = null;
     }
 
     public static String resolveRelativePath(String pathStr) {

@@ -468,10 +468,12 @@ public class ChatService {
 
         // Contexto del proyecto si está definido
         if (currentProjectPath != null && !currentProjectPath.isBlank()) {
-            promptBuilder.append("===== PROJECT CONTEXT =====\n");
+            promptBuilder.append("===== PROJECT CONTEXT (READ CAREFULLY) =====\n");
             promptBuilder.append("WORKING DIRECTORY: ").append(currentProjectPath).append("\n");
-            promptBuilder.append("IMPORTANTE: Todos los archivos que crees o modifiques deben usar rutas absolutas dentro de este directorio.\n");
-            promptBuilder.append("Ejemplo: ").append(currentProjectPath).append("/src/main/java/...\n");
+            promptBuilder.append("CRITICAL: You MUST use this path for ALL file operations:\n");
+            promptBuilder.append("- list_files(\"").append(currentProjectPath).append("\") NOT list_files(\".\")\n");
+            promptBuilder.append("- batch_read_files([\"").append(currentProjectPath).append("/pom.xml\"]) NOT batch_read_files([\"pom.xml\"])\n");
+            promptBuilder.append("- parallel_search uses this as base path automatically\n");
             promptBuilder.append("===== END PROJECT CONTEXT =====\n\n");
         }
 
