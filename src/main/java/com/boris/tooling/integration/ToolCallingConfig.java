@@ -463,17 +463,62 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "parallel_search",
-            description = "High-speed multi-threaded text search across the entire workspace. Much faster than listing files and searching individually.")
+            description = "Text search in files. NOT for classes/methods - use query_symbols instead.")
     public String parallel_search(
             @ToolParam(description = "Search query or pattern to find") String query,
             @ToolParam(description = "File extension filter (e.g., '*.java', '*.ts'). Default: all files") String file_pattern,
             @ToolParam(description = "Maximum results to return (default: 100)") Integer max_results,
             @ToolParam(description = "Base directory to search in (default: current directory)") String base_path) {
+
+        // Bloquear búsquedas de clases - deben usar query_symbols
+        if (query != null && isClassSearch(query)) {
+            String className = extractClassName(query);
+            return "{\"error\": \"BLOQUEADO: Para buscar clases/métodos usa query_symbols(\\\"" + className + "\\\") en vez de parallel_search\"}";
+        }
+
         ToolProgressNotifier.notify("parallel_search", "Buscando: " + query);
         String result = parallelSearchTool.execute(query, file_pattern, max_results, base_path);
         notifyToolTokens("parallel_search", query, result);
         ToolResultNotifier.notifyQueryResult("parallel_search", query, result);
         return result;
+    }
+
+    private boolean isClassSearch(String query) {
+        String q = query.trim();
+        // Detectar patrones de búsqueda de clases
+        if (q.startsWith("class ") || q.startsWith("interface ") ||
+            q.startsWith("enum ") || q.startsWith("abstract class ")) {
+            return true;
+        }
+        // Detectar nombre de clase solo (PascalCase)
+        if (q.matches("^[A-Z][a-zA-Z0-9]*$")) {
+            return true;
+        }
+        // Detectar "class X implements" o similar
+        if (q.matches("(?i).*\\b(class|interface|enum|extends|implements)\\s+[A-Z].*")) {
+            return true;
+        }
+        return false;
+    }
+
+    private String extractClassName(String query) {
+        String q = query.trim();
+        // Extraer nombre de clase del query
+        if (q.matches("^[A-Z][a-zA-Z0-9]*$")) {
+            return q;
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern
+            .compile("(?:class|interface|enum)\\s+([A-Z][a-zA-Z0-9]*)")
+            .matcher(q);
+        if (m.find()) {
+            return m.group(1);
+        }
+        // Buscar cualquier palabra PascalCase
+        m = java.util.regex.Pattern.compile("([A-Z][a-zA-Z0-9]*)").matcher(q);
+        if (m.find()) {
+            return m.group(1);
+        }
+        return q;
     }
 
     // ========== Task Decomposition Tools ==========
