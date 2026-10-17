@@ -7,12 +7,19 @@ import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.tooling.ToolDefinition;
 public class WriteTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    /** Contador de intentos bloqueados por archivo */
+    private static final ConcurrentHashMap<String, AtomicInteger> BLOCKED_ATTEMPTS = new ConcurrentHashMap<>();
+    private static final int MAX_WRITE_ATTEMPTS = 3;
 
     public static ToolDefinition write_file() {
         var pathProp = Map.of("type", "string", "description", "Absolute or relative file path");
@@ -45,29 +52,33 @@ public class WriteTool {
         Path path = Paths.get(pathStr);
 
         // === VALIDACIÓN: Escritura incremental obligatoria ===
-        // Bloquear archivos de código con más de 50 líneas
         if (isCodeFile(pathStr)) {
             long lineCount = content.lines().count();
             if (lineCount > 10) {
+                // Incrementar contador de intentos para este archivo
+                AtomicInteger attempts = BLOCKED_ATTEMPTS.computeIfAbsent(pathStr, k -> new AtomicInteger(0));
+                int attemptCount = attempts.incrementAndGet();
+
+                if (attemptCount >= MAX_WRITE_ATTEMPTS) {
+                    return formatOutput(false,
+                        "STOP. DETENERSE AHORA.\n" +
+                        "Has intentado " + attemptCount + " veces escribir archivo completo.\n\n" +
+                        "EL ESQUELETO YA EXISTE. NO uses write_file de nuevo.\n\n" +
+                        "ÚNICA OPCIÓN:\n" +
+                        "1. search_context(query: \"Clase\") → buscar métodos\n" +
+                        "2. apply_edit(path, old_text, new_text) → añadir código\n\n" +
+                        "NO REINTENTES write_file. USA apply_edit.");
+                }
+
                 String className = extractClassName(pathStr);
                 return formatOutput(false,
-                    "BLOQUEADO: Escritura incremental obligatoria.\n" +
-                    "El archivo tiene " + lineCount + " líneas (máximo permitido: 10).\n\n" +
-                    "PASO 1 - Crea SOLO este esqueleto con write_file:\n" +
-                    "```\n" +
-                    "package com.example;\n\n" +
-                    "// TODO: imports (verificar en CONTEXT.md)\n\n" +
-                    "public class " + className + " {\n" +
-                    "    public static void main(String[] args) {\n" +
-                    "        // TODO: implementar\n" +
-                    "    }\n" +
-                    "}\n" +
-                    "```\n\n" +
-                    "PASO 2 - Lee el contexto:\n" +
-                    "batch_read_files([\".boris/CONTEXT.md\"])\n\n" +
-                    "PASO 3 - Implementa con apply_edit, método por método.\n" +
-                    "Máximo 30 líneas por edición. Verifica cada clase/método en CONTEXT.md.\n\n" +
-                    "NO vuelvas a intentar write_file con el archivo completo.");
+                    "BLOQUEADO (intento " + attemptCount + "/" + MAX_WRITE_ATTEMPTS + ").\n" +
+                    "El archivo tiene " + lineCount + " líneas (máximo: 10).\n\n" +
+                    "Crea SOLO esqueleto, luego usa apply_edit.\n" +
+                    "Si insistes, serás bloqueado.");
+            } else {
+                // Escribió esqueleto OK - resetear contador
+                BLOCKED_ATTEMPTS.remove(pathStr);
             }
         }
 
