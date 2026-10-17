@@ -704,33 +704,21 @@ public class LibraryContextTool {
 
         sb.append("## Imports Verificados\n");
         sb.append("```java\n");
-        int importCount = 0;
+        // Sin límite de imports - todos son importantes
         for (String imp : imports) {
             sb.append("import ").append(imp).append(";\n");
-            if (++importCount >= 50) {
-                sb.append("// ... y ").append(imports.size() - 50).append(" más\n");
-                break;
-            }
         }
         sb.append("```\n\n");
 
         sb.append("## Clases y Métodos Reales\n\n");
-        int classCount = 0;
+        // Sin límite de clases - el agente necesita ver todas
         for (String cls : classes) {
-            if (++classCount > 30) {
-                sb.append("*... y ").append(classes.size() - 30).append(" clases más*\n\n");
-                break;
-            }
             sb.append("### `").append(cls).append("`\n");
             List<String> methods = classMethods.get(cls);
             if (methods != null && !methods.isEmpty()) {
-                int methodCount = 0;
+                // Sin límite de métodos - el agente necesita ver todos
                 for (String method : methods) {
                     sb.append("- `").append(method).append("`\n");
-                    if (++methodCount >= 15) {
-                        sb.append("- *... y ").append(methods.size() - 15).append(" métodos más*\n");
-                        break;
-                    }
                 }
             }
             sb.append("\n");
