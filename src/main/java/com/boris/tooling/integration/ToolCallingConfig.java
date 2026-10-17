@@ -627,61 +627,6 @@ public class ToolCallingConfig {
         return result;
     }
 
-    // ========== Streaming Edit Tools (DEPRECATED - usar write_file) ==========
-
-    @Tool(
-            name = "streaming_edit_start",
-            description = "DEPRECATED: Use write_file instead. Starts line-by-line editing session.")
-    public String streaming_edit_start(
-            @ToolParam(description = "File path") String path,
-            @ToolParam(description = "Mode: 'create', 'modify', or 'append'") String mode) {
-        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
-        args.put("path", path);
-        args.put("mode", mode != null ? mode : "create");
-        String result = com.boris.edit.StreamingEditTool.streaming_edit_start(args);
-        notifyToolTokens("streaming_edit_start", path, result);
-        return result;
-    }
-
-    @Tool(
-            name = "streaming_edit_line",
-            description = "DEPRECATED: Use write_file instead.")
-    public String streaming_edit_line(
-            @ToolParam(description = "Line of code") String line) {
-        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
-        args.put("line", line != null ? line : "");
-        String result = com.boris.edit.StreamingEditTool.streaming_edit_line(args);
-        notifyToolTokens("streaming_edit_line", line, result);
-        return result;
-    }
-
-    @Tool(
-            name = "streaming_edit_correct",
-            description = "LEGACY: Corrige última línea con error.")
-    public String streaming_edit_correct(
-            @ToolParam(description = "Línea corregida") String line) {
-        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
-        args.put("line", line != null ? line : "");
-        String result = com.boris.edit.StreamingEditTool.streaming_edit_correct(args);
-        notifyToolTokens("streaming_edit_correct", line, result);
-        return result;
-    }
-
-    @Tool(
-            name = "streaming_edit_finish",
-            description = "LEGACY: Finaliza sesión de edición.")
-    public String streaming_edit_finish() {
-        String result = com.boris.edit.StreamingEditTool.streaming_edit_finish(java.util.Map.of());
-        notifyToolTokens("streaming_edit_finish", "", result);
-        return result;
-    }
-
-    @Tool(
-            name = "streaming_edit_abort",
-            description = "LEGACY: Cancela sesión de edición.")
-    public String streaming_edit_abort() {
-        String result = com.boris.edit.StreamingEditTool.streaming_edit_abort(java.util.Map.of());
-        notifyToolTokens("streaming_edit_abort", "", result);
-        return result;
-    }
+    // streaming_edit_* ELIMINADOS - no tenían validación contra CONTEXT.md
+    // El agente debe usar bulk_edit que SÍ valida
 }
