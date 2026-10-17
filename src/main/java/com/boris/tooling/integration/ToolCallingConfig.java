@@ -470,14 +470,18 @@ public class ToolCallingConfig {
             @ToolParam(description = "Maximum results to return (default: 100)") Integer max_results,
             @ToolParam(description = "Base directory to search in (default: current directory)") String base_path) {
 
-        // Bloquear búsquedas de clases y comandos
+        // Bloquear búsquedas de clases, métodos y comandos
         if (query != null && isClassSearch(query)) {
             String q = query.trim().toLowerCase();
             if (q.equals("mvn") || q.equals("maven") || q.startsWith("mvn ")) {
                 return "{\"error\": \"BLOQUEADO: Para compilar usa maven_build(\\\"compile\\\") en vez de parallel_search\"}";
             }
-            String className = extractClassName(query);
-            return "{\"error\": \"BLOQUEADO: Para buscar clases/métodos usa query_symbols(\\\"" + className + "\\\") en vez de parallel_search\"}";
+            String term = extractClassName(query);
+            // Si parece método (camelCase), sugerir query_methods
+            if (query.trim().matches("^[a-z][a-zA-Z0-9]*$")) {
+                return "{\"error\": \"BLOQUEADO: Para buscar métodos usa query_methods(\\\"NombreClase\\\") en vez de parallel_search\"}";
+            }
+            return "{\"error\": \"BLOQUEADO: Para buscar clases/métodos usa query_symbols(\\\"" + term + "\\\") en vez de parallel_search\"}";
         }
 
         ToolProgressNotifier.notify("parallel_search", "Buscando: " + query);
@@ -502,6 +506,10 @@ public class ToolCallingConfig {
         }
         // Detectar nombre de clase solo (PascalCase)
         if (query.trim().matches("^[A-Z][a-zA-Z0-9]*$")) {
+            return true;
+        }
+        // Detectar nombre de método (camelCase) - probablemente busca API
+        if (query.trim().matches("^[a-z][a-zA-Z0-9]*$") && query.trim().length() > 3) {
             return true;
         }
         // Detectar "class X implements" o similar
