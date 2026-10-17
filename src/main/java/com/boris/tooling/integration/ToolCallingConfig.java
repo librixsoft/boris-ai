@@ -341,6 +341,14 @@ public class ToolCallingConfig {
             name = "list_files",
             description = "List files and directories. Accepts one or multiple paths - multiple paths are listed IN PARALLEL for faster results.")
     public String list_files(@ToolParam(description = "Single path or array of directory paths to list") Object paths) {
+        // Anti-loop protection: detect if same tool+args called too many times (max 3)
+        if (!ToolCallLimiter.checkSameCallLoop("list_files", paths)) {
+            return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLoopMessage("list_files") + "\"}";
+        }
+        if (!ToolCallLimiter.incrementAndCheck()) {
+            return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLimitMessage() + "\"}";
+        }
+
         List<String> pathList = new ArrayList<>();
         if (paths instanceof String s) {
             pathList.add(s);
