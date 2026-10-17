@@ -185,8 +185,8 @@ class StreamingFileWriterTest {
         writer.processChunk(input);
         writer.finish();
 
-        assertTrue(Files.exists(targetFile));
-        assertEquals("", Files.readString(targetFile));
+        // Empty content blocks should NOT create files (no point in empty files)
+        assertFalse(Files.exists(targetFile));
     }
 
     @Test

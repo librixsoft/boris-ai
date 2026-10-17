@@ -37,12 +37,10 @@ class ToolCallingConfigTest {
                 .map(cb -> cb.getToolDefinition().name())
                 .toList();
 
-        assertTrue(names.contains("bulk_edit"));
         assertTrue(names.contains("delete_file"));
-        assertTrue(names.contains("list_files"));
         assertTrue(names.contains("get_system_info"));
         assertTrue(names.contains("generate_pdf"));
-        assertTrue(names.contains("apply_edit"));
+        assertTrue(names.contains("create_office_document"));
     }
 
     @Test
