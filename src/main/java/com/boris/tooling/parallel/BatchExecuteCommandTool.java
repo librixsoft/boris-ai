@@ -34,17 +34,30 @@ public class BatchExecuteCommandTool {
     private static final long DEFAULT_TIMEOUT_SECONDS = 120;
 
     /**
-     * Comandos prohibidos para evitar inspección de JARs.
-     * El modelo debe usar github_api_search para documentación, no JARs locales.
+     * Comandos prohibidos para evitar inspección de JARs y acceso a ~/.m2/.
+     * El modelo debe usar create_library_context para documentación.
      */
     private static final List<String> BLOCKED_PATTERNS = List.of(
-        "jar tf ",      // listar contenido de JAR
-        "jar xf ",      // extraer JAR
-        "jar -tf ",     // listar con guión
-        "jar -xf ",     // extraer con guión
-        "javap ",       // decompilador de clases
-        "javap -",      // javap con flags
-        "unzip.*\\.jar" // extraer JAR con unzip
+        // Acceso a directorio Maven
+        ".m2/",
+        ".m2\\",
+        // Inspección de JARs
+        "jar tf",
+        "jar xf",
+        "jar -tf",
+        "jar -xf",
+        "jar --list",
+        "jar --extract",
+        // Decompilador
+        "javap",
+        // Extracción de JARs
+        ".jar -d",
+        ".jar com/",
+        // Análisis binario de JARs
+        "strings",
+        "od -",
+        "hexdump",
+        "xxd"
     );
 
     public record CommandSpec(String command, String workingDirectory) {}
@@ -184,18 +197,16 @@ public class BatchExecuteCommandTool {
         String cmdLower = command.toLowerCase();
 
         for (String pattern : BLOCKED_PATTERNS) {
-            if (pattern.contains(".*")) {
-                // Es un regex
-                if (cmdLower.matches(".*" + pattern + ".*")) {
-                    return "Inspección de JARs no permitida (patrón: " + pattern + ")";
-                }
-            } else {
-                // Es un string literal
-                if (cmdLower.contains(pattern.toLowerCase())) {
-                    return "Inspección de JARs no permitida (comando: " + pattern.trim() + ")";
-                }
+            if (cmdLower.contains(pattern.toLowerCase())) {
+                return "BLOQUEADO: Acceso a JARs/.m2 prohibido. Usa create_library_context para documentación.";
             }
         }
+
+        // Verificación adicional: unzip con .jar en cualquier parte
+        if (cmdLower.contains("unzip") && cmdLower.contains(".jar")) {
+            return "BLOQUEADO: Extracción de JARs prohibida. Usa create_library_context.";
+        }
+
         return null;
     }
 
