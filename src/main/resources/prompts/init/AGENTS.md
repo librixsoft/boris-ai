@@ -33,8 +33,7 @@ Esto descarga el repo UNA SOLA VEZ y genera el CONTEXT.md con la API real.
 **PASO 3 - Implementar SOLO con lo que está en CONTEXT.md**
 
 ### PROHIBIDO:
-- Usar `github_api_search` si la librería ya está en CONTEXT.md
-- Usar `web_search` para buscar docs de librería que ya está en CONTEXT.md
+- Buscar en internet docs de librería que ya está en CONTEXT.md
 - Inspeccionar JARs (jar tf, jar xf, javap)
 - Acceder a ~/.m2/ o target/
 - Inventar APIs que no estén en el CONTEXT.md

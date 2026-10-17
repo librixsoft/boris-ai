@@ -35,7 +35,7 @@ import com.boris.tooling.parallel.BatchEditTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
 import com.boris.tooling.parallel.BatchExecuteCommandTool;
 import com.boris.tooling.parallel.BatchListDirectoriesTool;
-import com.boris.tooling.parallel.BatchGitHubSearchTool;
+// BatchGitHubSearchTool ELIMINADO - usar create_library_context
 import com.boris.tooling.parallel.ParallelSearchTool;
 import com.boris.tooling.ToolCallLimiter;
 import com.boris.tooling.ToolProgressNotifier;
@@ -92,7 +92,7 @@ public class ToolCallingConfig {
     private final BatchWebFetchTool batchWebFetchTool;
     private final BatchExecuteCommandTool batchExecuteCommandTool;
     private final BatchListDirectoriesTool batchListDirectoriesTool;
-    private final BatchGitHubSearchTool batchGitHubSearchTool;
+    // batchGitHubSearchTool ELIMINADO
     private final ParallelSearchTool parallelSearchTool;
     private final WebSearchTool webSearchTool;
 
@@ -120,7 +120,7 @@ public class ToolCallingConfig {
         this.batchWebFetchTool = new BatchWebFetchTool();
         this.batchExecuteCommandTool = new BatchExecuteCommandTool();
         this.batchListDirectoriesTool = new BatchListDirectoriesTool();
-        this.batchGitHubSearchTool = new BatchGitHubSearchTool();
+        // batchGitHubSearchTool ELIMINADO
         this.parallelSearchTool = new ParallelSearchTool();
         this.webSearchTool = new WebSearchTool();
     }
@@ -469,53 +469,7 @@ public class ToolCallingConfig {
         return result;
     }
 
-    @Tool(
-            name = "github_api_search",
-            description = "Search GitHub via API. Accepts one or multiple queries - multiple queries are executed IN PARALLEL. Supports repos, code, readme, issues, files, file_content.")
-    public String github_api_search(
-            @ToolParam(description = "Single query or array of query objects [{search_type, query, path, language, max_results}]") Object queries,
-            @ToolParam(description = "Search type for single query: 'repos', 'code', 'readme', 'issues', 'files', 'file_content'") String search_type,
-            @ToolParam(description = "For single query: search query or repo (owner/repo)") String query,
-            @ToolParam(description = "For 'file_content': path to file. For 'files': subdirectory") String path,
-            @ToolParam(description = "Filter by programming language") String language,
-            @ToolParam(description = "Maximum results (1-30)") Integer max_results) {
-        if (!ToolCallLimiter.incrementAndCheck()) {
-            return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLimitMessage() + "\"}";
-        }
-
-        List<BatchGitHubSearchTool.SearchSpec> specs = new ArrayList<>();
-
-        if (queries instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof Map) {
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> map) {
-                    Object typeObj = map.get("search_type");
-                    String type = typeObj != null ? (String) typeObj : "repos";
-                    String q = (String) map.get("query");
-                    String p = (String) map.get("path");
-                    String lang = (String) map.get("language");
-                    Integer max = map.get("max_results") != null ? ((Number) map.get("max_results")).intValue() : 10;
-                    if (q != null && !q.isBlank()) {
-                        specs.add(new BatchGitHubSearchTool.SearchSpec(type, q, p, lang, max));
-                    }
-                }
-            }
-        } else if (query != null && !query.isBlank()) {
-            specs.add(new BatchGitHubSearchTool.SearchSpec(
-                search_type != null ? search_type : "repos",
-                query, path, language, max_results != null ? max_results : 10));
-        }
-
-        if (specs.isEmpty()) {
-            return "{\"success\":false,\"error\":\"No valid queries provided\"}";
-        }
-
-        ToolProgressNotifier.notify("github_api_search", "Consultando GitHub API...");
-        String result = batchGitHubSearchTool.execute(specs);
-        String queriesStr = specs.stream().map(s -> s.searchType() + ":" + s.query()).toList().toString();
-        notifyToolTokens("github_api_search", queriesStr, result);
-        ToolResultNotifier.notifyQueryResult("github_api_search", queriesStr, result);
-        return result;
-    }
+    // github_api_search ELIMINADO - usar create_library_context en su lugar
 
     // ========== Existing Batch Tools ==========
 
