@@ -14,6 +14,8 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiChatOptions;
 
 import com.boris.edit.StreamingFileWriter;
+import com.boris.exceptions.ChatException;
+import com.boris.exceptions.ChatException.ErrorType;
 import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.llm.think.ThinkContextHolder;
 import com.boris.tooling.ToolCallLimiter;
@@ -118,13 +120,13 @@ public class ChatService {
             if (taskAborter.isAborted()) {
                 return null;
             }
-            throw new com.boris.exceptions.BorisException("Chat error", e);
+            throw new ChatException("Error en chat", e, classifyError(e), modelName);
         }
     }
 
     public void sendMessageStream(String userMessage, Consumer<String> onChunk, Runnable onComplete) {
         if (userMessage == null || userMessage.trim().isEmpty()) {
-            throw new com.boris.exceptions.BorisException("User message cannot be null or empty");
+            throw new ChatException("El mensaje no puede estar vacío", ErrorType.INVALID_INPUT);
         }
         if (taskAborter.isAborted()) {
             return;
@@ -224,7 +226,7 @@ public class ChatService {
                 }
                 return;
             }
-            throw new com.boris.exceptions.BorisException("Chat error", e);
+            throw new ChatException("Error en streaming", e, classifyError(e), modelName);
         } finally {
             if (taskAborter != null) {
                 taskAborter.unregisterTask(Thread.currentThread());
@@ -232,6 +234,36 @@ public class ChatService {
             }
             ThinkContextHolder.clearAll();
         }
+    }
+
+    private ErrorType classifyError(Throwable e) {
+        if (e == null) return ErrorType.UNKNOWN;
+
+        String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+        String className = e.getClass().getName().toLowerCase();
+
+        if (msg.contains("timeout") || msg.contains("timed out")) {
+            return ErrorType.TIMEOUT;
+        }
+        if (msg.contains("connection") || msg.contains("connect") ||
+            msg.contains("refused") || msg.contains("unreachable") ||
+            className.contains("connectexception")) {
+            return ErrorType.CONNECTION_ERROR;
+        }
+        if (msg.contains("stream") || className.contains("flux") ||
+            className.contains("reactor")) {
+            return ErrorType.STREAMING_ERROR;
+        }
+        if (e instanceof InterruptedException) {
+            return ErrorType.ABORTED;
+        }
+
+        Throwable cause = e.getCause();
+        if (cause != null && cause != e) {
+            return classifyError(cause);
+        }
+
+        return ErrorType.UNKNOWN;
     }
 
     // Unico punto de llamada al LLM: todo pasa por el ChatClient de Spring AI.

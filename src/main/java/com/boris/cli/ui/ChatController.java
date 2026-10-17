@@ -1,6 +1,7 @@
 package com.boris.cli.ui;
 
 import com.boris.chat.ChatService;
+import com.boris.exceptions.ChatException;
 import com.boris.llm.ollama.OllamaModelService;
 import com.boris.queue.ChatMessage;
 import com.boris.queue.MessageQueueService;
@@ -187,7 +188,13 @@ public class ChatController implements InputArea.InputListener {
 
             @Override
             public void onMessageFailed(ChatMessage message, Exception error) {
-                transcript.appendLine("[x] error: " + error.getMessage());
+                String errorMsg;
+                if (error instanceof ChatException chatEx) {
+                    errorMsg = chatEx.getDisplayMessage();
+                } else {
+                    errorMsg = error.getMessage() != null ? error.getMessage() : error.getClass().getSimpleName();
+                }
+                transcript.appendLine("[x] " + errorMsg);
                 if (!messageQueue.hasMessages()) {
                     waiting.set(false);
                 }
