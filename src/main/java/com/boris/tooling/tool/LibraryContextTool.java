@@ -71,6 +71,7 @@ public class LibraryContextTool {
 
             // 3. Get example/test files to extract real usage patterns
             List<String> exampleFiles = findExampleFiles(repo);
+            System.out.println("[DEBUG] Found " + exampleFiles.size() + " example files: " + exampleFiles);
 
             // 4. Extract real imports and classes from examples
             Set<String> realImports = new TreeSet<>();
@@ -78,10 +79,15 @@ public class LibraryContextTool {
             List<String> codeExamples = new ArrayList<>();
 
             for (String examplePath : exampleFiles) {
+                System.out.println("[DEBUG] Reading file: " + examplePath);
                 String content = getFileContent(repo, examplePath);
+                System.out.println("[DEBUG] Content length: " + (content != null ? content.length() : 0));
                 if (content != null && !content.isEmpty()) {
-                    realImports.addAll(extractImports(content, repo));
-                    realClasses.addAll(extractClassUsage(content));
+                    Set<String> fileImports = extractImports(content, repo);
+                    Set<String> fileClasses = extractClassUsage(content);
+                    System.out.println("[DEBUG] Extracted " + fileImports.size() + " imports, " + fileClasses.size() + " classes from " + examplePath);
+                    realImports.addAll(fileImports);
+                    realClasses.addAll(fileClasses);
                     if (codeExamples.size() < 2) {
                         String example = extractUsefulExample(content);
                         if (example != null) {
@@ -145,55 +151,60 @@ public class LibraryContextTool {
     private static List<String> findExampleFiles(String repo) {
         List<String> examples = new ArrayList<>();
 
-        // Use code search to find test/example files (more reliable than directory listing)
-        String[] searchQueries = {
-            "test example repo:" + repo + " extension:java",
-            "public static void main repo:" + repo + " extension:java",
-            "BasicWindow repo:" + repo + " extension:java",
-            "Terminal Screen repo:" + repo + " extension:java"
+        // Navigate directory structure recursively (no auth required)
+        String[] basePaths = {
+            "src/test/java",
+            "src/main/java",
+            "test",
+            "examples"
         };
 
-        for (String query : searchQueries) {
-            try {
-                var spec = new BatchGitHubSearchTool.SearchSpec("code", query, null, "java", 10);
-                String result = GITHUB.execute(List.of(spec));
-                JsonNode node = MAPPER.readTree(result);
+        for (String basePath : basePaths) {
+            System.out.println("[DEBUG] Exploring: " + basePath);
+            exploreDirectory(repo, basePath, examples, 0);
+            if (examples.size() >= 10) break;
+        }
 
-                for (JsonNode item : node.path("results")) {
-                    String path = item.path("path").asText();
-                    if (path.endsWith(".java") && !examples.contains(path)) {
-                        examples.add(path);
-                        if (examples.size() >= 8) break;
+        System.out.println("[DEBUG] Total files found: " + examples.size());
+        return examples;
+    }
+
+    private static void exploreDirectory(String repo, String path, List<String> examples, int depth) {
+        if (depth > 4 || examples.size() >= 10) return;
+
+        try {
+            var spec = new BatchGitHubSearchTool.SearchSpec("files", repo, path, null, 50);
+            String result = GITHUB.execute(List.of(spec));
+            JsonNode node = MAPPER.readTree(result);
+
+            if (!node.path("success").asBoolean(true)) {
+                return; // Directory doesn't exist
+            }
+
+            for (JsonNode file : node.path("files")) {
+                String name = file.path("name").asText();
+                String filePath = file.path("path").asText();
+                String type = file.path("type").asText();
+
+                if ("dir".equals(type)) {
+                    // Recurse into subdirectories
+                    exploreDirectory(repo, filePath, examples, depth + 1);
+                } else if (name.endsWith(".java")) {
+                    // Prioritize test/example files
+                    if (name.contains("Test") || name.contains("Example") ||
+                        name.contains("Demo") || name.contains("Sample") ||
+                        name.contains("Main") || name.contains("Basic")) {
+                        examples.add(0, filePath); // Add at beginning
+                    } else {
+                        examples.add(filePath);
                     }
                 }
-            } catch (Exception ignored) {}
 
-            if (examples.size() >= 8) break;
-        }
-
-        // Fallback: try direct directory listing
-        if (examples.isEmpty()) {
-            String[] directPaths = {"src/test", "test", "examples", "sample"};
-            for (String basePath : directPaths) {
-                try {
-                    var spec = new BatchGitHubSearchTool.SearchSpec("files", repo, basePath, null, 30);
-                    String result = GITHUB.execute(List.of(spec));
-                    JsonNode node = MAPPER.readTree(result);
-
-                    for (JsonNode file : node.path("files")) {
-                        String name = file.path("name").asText();
-                        String path = file.path("path").asText();
-                        if (name.endsWith(".java")) {
-                            examples.add(path);
-                            if (examples.size() >= 5) break;
-                        }
-                    }
-                } catch (Exception ignored) {}
-                if (examples.size() >= 5) break;
+                if (examples.size() >= 10) return;
             }
+        } catch (Exception e) {
+            System.out.println("[DEBUG] Error exploring " + path + ": " + e.getMessage());
         }
-
-        return examples;
     }
 
     private static String getFileContent(String repo, String path) {
