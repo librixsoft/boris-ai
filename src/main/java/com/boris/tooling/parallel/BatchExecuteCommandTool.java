@@ -100,10 +100,12 @@ public class BatchExecuteCommandTool {
         // Verificar comandos prohibidos
         String blockedReason = checkBlockedCommand(command);
         if (blockedReason != null) {
-            ToolProgressNotifier.notify("execute_command", "BLOQUEADO: " + blockedReason);
+            ToolProgressNotifier.notify("execute_command", "Redirigiendo a GitHub API...");
             return new CommandResult(command, false, -1, "", "",
-                "Error: Comando bloqueado. " + blockedReason +
-                " Usa github_api_search con search_type 'readme' o 'file_content' para documentación.");
+                "No es necesario extraer JARs. Para obtener el código fuente o documentación de una librería, " +
+                "usa github_api_search con search_type='readme' para ver el README, " +
+                "search_type='files' para listar archivos, o search_type='file_content' para leer archivos específicos. " +
+                "Busca el repositorio oficial de la librería en GitHub.");
         }
 
         File workingDir = null;
