@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import com.boris.settings.Settings;
 import com.boris.tooling.tool.DeleteTool;
 import com.boris.tooling.tool.EditTool;
+import com.boris.tooling.tool.GitTool;
 import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.SystemInfoTool;
@@ -32,6 +33,11 @@ public class ToolConfiguration {
     @Bean
     public DeleteTool deleteTool() {
         return new DeleteTool();
+    }
+
+    @Bean
+    public GitTool gitTool() {
+        return new GitTool();
     }
 
     @Bean

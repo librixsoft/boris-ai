@@ -24,6 +24,7 @@ import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 import com.boris.tooling.tool.DeleteTool;
 import com.boris.tooling.tool.EditTool;
+import com.boris.tooling.tool.GitTool;
 import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.SystemInfoTool;
@@ -431,6 +432,34 @@ public class ToolCallingConfig {
 
     // execute_command y batch_execute_commands ELIMINADOS
     // Ver TODO.md para plan de reemplazo con git_tool y build_tool
+
+    // ========== Git Tool ==========
+
+    @Tool(
+            name = "git",
+            description = "Execute git commands for version control. Supports: status, diff, log, add, commit, push, pull, branch, checkout, reset, stash, fetch, merge, rebase. Use for all git operations.")
+    public String git(
+            @ToolParam(description = "Git command: status, diff, log, add, commit, push, pull, branch, checkout, reset, stash, fetch, merge, rebase") String command,
+            @ToolParam(description = "Additional arguments (file paths, branch names, commit messages, etc.)") String args,
+            @ToolParam(description = "Working directory (default: current)") String working_dir) {
+
+        if (command == null || command.isBlank()) {
+            return "{\"success\": false, \"error\": \"Command is required\"}";
+        }
+
+        ToolProgressNotifier.notify("git", "git " + command + (args != null ? " " + args : ""));
+
+        Map<String, Object> toolArgs = new java.util.LinkedHashMap<>();
+        toolArgs.put("command", command);
+        if (args != null) toolArgs.put("args", args);
+        if (working_dir != null) toolArgs.put("working_dir", working_dir);
+
+        String result = GitTool.execute(toolArgs);
+        String inputText = "git " + command + (args != null ? " " + args : "");
+        notifyToolTokens("git", inputText, result);
+        ToolResultNotifier.notifyQueryResult("git", inputText, result);
+        return result;
+    }
 
     // ========== Existing Batch Tools ==========
 
