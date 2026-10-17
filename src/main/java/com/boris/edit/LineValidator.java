@@ -1,5 +1,6 @@
 package com.boris.edit;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -149,9 +150,12 @@ public class LineValidator {
             // Verificar si existe en CONTEXT.md
             if (!symbolCache.isKnownClass(className)) {
                 List<String> similar = symbolCache.findSimilarClasses(className);
+                String searchHint = extractSearchTerm(className);
+                List<String> suggestions = new ArrayList<>(similar);
+                suggestions.add(0, "USA search_context('" + searchHint + "') para encontrar la clase correcta");
                 return Optional.of(ValidationResult.error(
-                    "Clase '" + className + "' no encontrada en CONTEXT.md",
-                    similar
+                    "CLASE NO EXISTE: '" + className + "' - NO inventes, busca la alternativa real",
+                    suggestions
                 ));
             }
         }
@@ -170,9 +174,12 @@ public class LineValidator {
 
             if (!symbolCache.isKnownClass(className)) {
                 List<String> similar = symbolCache.findSimilarClasses(className);
+                String searchHint = extractSearchTerm(className);
+                List<String> suggestions = new ArrayList<>(similar);
+                suggestions.add(0, "USA search_context('" + searchHint + "') para encontrar la clase correcta");
                 return Optional.of(ValidationResult.error(
-                    "Clase padre '" + className + "' no encontrada en CONTEXT.md",
-                    similar
+                    "CLASE PADRE NO EXISTE: '" + className + "' - NO inventes, busca la alternativa real",
+                    suggestions
                 ));
             }
         }
@@ -199,13 +206,39 @@ public class LineValidator {
 
             if (!symbolCache.isKnownClass(className)) {
                 List<String> similar = symbolCache.findSimilarClasses(className);
+                String searchHint = extractSearchTerm(className);
+                List<String> suggestions = new ArrayList<>(similar);
+                suggestions.add(0, "USA search_context('" + searchHint + "') para encontrar el tipo correcto");
                 return Optional.of(ValidationResult.error(
-                    "Tipo '" + className + "' no encontrado en CONTEXT.md",
-                    similar
+                    "TIPO NO EXISTE: '" + className + "' - NO inventes, busca la alternativa real",
+                    suggestions
                 ));
             }
         }
         return Optional.of(ValidationResult.ok());
+    }
+
+    /**
+     * Extrae un término de búsqueda útil del nombre de clase.
+     * Ej: "ScreenBuffer" -> "Screen", "TerminalFactory" -> "Terminal"
+     */
+    private String extractSearchTerm(String className) {
+        // Quitar sufijos comunes para obtener término base
+        String[] suffixes = {"Buffer", "Factory", "Builder", "Manager", "Handler", "Listener", "Adapter", "Impl", "Helper", "Utils"};
+        for (String suffix : suffixes) {
+            if (className.endsWith(suffix) && className.length() > suffix.length()) {
+                return className.substring(0, className.length() - suffix.length());
+            }
+        }
+        // Si tiene CamelCase, tomar la primera palabra
+        StringBuilder firstWord = new StringBuilder();
+        for (char c : className.toCharArray()) {
+            if (Character.isUpperCase(c) && firstWord.length() > 0) {
+                break;
+            }
+            firstWord.append(c);
+        }
+        return firstWord.length() > 2 ? firstWord.toString() : className;
     }
 
     public record ValidationResult(
