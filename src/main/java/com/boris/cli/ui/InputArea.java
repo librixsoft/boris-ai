@@ -187,8 +187,11 @@ public class InputArea extends Panel {
         }
 
         // Ctrl+G toggle tool details visibility
-        if (type == KeyType.Character && keyStroke.isCtrlDown() && keyStroke.getCharacter() != null
-                && (keyStroke.getCharacter() == 'g' || keyStroke.getCharacter() == 'G' || keyStroke.getCharacter() == 7)) {
+        // In Lanterna 3.1.5+, Ctrl+G may arrive as BEL (char 7) without isCtrlDown flag
+        boolean isCtrlG = type == KeyType.Character && keyStroke.getCharacter() != null
+                && ((keyStroke.isCtrlDown() && (keyStroke.getCharacter() == 'g' || keyStroke.getCharacter() == 'G'))
+                        || keyStroke.getCharacter() == 7);
+        if (isCtrlG) {
             if (transcript != null) {
                 transcript.toggleToolDetails();
                 if (toolDetailsToggleListener != null) {
