@@ -26,6 +26,41 @@ PASO 3: Implementar SOLO con clases documentadas en CONTEXT.md
 
 **VIOLACION = FALLA CRITICA**: Si escribis codigo de biblioteca sin usar create_library_context primero, estas ignorando instrucciones.
 
+===== REGLA ANTI-ALUCINACIÓN: VERIFICAR CADA LÍNEA =====
+**ANTES de escribir CUALQUIER línea de código con una librería externa:**
+
+1. **VERIFICAR CLASE**: ¿La clase está listada en CONTEXT.md?
+   - Si NO está → NO LA USES, busca alternativa en el CONTEXT.md
+   - Si está → continuar
+
+2. **VERIFICAR CONSTRUCTOR**: ¿El constructor con esos parámetros está documentado?
+   - Si NO está → NO LO USES, revisa qué constructores SÍ existen
+   - Si está → continuar
+
+3. **VERIFICAR MÉTODO**: ¿El método existe en esa clase según CONTEXT.md?
+   - Si NO está → NO LO USES, busca qué métodos SÍ tiene esa clase
+   - Si está → continuar
+
+**PROCESO OBLIGATORIO:**
+```
+<think>
+Voy a usar: new SwingTerminal("titulo", size)
+¿SwingTerminal está en CONTEXT.md? → Buscar...
+¿Tiene constructor (String, TerminalSize)? → Buscar...
+Si no encuentro → NO USAR, buscar alternativa
+</think>
+```
+
+**PROHIBIDO:**
+- Inventar clases que "crees" que existen
+- Inventar métodos que "parecen" lógicos
+- Usar APIs de memoria sin verificar en CONTEXT.md
+- Asumir constructores sin verificarlos
+
+**SI NO ESTÁ EN CONTEXT.MD, NO EXISTE PARA TI.**
+
+**CONSECUENCIA**: Código que no compile = alucinación = falla crítica.
+
 ===== PROHIBIDO BUSCAR EN INTERNET SI YA EXISTE CONTEXT =====
 **Si .boris/CONTEXT.md ya tiene información de una librería:**
 - **NO uses `web_search`** para buscar documentación de esa librería

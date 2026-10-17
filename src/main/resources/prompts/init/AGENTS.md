@@ -38,6 +38,23 @@ Esto descarga el repo UNA SOLA VEZ y genera el CONTEXT.md con la API real.
 - Acceder a ~/.m2/ o target/
 - Inventar APIs que no estén en el CONTEXT.md
 
+### REGLA ANTI-ALUCINACIÓN (OBLIGATORIA):
+Antes de escribir CADA línea de código con librería externa:
+
+1. **¿La clase está en CONTEXT.md?** → Si no, NO LA USES
+2. **¿El constructor existe?** → Si no, busca cuál SÍ existe
+3. **¿El método existe en esa clase?** → Si no, busca alternativa
+
+```
+<think>
+Quiero usar: panel.setBackgroundColor(color)
+¿Panel tiene setBackgroundColor en CONTEXT.md? → Buscar...
+No lo encuentro → NO USAR, buscar alternativa
+</think>
+```
+
+**SI NO ESTÁ EN CONTEXT.MD, NO EXISTE PARA TI.**
+
 ---
 
 ## Flujo de trabajo
