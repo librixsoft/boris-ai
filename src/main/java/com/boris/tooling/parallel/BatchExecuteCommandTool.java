@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.task.TaskAborter;
@@ -32,6 +34,10 @@ public class BatchExecuteCommandTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final long DEFAULT_TIMEOUT_SECONDS = 120;
+
+    /** Contador de intentos bloqueados por sesión */
+    private static final AtomicInteger BLOCKED_ATTEMPTS = new AtomicInteger(0);
+    private static final int MAX_BLOCKED_ATTEMPTS = 3;
 
     /**
      * Comandos prohibidos para evitar inspección de JARs y acceso a ~/.m2/.
@@ -190,24 +196,50 @@ public class BatchExecuteCommandTool {
 
     /**
      * Verifica si un comando está en la lista de bloqueados.
+     * Incrementa contador de intentos y devuelve mensaje progresivamente más fuerte.
      * @return razón del bloqueo o null si está permitido
      */
     private String checkBlockedCommand(String command) {
         if (command == null) return null;
         String cmdLower = command.toLowerCase();
 
+        boolean isBlocked = false;
+
         for (String pattern : BLOCKED_PATTERNS) {
             if (cmdLower.contains(pattern.toLowerCase())) {
-                return "BLOQUEADO: Acceso a JARs/.m2 prohibido. Usa create_library_context para documentación.";
+                isBlocked = true;
+                break;
             }
         }
 
         // Verificación adicional: unzip con .jar en cualquier parte
-        if (cmdLower.contains("unzip") && cmdLower.contains(".jar")) {
-            return "BLOQUEADO: Extracción de JARs prohibida. Usa create_library_context.";
+        if (!isBlocked && cmdLower.contains("unzip") && cmdLower.contains(".jar")) {
+            isBlocked = true;
+        }
+
+        if (isBlocked) {
+            int attempts = BLOCKED_ATTEMPTS.incrementAndGet();
+
+            if (attempts >= MAX_BLOCKED_ATTEMPTS) {
+                return "STOP. DETENERSE AHORA.\n" +
+                       "Has intentado " + attempts + " veces acceder a JARs/.m2.\n" +
+                       "ESTÁ PROHIBIDO. NO HAY EXCEPCIONES.\n" +
+                       "ÚNICA OPCIÓN: create_library_context(repo, version, project_path)\n" +
+                       "NO REINTENTES ESTE COMANDO. CAMBIA DE ESTRATEGIA.";
+            }
+
+            return "BLOQUEADO (intento " + attempts + "/" + MAX_BLOCKED_ATTEMPTS + "): " +
+                   "Acceso a JARs/.m2 prohibido.\n" +
+                   "Usa create_library_context para documentación.\n" +
+                   "Si insistes, serás bloqueado permanentemente.";
         }
 
         return null;
+    }
+
+    /** Resetea el contador de intentos bloqueados (para tests o nueva sesión) */
+    public static void resetBlockedAttempts() {
+        BLOCKED_ATTEMPTS.set(0);
     }
 
     private void readStream(java.io.InputStream inputStream, StringBuilder builder) {
