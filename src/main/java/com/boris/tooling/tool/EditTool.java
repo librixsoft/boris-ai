@@ -52,6 +52,20 @@ public class EditTool {
             return formatOutput(false, "Error: not a regular file: " + pathStr);
         }
 
+        // === VALIDACIÓN: Verificar CONTEXT.md antes de editar con imports externos ===
+        if (isCodeFile(pathStr) && hasExternalImports(newText)) {
+            Path projectRoot = findProjectRoot(path);
+            if (projectRoot != null) {
+                Path contextFile = projectRoot.resolve(".boris/CONTEXT.md");
+                if (Files.exists(contextFile) && !ContextTracker.wasRead(projectRoot)) {
+                    return formatOutput(false,
+                        "BLOQUEADO: Debes leer .boris/CONTEXT.md ANTES de editar código con bibliotecas externas.\n" +
+                        "Ejecuta: batch_read_files([\".boris/CONTEXT.md\"])\n" +
+                        "Luego verifica que las clases y métodos que usas estén documentados ahí.");
+                }
+            }
+        }
+
         try {
             String content = Files.readString(path);
             if (!content.contains(oldText)) {
@@ -278,5 +292,51 @@ public class EditTool {
         }
         matcher.appendTail(sb);
         return sb.toString();
+    }
+
+    private static boolean isCodeFile(String path) {
+        String lower = path.toLowerCase();
+        return lower.endsWith(".java") ||
+               lower.endsWith(".kt") ||
+               lower.endsWith(".scala") ||
+               lower.endsWith(".groovy") ||
+               lower.endsWith(".py") ||
+               lower.endsWith(".js") ||
+               lower.endsWith(".ts") ||
+               lower.endsWith(".tsx") ||
+               lower.endsWith(".jsx") ||
+               lower.endsWith(".go") ||
+               lower.endsWith(".rs") ||
+               lower.endsWith(".c") ||
+               lower.endsWith(".cpp") ||
+               lower.endsWith(".h") ||
+               lower.endsWith(".cs") ||
+               lower.endsWith(".rb") ||
+               lower.endsWith(".php") ||
+               lower.endsWith(".swift") ||
+               lower.endsWith(".m");
+    }
+
+    private static boolean hasExternalImports(String content) {
+        if (content == null) return false;
+        return content.lines()
+            .filter(line -> line.trim().startsWith("import "))
+            .map(line -> line.trim().substring(7).replace(";", "").trim())
+            .anyMatch(imp -> !imp.startsWith("java.") &&
+                           !imp.startsWith("javax.") &&
+                           !imp.startsWith("jdk."));
+    }
+
+    private static Path findProjectRoot(Path filePath) {
+        Path current = filePath.toAbsolutePath().getParent();
+        while (current != null) {
+            if (Files.exists(current.resolve("pom.xml")) ||
+                Files.exists(current.resolve("build.gradle")) ||
+                Files.exists(current.resolve("package.json"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        return null;
     }
 }
