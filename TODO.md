@@ -10,69 +10,46 @@
 
 ## Completado: Loop infinito de comandos ✅ (2026-10-17)
 
-### Problema
-El modelo entraba en loop infinito reintentando `ls`, `find`, `cat` porque el mensaje de error era incorrecto ("Redirigiendo a GitHub API" en vez de "USA list_files").
-
-### Solución aplicada
-- ✅ `BatchExecuteCommandTool.java`: Corregido mensaje de error para usar `blockedReason` real
-- ✅ Agregado circuit breaker para comandos redirigidos (máx 3 intentos)
-- ✅ Mensajes claros: "REDIRIGIR (intento 1/3): USA list_files en lugar de ls"
+- ✅ `BatchExecuteCommandTool.java`: Corregido mensaje de error
+- ✅ Circuit breaker para comandos redirigidos (máx 3 intentos)
 
 ---
 
 ## Completado: Archivos en directorio incorrecto ✅ (2026-10-17)
 
-### Problema
-Al escribir `/ruta/proyecto comando`, el modelo creaba archivos en el directorio de boris-ai en vez del proyecto especificado.
-
-### Solución aplicada
-- ✅ `ProjectContext.java` (nuevo): ThreadLocal para compartir ruta del proyecto
-- ✅ `ChatService.java`: Extrae ruta del mensaje y setea ProjectContext
-- ✅ `StreamingFileWriter.java`: Usa `resolveRelativePath()` para rutas Aider
-- ✅ `BulkEditTool.java`: Usa `resolveRelativePath()` + quitó prints
-- ✅ `SearchReplaceEditTool.java`: Usa `resolveRelativePath()`
-- ✅ `WriteTool.java`: Usa `resolveRelativePath()`
-- ✅ `EditTool.java`: Usa `resolveRelativePath()`
+- ✅ `ProjectContext.java`: ThreadLocal para compartir ruta del proyecto
+- ✅ Todos los tools de edición usan `resolveRelativePath()`
 
 ---
 
 ## Completado: Búsquedas excesivas antes de escribir ✅ (2026-10-17)
 
-### Problema
-El modelo hacía decenas de `search_context` para "verificar" cada clase/método ANTES de escribir código, causando lentitud extrema.
-
-### Solución aplicada
-- ✅ `default-system-prompt.md`: Cambió de "verificar antes" a "validación automática post-escritura"
-- ✅ `AGENTS.md`: Mismo cambio - escribir directo, validar después
-- ✅ Nuevo flujo: escribir → validación automática → corregir errores
+- ✅ Prompts actualizados: modelo escribe libremente sin verificar antes
+- ✅ Iteración 1 = escritura libre
 
 ---
 
-## Pendiente: Autocorrección de Alucinaciones
+## Pendiente: Segunda Iteración - Validación y Corrección
 
-**Plan detallado:** `plans/autocorreccion-alucinaciones.md`
+**Plan detallado:** `plans/segunda-iteracion-validacion.md`
 
-### Problema
-El modelo local alucina código (APIs incorrectas). Se valida DESPUÉS de generar pero no hay autocorrección.
+### Flujo actual (Iteración 1)
+El modelo escribe código libremente → se guarda el archivo → FIN
 
-### Solución propuesta
-Autocorrección determinística SIN llamar al LLM cuando hay 1 sugerencia clara:
-- `client.fetch()` → `client.send()` (autocorregir automáticamente)
-- Múltiples opciones → micro-prompt de ~20 tokens
+### Flujo deseado (Iteración 1 + 2)
+1. **Iteración 1**: Modelo escribe código libremente → se guarda
+2. **Iteración 2**: Validar cada línea contra CONTEXT.md → mostrar errores → modelo corrige línea por línea
 
 ### Estado
-- [ ] Fase 1: Autocorrección determinística (LineValidator + BulkEditTool)
-- [ ] Fase 2: Micro-prompts para casos ambiguos
+- [x] Iteración 1: Escritura libre (completado)
+- [ ] Iteración 2: Validación + corrección línea por línea
 
 ---
 
 ## Pendiente: Validación de CONTEXT.md
 
 ### Problema
-`BulkEditTool` y `SearchReplaceEditTool` validan contra CONTEXT.md pero:
-1. Si no existe CONTEXT.md, no valida nada (pasa todo)
-2. No hay forma de forzar la validación
+Si no existe CONTEXT.md, no se valida nada.
 
 ### Mejora sugerida
-- Opción para requerir CONTEXT.md antes de escribir código de librerías externas
-- Warning cuando se escribe código sin contexto
+- Warning cuando se escribe código de librería sin CONTEXT.md
