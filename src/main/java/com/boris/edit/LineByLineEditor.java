@@ -78,6 +78,14 @@ public class LineByLineEditor {
             return LineResult.error("No hay sesión de edición activa");
         }
 
+        // Verificar duplicados ANTES de procesar
+        if (currentSession.isDuplicateImport(line)) {
+            return LineResult.error("Import duplicado - ya fue escrito anteriormente. Continúa con la siguiente línea.");
+        }
+        if (currentSession.isRepeatOfLastLine(line)) {
+            return LineResult.error("Línea repetida - idéntica a la anterior. Continúa con la siguiente línea.");
+        }
+
         currentSession.addPendingLine(line);
         notifyUiUpdate();
 
@@ -92,6 +100,7 @@ public class LineByLineEditor {
             }
 
             currentSession.markLastLineValidated();
+            currentSession.trackWrittenLine(line);  // Registrar para detectar duplicados
             notifyUiUpdate();
 
             // Output con formato diff visual (verde +)
@@ -138,6 +147,11 @@ public class LineByLineEditor {
             return LineResult.error("No hay sesión de edición activa");
         }
 
+        // Verificar duplicados en corrección también
+        if (currentSession.isDuplicateImport(correctedLine)) {
+            return LineResult.error("Import duplicado - ya fue escrito anteriormente.");
+        }
+
         LineValidator.ValidationResult validation = validator.validate(correctedLine);
 
         if (validation.isValid()) {
@@ -149,6 +163,7 @@ public class LineByLineEditor {
             }
 
             currentSession.correctLastLine(correctedLine);
+            currentSession.trackWrittenLine(correctedLine);  // Registrar para detectar duplicados
             notifyUiUpdate();
 
             // Output con formato diff visual (verde + corregido)

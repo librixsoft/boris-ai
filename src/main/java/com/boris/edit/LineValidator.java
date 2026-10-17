@@ -5,6 +5,8 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.boris.tooling.tool.SearchContextTool;
+
 public class LineValidator {
 
     private final SymbolCache symbolCache;
@@ -104,8 +106,14 @@ public class LineValidator {
             ));
         }
 
-        // Fallback: verificar si al menos la clase existe
+        // Fallback: verificar si la clase existe pero no fue consultada
         if (symbolCache.isKnownClass(className)) {
+            if (!SearchContextTool.wasConsulted(className)) {
+                return Optional.of(ValidationResult.error(
+                    "DEBES consultar la API antes de importar '" + className + "'",
+                    List.of("Ejecuta: search_context('" + className + "') para ver el import correcto")
+                ));
+            }
             List<String> suggestions = symbolCache.findSimilarImports(className);
             return Optional.of(ValidationResult.error(
                 "Clase '" + className + "' existe pero el import no está verificado",
@@ -124,6 +132,15 @@ public class LineValidator {
         Matcher matcher = NEW_INSTANCE.matcher(line);
         while (matcher.find()) {
             String className = matcher.group(1);
+
+            // Si es clase conocida del CONTEXT pero NO fue consultada, pedir que consulte primero
+            if (symbolCache.isKnownClass(className) && !SearchContextTool.wasConsulted(className)) {
+                return Optional.of(ValidationResult.error(
+                    "DEBES consultar la API antes de usar '" + className + "'",
+                    List.of("Ejecuta: search_context('" + className + "') y luego reintenta")
+                ));
+            }
+
             if (!symbolCache.isKnownClass(className)) {
                 List<String> similar = symbolCache.findSimilarClasses(className);
                 return Optional.of(ValidationResult.error(
@@ -154,6 +171,15 @@ public class LineValidator {
         Matcher matcher = VARIABLE_DECL.matcher(line);
         while (matcher.find()) {
             String className = matcher.group(1);
+
+            // Si es clase conocida del CONTEXT pero NO fue consultada
+            if (symbolCache.isKnownClass(className) && !SearchContextTool.wasConsulted(className)) {
+                return Optional.of(ValidationResult.error(
+                    "DEBES consultar la API antes de usar '" + className + "'",
+                    List.of("Ejecuta: search_context('" + className + "') y luego reintenta")
+                ));
+            }
+
             if (!symbolCache.isKnownClass(className)) {
                 List<String> similar = symbolCache.findSimilarClasses(className);
                 return Optional.of(ValidationResult.error(

@@ -2,7 +2,9 @@ package com.boris.edit;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class EditSession {
 
@@ -23,6 +25,8 @@ public class EditSession {
     private boolean active = true;
     private int validatedCount = 0;
     private int errorCount = 0;
+    private final Set<String> writtenImports = new HashSet<>();
+    private String lastWrittenLine = null;
 
     public EditSession(Path filePath, Mode mode, List<String> originalContent) {
         this.filePath = filePath;
@@ -191,5 +195,34 @@ public class EditSession {
 
     public DiffLine getLastLine() {
         return lines.isEmpty() ? null : lines.get(lines.size() - 1);
+    }
+
+    /**
+     * Verifica si una línea es un import duplicado
+     */
+    public boolean isDuplicateImport(String line) {
+        String trimmed = line.trim();
+        if (trimmed.startsWith("import ")) {
+            return writtenImports.contains(trimmed);
+        }
+        return false;
+    }
+
+    /**
+     * Verifica si es una línea exactamente igual a la anterior
+     */
+    public boolean isRepeatOfLastLine(String line) {
+        return lastWrittenLine != null && lastWrittenLine.equals(line.trim());
+    }
+
+    /**
+     * Registra una línea como escrita (para detectar duplicados)
+     */
+    public void trackWrittenLine(String line) {
+        String trimmed = line.trim();
+        if (trimmed.startsWith("import ")) {
+            writtenImports.add(trimmed);
+        }
+        lastWrittenLine = trimmed;
     }
 }

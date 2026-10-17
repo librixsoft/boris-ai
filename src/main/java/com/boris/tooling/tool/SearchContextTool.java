@@ -22,6 +22,18 @@ public class SearchContextTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    // Tracking de clases consultadas en esta sesión
+    private static final java.util.Set<String> CONSULTED_CLASSES =
+        java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+
+    public static boolean wasConsulted(String className) {
+        return CONSULTED_CLASSES.contains(className.toLowerCase());
+    }
+
+    public static void clearConsulted() {
+        CONSULTED_CLASSES.clear();
+    }
+
     public static String execute(String query, String projectPath) {
         if (query == null || query.isBlank()) {
             return formatError("query es requerido");
@@ -76,6 +88,9 @@ public class SearchContextTool {
             }
 
             if (matches) {
+                // Registrar clase como consultada
+                CONSULTED_CLASSES.add(className.toLowerCase());
+
                 // Extraer métodos de esta clase
                 List<String> methods = new ArrayList<>();
                 for (String line : classContent.split("\n")) {

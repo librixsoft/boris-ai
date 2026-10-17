@@ -217,6 +217,89 @@ public class SymbolCache {
         knownImports.clear();
     }
 
+    /**
+     * Devuelve los packages únicos disponibles (para hint inicial)
+     */
+    public Set<String> getAvailablePackages() {
+        Set<String> packages = new TreeSet<>();
+        for (String imp : knownImports) {
+            int lastDot = imp.lastIndexOf('.');
+            if (lastDot > 0) {
+                packages.add(imp.substring(0, lastDot) + ".*");
+            }
+        }
+        return packages;
+    }
+
+    /**
+     * Devuelve hint de métodos para una clase (máx 10 métodos)
+     */
+    public String getMethodsHint(String className) {
+        Set<String> methods = classToMethods.get(className);
+        if (methods == null || methods.isEmpty()) {
+            return null;
+        }
+        List<String> methodList = new ArrayList<>(methods);
+        if (methodList.size() > 10) {
+            methodList = methodList.subList(0, 10);
+        }
+        return className + ": " + String.join(", ", methodList) + (methods.size() > 10 ? "..." : "");
+    }
+
+    /**
+     * Devuelve hint de clases principales (máx 20)
+     */
+    public String getClassesHint() {
+        if (knownClasses.isEmpty()) {
+            return null;
+        }
+        List<String> sorted = new ArrayList<>(knownClasses);
+        Collections.sort(sorted);
+        if (sorted.size() > 20) {
+            sorted = sorted.subList(0, 20);
+        }
+        return String.join(", ", sorted) + (knownClasses.size() > 20 ? "..." : "");
+    }
+
+    /**
+     * Detecta qué clases del CONTEXT se usan en una línea y devuelve hints
+     */
+    public String getHintForLine(String line) {
+        String trimmed = line.trim();
+
+        // Detectar clase en import
+        if (trimmed.startsWith("import ")) {
+            String importPath = trimmed.substring(7).replace(";", "").trim();
+            String className = importPath.substring(importPath.lastIndexOf('.') + 1);
+            if (!className.equals("*") && knownClasses.contains(className)) {
+                return getMethodsHint(className);
+            }
+            return null;
+        }
+
+        // Detectar clase en "new ClassName("
+        java.util.regex.Pattern newPattern = java.util.regex.Pattern.compile("new\\s+([A-Z][\\w]+)\\s*\\(");
+        java.util.regex.Matcher newMatcher = newPattern.matcher(line);
+        if (newMatcher.find()) {
+            String className = newMatcher.group(1);
+            if (knownClasses.contains(className)) {
+                return getMethodsHint(className);
+            }
+        }
+
+        // Detectar declaración de variable: "ClassName varName"
+        java.util.regex.Pattern varPattern = java.util.regex.Pattern.compile("([A-Z][\\w]+)\\s+[a-z][\\w]*\\s*[=;]");
+        java.util.regex.Matcher varMatcher = varPattern.matcher(line);
+        if (varMatcher.find()) {
+            String className = varMatcher.group(1);
+            if (knownClasses.contains(className)) {
+                return getMethodsHint(className);
+            }
+        }
+
+        return null;
+    }
+
     public boolean isEmpty() {
         return knownClasses.isEmpty();
     }

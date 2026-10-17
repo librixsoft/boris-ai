@@ -69,15 +69,6 @@ public class WriteTool {
                         "BLOQUEADO: Antes de escribir codigo con bibliotecas externas, " +
                         "debes crear .boris/CONTEXT.md. Usa: create_library_context(repo, version, project_path)");
                 }
-                // Verificar si el contexto fue leído en esta sesión CON batch_read_files
-                // IMPORTANTE: usar "cat" o "execute_command" NO cuenta, debe ser batch_read_files
-                if (!ContextTracker.wasRead(projectRoot)) {
-                    return formatOutput(false,
-                        "BLOQUEADO: Debes leer .boris/CONTEXT.md con batch_read_files ANTES de escribir codigo.\n" +
-                        "Ejecuta: batch_read_files([\".boris/CONTEXT.md\"])\n" +
-                        "IMPORTANTE: Usar 'cat' o 'execute_command' NO cuenta. Debe ser batch_read_files.\n" +
-                        "Luego usa SOLO las clases y métodos documentados en el CONTEXT.md.");
-                }
 
                 // Validar que las clases usadas estén en CONTEXT.md
                 String validationWarning = validateClassesInContext(content, contextFile);

@@ -69,9 +69,19 @@ public class StreamingEditTool {
             // Mostrar header del diff en UI (mismo formato que EditTool)
             DiffLineNotifier.notify("@@@ " + filePath.getFileName() + " @@@");
 
+            // Instrucciones claras para el modelo
+            String detail = "Envía líneas con streaming_edit_line.";
+            if (activeEditor.getSymbolCache() != null && !activeEditor.getSymbolCache().isEmpty()) {
+                detail += "\n\n⚠️ IMPORTANTE: ANTES de usar cualquier clase externa, DEBES ejecutar:\n" +
+                         "   search_context('NombreClase')\n" +
+                         "para obtener los métodos disponibles. NO inventes métodos.";
+            } else {
+                detail += "\n\n⚠️ No hay CONTEXT.md. Si usas bibliotecas externas, primero ejecuta create_library_context.";
+            }
+
             return formatResponse(true,
                 "Sesión iniciada para " + pathStr + " (modo: " + mode + ")",
-                "Envía líneas una por una con streaming_edit_line"
+                detail
             );
 
         } catch (IOException e) {
@@ -116,10 +126,18 @@ public class StreamingEditTool {
             // Formato igual que EditTool: "  N │+ contenido"
             DiffLineNotifier.notify(String.format("%3d │+ %s", lineNum, line));
 
-            return formatResponse(true,
-                "✓ OK",
-                String.format("Línea %d agregada", lineNum)
-            );
+            // Generar hint de métodos disponibles para clases usadas en esta línea
+            String methodsHint = null;
+            if (activeEditor.getSymbolCache() != null) {
+                methodsHint = activeEditor.getSymbolCache().getHintForLine(line);
+            }
+
+            String detail = String.format("Línea %d agregada", lineNum);
+            if (methodsHint != null) {
+                detail += "\n🔧 Métodos disponibles: " + methodsHint;
+            }
+
+            return formatResponse(true, "✓ OK", detail);
         } else if (result.needsCorrection()) {
             EditSession session = activeEditor.getCurrentSession();
             int lineNum = session.getCurrentLineNumber();
