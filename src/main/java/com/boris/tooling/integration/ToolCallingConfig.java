@@ -339,11 +339,13 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "list_files",
-            description = "List files and directories. Accepts one or multiple paths - multiple paths are listed IN PARALLEL for faster results.")
+            description = "List files and directories. Accepts one or multiple paths - multiple paths are listed IN PARALLEL for faster results. MAX 3 calls with same path.")
     public String list_files(@ToolParam(description = "Single path or array of directory paths to list") Object paths) {
         // Anti-loop protection: detect if same tool+args called too many times (max 3)
         if (!ToolCallLimiter.checkSameCallLoop("list_files", paths)) {
-            return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLoopMessage("list_files") + "\"}";
+            String msg = "LOOP DETECTADO: list_files con mismos argumentos llamado mas de 3 veces. DETENTE y usa la informacion que ya tienes.";
+            ToolProgressNotifier.notify("list_files", "⛔ " + msg);
+            return "{\"success\":false,\"error\":\"" + msg + "\",\"action\":\"STOP_AND_PROCEED\"}";
         }
         if (!ToolCallLimiter.incrementAndCheck()) {
             return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLimitMessage() + "\"}";
