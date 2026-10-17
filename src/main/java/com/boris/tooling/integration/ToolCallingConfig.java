@@ -28,7 +28,6 @@ import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
-import com.boris.tooling.tool.WriteTool;
 import com.boris.tooling.tool.LibraryContextTool;
 import com.boris.tooling.tool.SearchContextTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
@@ -78,7 +77,6 @@ public class ToolCallingConfig {
     }
 
     // Core tools (no parallel alternative needed)
-    private final WriteTool writeTool;
     private final DeleteTool deleteTool;
     private final EditTool editTool;
     private final SystemInfoTool systemInfoTool;
@@ -98,7 +96,6 @@ public class ToolCallingConfig {
     private final WebSearchTool webSearchTool;
 
     public ToolCallingConfig(
-                            WriteTool writeTool,
                             DeleteTool deleteTool,
                             EditTool editTool,
                             SystemInfoTool systemInfoTool,
@@ -106,7 +103,6 @@ public class ToolCallingConfig {
                             OfficeDocumentTool officeDocumentTool,
                             TaskPlannerTool taskPlannerTool,
                             Settings settings) {
-        this.writeTool = writeTool;
         this.deleteTool = deleteTool;
         this.editTool = editTool;
         this.systemInfoTool = systemInfoTool;
@@ -191,7 +187,6 @@ public class ToolCallingConfig {
 
     private static ToolCallingConfig createDefaultConfig(Settings settings) {
         return new ToolCallingConfig(
-                new WriteTool(),
                 new DeleteTool(),
                 new EditTool(),
                 new SystemInfoTool(),
@@ -219,14 +214,17 @@ public class ToolCallingConfig {
     // ========== Core Single-Item Tools ==========
 
     @Tool(
-            name = "write_file",
-            description = "Create a new file or overwrite an existing one with the given content.")
-    public String write_file(@ToolParam(description = "Absolute or relative path for the file to create/overwrite") String path,
-                             @ToolParam(description = "Full text content to write into the file") String content) {
-        ToolProgressNotifier.notify("write_file", "Escribiendo archivo: " + path);
-        String inputText = path + "\n" + content;
-        String result = writeTool.execute(Map.of("path", path, "content", content));
-        notifyToolTokens("write_file", inputText, result);
+            name = "bulk_edit",
+            description = "Create or replace a file. Validates ALL lines against CONTEXT.md BEFORE writing. If errors found, reports ALL together without writing. Shows diff line-by-line in real-time.")
+    public String bulk_edit(
+            @ToolParam(description = "Path for the file to create/overwrite") String path,
+            @ToolParam(description = "Complete file content") String content) {
+        ToolProgressNotifier.notify("bulk_edit", "Validando y escribiendo: " + path);
+        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("path", path);
+        args.put("content", content != null ? content : "");
+        String result = com.boris.edit.BulkEditTool.bulk_edit(args);
+        notifyToolTokens("bulk_edit", path + "\n" + content, result);
         return result;
     }
 
@@ -617,6 +615,79 @@ public class ToolCallingConfig {
             @ToolParam(description = "Path al proyecto donde está .boris/CONTEXT.md") String project_path) {
         String result = SearchContextTool.execute(query, project_path);
         notifyToolTokens("search_context", query, result);
+        return result;
+    }
+
+    // ========== Search Replace Tool (Para ediciones parciales) ==========
+
+    @Tool(
+            name = "search_replace",
+            description = "Apply multiple SEARCH/REPLACE blocks to a file. Validates ALL replacements before applying. " +
+                         "Use when you only need to change specific parts without rewriting the whole file.")
+    public String search_replace(
+            @ToolParam(description = "Path to the file to edit") String path,
+            @ToolParam(description = "List of replacements: [{search: 'text to find', replace: 'new text'}, ...]") java.util.List<java.util.Map<String, String>> replacements) {
+        ToolProgressNotifier.notify("search_replace", "Aplicando " + (replacements != null ? replacements.size() : 0) + " reemplazos en: " + path);
+        String result = com.boris.edit.SearchReplaceEditTool.search_replace(path, replacements);
+        notifyToolTokens("search_replace", path, result);
+        return result;
+    }
+
+    // ========== Streaming Edit Tools (DEPRECATED - usar write_file) ==========
+
+    @Tool(
+            name = "streaming_edit_start",
+            description = "DEPRECATED: Use write_file instead. Starts line-by-line editing session.")
+    public String streaming_edit_start(
+            @ToolParam(description = "File path") String path,
+            @ToolParam(description = "Mode: 'create', 'modify', or 'append'") String mode) {
+        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("path", path);
+        args.put("mode", mode != null ? mode : "create");
+        String result = com.boris.edit.StreamingEditTool.streaming_edit_start(args);
+        notifyToolTokens("streaming_edit_start", path, result);
+        return result;
+    }
+
+    @Tool(
+            name = "streaming_edit_line",
+            description = "DEPRECATED: Use write_file instead.")
+    public String streaming_edit_line(
+            @ToolParam(description = "Line of code") String line) {
+        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("line", line != null ? line : "");
+        String result = com.boris.edit.StreamingEditTool.streaming_edit_line(args);
+        notifyToolTokens("streaming_edit_line", line, result);
+        return result;
+    }
+
+    @Tool(
+            name = "streaming_edit_correct",
+            description = "LEGACY: Corrige última línea con error.")
+    public String streaming_edit_correct(
+            @ToolParam(description = "Línea corregida") String line) {
+        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("line", line != null ? line : "");
+        String result = com.boris.edit.StreamingEditTool.streaming_edit_correct(args);
+        notifyToolTokens("streaming_edit_correct", line, result);
+        return result;
+    }
+
+    @Tool(
+            name = "streaming_edit_finish",
+            description = "LEGACY: Finaliza sesión de edición.")
+    public String streaming_edit_finish() {
+        String result = com.boris.edit.StreamingEditTool.streaming_edit_finish(java.util.Map.of());
+        notifyToolTokens("streaming_edit_finish", "", result);
+        return result;
+    }
+
+    @Tool(
+            name = "streaming_edit_abort",
+            description = "LEGACY: Cancela sesión de edición.")
+    public String streaming_edit_abort() {
+        String result = com.boris.edit.StreamingEditTool.streaming_edit_abort(java.util.Map.of());
+        notifyToolTokens("streaming_edit_abort", "", result);
         return result;
     }
 }

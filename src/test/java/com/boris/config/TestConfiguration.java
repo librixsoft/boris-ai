@@ -19,7 +19,6 @@ import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
-import com.boris.tooling.tool.WriteTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchEditTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
@@ -79,11 +78,6 @@ public class TestConfiguration {
     @Primary
     public TaskAborter taskAborter() {
         return new TaskAborter();
-    }
-
-    @Bean
-    public WriteTool writeTool() {
-        return new WriteTool();
     }
 
     @Bean
@@ -160,7 +154,6 @@ public class TestConfiguration {
     @Bean
     @Primary
     public ToolCallingConfig toolCallingConfig(
-                                               WriteTool writeTool,
                                                DeleteTool deleteTool,
                                                EditTool editTool,
                                                SystemInfoTool systemInfoTool,
@@ -169,7 +162,6 @@ public class TestConfiguration {
                                                TaskPlannerTool taskPlannerTool,
                                                Settings settings) {
         return new ToolCallingConfig(
-                writeTool,
                 deleteTool,
                 editTool,
                 systemInfoTool,

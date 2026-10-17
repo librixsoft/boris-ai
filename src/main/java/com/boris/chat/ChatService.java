@@ -2,6 +2,9 @@ package com.boris.chat;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -10,6 +13,7 @@ import java.util.regex.Pattern;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiChatOptions;
 
+import com.boris.edit.StreamingFileWriter;
 import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.llm.think.ThinkContextHolder;
 import com.boris.tooling.ToolCallLimiter;
@@ -36,6 +40,7 @@ public class ChatService {
     private String lastThinkingContent;
     private volatile ChatClient currentClient;
     private volatile Settings currentSettings;
+    private final StreamingFileWriter fileWriter;
     private static final Pattern THINKING_PATTERN = Pattern.compile("(?i)(?:<think>|<thinking>|<thought>|<reasoning>|```)(.*?)(?:</think>|</thinking>|</thought>|</reasoning>|```)", Pattern.DOTALL);
 
     public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory) {
@@ -61,6 +66,7 @@ public class ChatService {
         this.thinkingEnabled = thinkingEnabled;
         this.thinkingMode = thinkingMode;
         this.modelName = modelName;
+        this.fileWriter = new StreamingFileWriter();
         if (taskAborter != null && modelName != null) {
             taskAborter.setActiveModel(modelName);
         }
@@ -130,25 +136,76 @@ public class ChatService {
         ToolCallLimiter.reset();
         ChatClient client = getActiveClient();
         String effectiveThink = thinkingEnabled ? resolveThinkMode() : null;
+
         try {
             String fullMessage = buildPromptWithHistory(userMessage);
             if (enableHistory) {
                 conversationHistory.add("User: " + userMessage);
                 trimHistory();
             }
-            ChatTurn streamTurn = callSpringAiOnce(client, fullMessage, effectiveThink);
-            String thinkingContent = streamTurn.thinking();
-            String finalResponse = streamTurn.response();
-            if (enableHistory && finalResponse != null && !finalResponse.isEmpty()) {
+
+            ThinkContextHolder.setThinkMode(effectiveThink);
+            Thread currentThread = Thread.currentThread();
+            if (taskAborter != null) {
+                taskAborter.markGenerationStart();
+                taskAborter.startTask(currentThread);
+            }
+
+            // STREAMING REAL - cada chunk se procesa conforme llega
+            fileWriter.reset();
+            StringBuilder fullResponse = new StringBuilder();
+            CountDownLatch latch = new CountDownLatch(1);
+            AtomicReference<Throwable> errorRef = new AtomicReference<>();
+
+            client.prompt(fullMessage)
+                .options(buildSpringAiOptions(effectiveThink))
+                .stream()
+                .chatResponse()
+                .doOnNext(response -> {
+                    if (taskAborter != null && taskAborter.isAborted()) {
+                        return;
+                    }
+                    String content = response.getResult() != null ?
+                        response.getResult().getOutput().getText() : null;
+                    if (content != null && !content.isEmpty()) {
+                        fullResponse.append(content);
+                        // Procesar chunk con StreamingFileWriter
+                        String nonCodeText = fileWriter.processChunk(content);
+                        if (nonCodeText != null && !nonCodeText.isEmpty()) {
+                            onChunk.accept(nonCodeText);
+                        }
+                    }
+                })
+                .doOnError(error -> {
+                    errorRef.set(error);
+                    latch.countDown();
+                })
+                .doOnComplete(() -> {
+                    fileWriter.finish();
+                    latch.countDown();
+                })
+                .subscribe();
+
+            // Esperar a que termine el stream (máximo 10 minutos)
+            latch.await(10, TimeUnit.MINUTES);
+
+            if (errorRef.get() != null) {
+                throw new RuntimeException(errorRef.get());
+            }
+
+            // Guardar en historial
+            String finalResponse = fullResponse.toString();
+            if (enableHistory && !finalResponse.isEmpty()) {
                 conversationHistory.add(botName + ": " + finalResponse);
                 trimHistory();
             }
-            if (thinkingContent != null && !thinkingContent.isEmpty()) {
-                onChunk.accept("<thinking>\n" + thinkingContent + "\n</thinking>\n");
+
+            if (onComplete != null) {
+                onComplete.run();
             }
-            if (finalResponse != null && !finalResponse.isEmpty()) {
-                onChunk.accept(finalResponse);
-            }
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             if (onComplete != null) {
                 onComplete.run();
             }
@@ -169,6 +226,10 @@ public class ChatService {
             }
             throw new com.boris.exceptions.BorisException("Chat error", e);
         } finally {
+            if (taskAborter != null) {
+                taskAborter.unregisterTask(Thread.currentThread());
+                taskAborter.markGenerationEnd();
+            }
             ThinkContextHolder.clearAll();
         }
     }
