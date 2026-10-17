@@ -17,10 +17,12 @@ create_library_context(repo: "owner/repo", version: "X.X.X", project_path: "/rut
 ```
 Este tool descarga el repo UNA SOLA VEZ y lo guarda en .boris/repos/. Las siguientes llamadas usan el cache local (sin internet).
 
-PASO 2: Leer el contexto generado
+PASO 2: Leer el contexto generado (OBLIGATORIO usar batch_read_files)
 ```
 batch_read_files paths: [".boris/CONTEXT.md"]
 ```
+**IMPORTANTE: Usar `cat` o `execute_command` para leer el CONTEXT.md NO CUENTA.**
+**DEBE ser batch_read_files o write_file te bloqueará.**
 
 PASO 3: Implementar SOLO con clases documentadas en CONTEXT.md
 
