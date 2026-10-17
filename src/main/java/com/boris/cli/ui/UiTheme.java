@@ -10,6 +10,7 @@ public final class UiTheme {
     public static final TextColor BG_ELEVATED = new TextColor.RGB(50, 40, 22);
     public static final TextColor FG = new TextColor.RGB(175, 145, 75);
     public static final TextColor MUTED = new TextColor.RGB(115, 95, 55);
+    public static final TextColor TOOL_DETAIL = new TextColor.RGB(90, 90, 90);
     public static final TextColor ACCENT = new TextColor.RGB(0, 210, 0);
     public static final TextColor USERC = new TextColor.RGB(175, 145, 75);
     public static final TextColor SELECTED_BG = new TextColor.RGB(35, 28, 15);

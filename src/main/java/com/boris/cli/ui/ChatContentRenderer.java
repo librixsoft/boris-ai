@@ -208,7 +208,7 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
 
     private void renderToolDetailLine(TextGUIGraphics graphics, String line, int row, int contentWidth) {
         graphics.setBackgroundColor(UiTheme.BG);
-        graphics.setForegroundColor(UiTheme.MUTED);
+        graphics.setForegroundColor(UiTheme.TOOL_DETAIL);
         graphics.putString(0, row, padOrTruncate(line, contentWidth));
     }
 
