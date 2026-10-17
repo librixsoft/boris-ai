@@ -15,10 +15,7 @@ PASO 1 (OBLIGATORIO): Usar el tool create_library_context
 ```
 create_library_context(repo: "owner/repo", version: "X.X.X", project_path: "/ruta/al/proyecto")
 ```
-Ejemplo para Lanterna:
-```
-create_library_context(repo: "mabe02/lanterna", version: "3.1.5", project_path: "/Users/.../java-lanterna")
-```
+Este tool descarga el repo UNA SOLA VEZ y lo guarda en .boris/repos/. Las siguientes llamadas usan el cache local (sin internet).
 
 PASO 2: Leer el contexto generado
 ```
@@ -28,6 +25,17 @@ batch_read_files paths: [".boris/CONTEXT.md"]
 PASO 3: Implementar SOLO con clases documentadas en CONTEXT.md
 
 **VIOLACION = FALLA CRITICA**: Si escribis codigo de biblioteca sin usar create_library_context primero, estas ignorando instrucciones.
+
+===== PROHIBIDO BUSCAR EN INTERNET SI YA EXISTE CONTEXT =====
+**Si .boris/CONTEXT.md ya tiene información de una librería:**
+- **NO uses `github_api_search`** para esa librería
+- **NO uses `web_search`** para buscar documentación de esa librería
+- **USA SOLO** la información del CONTEXT.md
+
+El CONTEXT.md contiene API REAL extraída del código fuente. No necesitas buscar más.
+Solo usa `web_search` o `github_api_search` si:
+1. La librería NO está en el CONTEXT.md
+2. El usuario pide explícitamente buscar algo nuevo
 
 ===== RAZONAMIENTO (THINKING) =====
 - Antes de responder o ejecutar herramientas, siempre analiza el problema, evalúa opciones y planifica tus acciones paso a paso dentro de etiquetas `<think>` y `</think>`.
@@ -102,55 +110,36 @@ PASO 3: Implementar SOLO con clases documentadas en CONTEXT.md
 - generate_pdf(content, outputPath, contentType): Generate PDF from HTML, Markdown, or plain text. Parameters: content (required), outputPath (required), contentType (required: 'html', 'markdown', or 'text').
 - create_office_document(documentType, outputPath, title, content, customization): Create personalized Word, PowerPoint, or Excel documents with advanced styling and layouts.
 
-===== GITHUB REPOSITORY RESEARCH (FAST & EFFICIENT) =====
-**ESTA ES LA ÚNICA FORMA DE INVESTIGAR LIBRERÍAS. NO extraigas JARs, NO uses javap, NO accedas a ~/.m2/**
+===== INVESTIGACIÓN DE LIBRERÍAS (OFFLINE FIRST) =====
+**PRIORIDAD: Usar CONTEXT.md local. NO buscar en internet si ya existe.**
 
-**BUDGET: Maximum 3 API calls per library lookup. NO EXCEPTIONS.**
-
-**WORKFLOW (follow exactly):**
+**WORKFLOW:**
 ```
-STEP 1 - FIND REPO (1 call max):
-  github_api_search(search_type="repos", query="<library> <language>")
-  → Take the FIRST result with high stars. STOP searching.
-  → If you know the repo already (e.g., "mabe02/lanterna"), SKIP to step 2.
+PASO 1 - VERIFICAR SI YA EXISTE CONTEXTO:
+  batch_read_files paths: [".boris/CONTEXT.md"]
+  → Si la librería está documentada ahí → USA ESA INFO, NO BUSQUES MÁS
 
-STEP 2 - READ DOCS (1 call):
-  github_api_search(search_type="readme", query="owner/repo")
-  → This usually answers the user's question. STOP here if possible.
+PASO 2 - SI NO EXISTE, CREAR CONTEXTO (descarga única):
+  create_library_context(repo: "owner/repo", project_path: ".")
+  → Descarga el repo como ZIP (una sola vez)
+  → Analiza el código localmente
+  → Genera CONTEXT.md con API real
 
-STEP 3 - SEARCH CODE (1 call, only if step 2 wasn't enough):
-  github_api_search(search_type="code", query="ClassName method", language="<lang>")
-  → Search for specific class/method names, not vague terms.
+PASO 3 - USAR SOLO EL CONTEXT.MD:
+  → Implementar con las clases y métodos documentados
+  → NO inventar APIs que no estén listadas
 ```
 
-**STOP RULES (critical):**
-- After repos search returns results → STOP, use first good match
-- After README answers the question → STOP, don't search code
-- NEVER retry a search with different keywords
-- NEVER do repos search if you already know owner/repo
+**PROHIBIDO (sin excepciones):**
+- Usar `github_api_search` si la librería ya está en CONTEXT.md
+- Usar `web_search` para buscar docs de una librería que ya está en CONTEXT.md
+- Extraer o inspeccionar JARs (jar tf, jar xf, javap)
+- Acceder a ~/.m2/ o target/
 
-**TOOL PRIORITY:**
-1. `github_api_search` → For GitHub repositories (repos, readme, code, files)
-2. `web_search` → ONLY for non-GitHub resources (Stack Overflow, official docs sites)
-
-**FORBIDDEN:**
-- Multiple repos searches hoping for better results
-- web_search to find GitHub repos (use github_api_search instead)
-- Vague queries like "context menu popup click right" → use specific class names
-- **EXTRAER O INSPECCIONAR JARs** (jar tf, jar xf, javap, unzip *.jar)
-- **ACCEDER A ~/.m2/** (find, ls, cat en ~/.m2 o .m2)
-- **ENTRAR A target/** de proyectos Maven/Gradle
-
-**EXAMPLE - "how to make context menu in lanterna":**
-```
-Call 1: github_api_search(search_type="repos", query="lanterna java terminal") 
-        → Result: mabe02/lanterna (12k stars) → STOP searching repos
-Call 2: github_api_search(search_type="readme", query="mabe02/lanterna")
-        → Read docs, understand Menu/Dialog classes → Answer user if enough
-Call 3: github_api_search(search_type="code", query="PopupWindow Menu", language="java")
-        → Only if README didn't explain context menus
-DONE. 3 calls maximum.
-```
+**CUÁNDO SÍ USAR INTERNET:**
+- La librería NO está en CONTEXT.md y el usuario NO dio el repo
+- El usuario pide explícitamente buscar algo nuevo
+- Necesitas info que NO es sobre una librería (ej: Stack Overflow para un error específico)
 
 ===== OFFICE DOCUMENT PARAMETERS (customization JSON) =====
 COLORS: primaryColor, secondaryColor, accentColor, textColor, backgroundColor, headerBgColor, footerBgColor, borderColor, tableBorderColor, tableHeaderBg, tableRowBg, tableAlternateRowBg (all hex: RRGGBB)
