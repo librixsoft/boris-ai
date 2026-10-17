@@ -592,8 +592,10 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "validated_line_start",
-            description = "Start validated line-by-line editing. Each line is validated against CONTEXT.md BEFORE writing. " +
-                         "If error found, returns relevant API context so you can correct. Sacrifices speed for accuracy.")
+            description = "STEP 1: Start editing a file. Call ONLY ONCE per file. " +
+                         "After this, use validated_line_write for EACH line. " +
+                         "NEVER call this again for the same file - it will RESET and lose all progress. " +
+                         "Flow: start(1x) -> write(Nx) -> end(1x)")
     public String validated_line_start(
             @ToolParam(description = "Path for the file to create/edit") String path) {
         ToolProgressNotifier.notify("validated_line_start", "Iniciando edición validada: " + path);
@@ -606,9 +608,10 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "validated_line_write",
-            description = "Write one line of code. Validates against CONTEXT.md. " +
-                         "If valid: writes and returns OK. " +
-                         "If error: does NOT write, returns the correct API to use so you can fix and retry.")
+            description = "STEP 2: Write ONE line. Call this for EACH line of code, one at a time. " +
+                         "Validates against CONTEXT.md. If error: fix and retry the SAME line. " +
+                         "Do NOT repeat lines already written. Do NOT restart the file. " +
+                         "Continue until all lines are written, then call validated_line_end.")
     public String validated_line_write(
             @ToolParam(description = "Single line of code to write") String line) {
         java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
@@ -620,7 +623,8 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "validated_line_end",
-            description = "Finish validated line-by-line editing and close the file.")
+            description = "STEP 3: Finish and save the file. Call ONLY ONCE after all lines are written. " +
+                         "This closes the file. After this, the file is complete.")
     public String validated_line_end() {
         String result = com.boris.edit.ValidatedLineEditTool.validated_line_end(java.util.Map.of());
         notifyToolTokens("validated_line_end", "", result);
