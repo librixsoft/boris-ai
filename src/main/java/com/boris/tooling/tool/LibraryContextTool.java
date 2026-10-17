@@ -145,47 +145,52 @@ public class LibraryContextTool {
     private static List<String> findExampleFiles(String repo) {
         List<String> examples = new ArrayList<>();
 
-        // Try to find test files first (best source of real usage)
-        String[] searchPaths = {
-            "src/test/java",
-            "src/example",
-            "examples",
-            "src/main/java"
+        // Use code search to find test/example files (more reliable than directory listing)
+        String[] searchQueries = {
+            "test example repo:" + repo + " extension:java",
+            "public static void main repo:" + repo + " extension:java",
+            "BasicWindow repo:" + repo + " extension:java",
+            "Terminal Screen repo:" + repo + " extension:java"
         };
 
-        for (String searchPath : searchPaths) {
+        for (String query : searchQueries) {
             try {
-                var spec = new BatchGitHubSearchTool.SearchSpec("files", repo, searchPath, null, 20);
-                String result = GITHUB.execute(List.of(spec));
-                JsonNode node = MAPPER.readTree(result);
-
-                for (JsonNode file : node.path("files")) {
-                    String name = file.path("name").asText();
-                    String path = file.path("path").asText();
-                    if (name.endsWith(".java") &&
-                        (name.contains("Test") || name.contains("Example") ||
-                         name.contains("Demo") || name.contains("Sample"))) {
-                        examples.add(path);
-                        if (examples.size() >= 5) break;
-                    }
-                }
-            } catch (Exception ignored) {}
-
-            if (examples.size() >= 5) break;
-        }
-
-        // If no examples found, try searching for Basic or Simple classes
-        if (examples.isEmpty()) {
-            try {
-                var spec = new BatchGitHubSearchTool.SearchSpec(
-                    "code", "BasicWindow repo:" + repo, null, "java", 5);
+                var spec = new BatchGitHubSearchTool.SearchSpec("code", query, null, "java", 10);
                 String result = GITHUB.execute(List.of(spec));
                 JsonNode node = MAPPER.readTree(result);
 
                 for (JsonNode item : node.path("results")) {
-                    examples.add(item.path("path").asText());
+                    String path = item.path("path").asText();
+                    if (path.endsWith(".java") && !examples.contains(path)) {
+                        examples.add(path);
+                        if (examples.size() >= 8) break;
+                    }
                 }
             } catch (Exception ignored) {}
+
+            if (examples.size() >= 8) break;
+        }
+
+        // Fallback: try direct directory listing
+        if (examples.isEmpty()) {
+            String[] directPaths = {"src/test", "test", "examples", "sample"};
+            for (String basePath : directPaths) {
+                try {
+                    var spec = new BatchGitHubSearchTool.SearchSpec("files", repo, basePath, null, 30);
+                    String result = GITHUB.execute(List.of(spec));
+                    JsonNode node = MAPPER.readTree(result);
+
+                    for (JsonNode file : node.path("files")) {
+                        String name = file.path("name").asText();
+                        String path = file.path("path").asText();
+                        if (name.endsWith(".java")) {
+                            examples.add(path);
+                            if (examples.size() >= 5) break;
+                        }
+                    }
+                } catch (Exception ignored) {}
+                if (examples.size() >= 5) break;
+            }
         }
 
         return examples;
@@ -204,22 +209,35 @@ public class LibraryContextTool {
 
     private static Set<String> extractImports(String content, String repo) {
         Set<String> imports = new TreeSet<>();
-        Pattern pattern = Pattern.compile("^import\\s+([\\w.]+);", Pattern.MULTILINE);
-        Matcher matcher = pattern.matcher(content);
 
-        // Extract package prefix from repo name for filtering
-        String repoLower = repo.toLowerCase();
+        // Pattern for standard imports
+        Pattern pattern = Pattern.compile("import\\s+(?:static\\s+)?([\\w.]+(?:\\.\\*)?);", Pattern.MULTILINE);
+        Matcher matcher = pattern.matcher(content);
 
         while (matcher.find()) {
             String imp = matcher.group(1);
-            // Only include imports that look like they're from the library
+            // Only include imports that look like they're from the library (not standard Java)
             if (!imp.startsWith("java.") &&
                 !imp.startsWith("javax.") &&
                 !imp.startsWith("org.junit") &&
-                !imp.startsWith("org.assertj")) {
+                !imp.startsWith("org.assertj") &&
+                !imp.startsWith("org.mockito") &&
+                !imp.startsWith("org.hamcrest")) {
                 imports.add(imp);
             }
         }
+
+        // Also try to find package declarations to understand the library structure
+        Pattern pkgPattern = Pattern.compile("package\\s+([\\w.]+);", Pattern.MULTILINE);
+        Matcher pkgMatcher = pkgPattern.matcher(content);
+        if (pkgMatcher.find()) {
+            String pkg = pkgMatcher.group(1);
+            if (!pkg.startsWith("java.") && !pkg.startsWith("javax.")) {
+                // Add wildcard import for the package
+                imports.add(pkg + ".*");
+            }
+        }
+
         return imports;
     }
 
