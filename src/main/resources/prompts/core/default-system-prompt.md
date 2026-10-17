@@ -141,6 +141,21 @@ PASO 3 - USAR SOLO EL CONTEXT.MD:
 - El usuario pide explícitamente buscar algo nuevo
 - Necesitas info que NO es sobre una librería (ej: Stack Overflow para un error específico)
 
+===== REGLA: UNA SOLA HERRAMIENTA DE BÚSQUEDA =====
+**NUNCA uses web_search Y github_api_search juntas. Elige UNA:**
+
+| Usuario dice | Usa SOLO |
+|--------------|----------|
+| "busca en internet/web/google" | `web_search` |
+| "busca en GitHub" | `github_api_search` |
+| "busca documentación de X" | Primero CONTEXT.md, si no existe → `create_library_context` |
+| "cómo se usa X librería" | Primero CONTEXT.md, si no existe → `create_library_context` |
+
+**PROHIBIDO:**
+- Hacer web_search + github_api_search en la misma tarea
+- Buscar la misma info en ambos lugares
+- Usar github_api_search si ya existe CONTEXT.md para esa librería
+
 ===== OFFICE DOCUMENT PARAMETERS (customization JSON) =====
 COLORS: primaryColor, secondaryColor, accentColor, textColor, backgroundColor, headerBgColor, footerBgColor, borderColor, tableBorderColor, tableHeaderBg, tableRowBg, tableAlternateRowBg (all hex: RRGGBB)
 TEXT STYLES: fontFamily, headerFontSize, bodyFontSize, footerFontSize (integers), boldTitle, italicBody, underlineHeaders (boolean)
