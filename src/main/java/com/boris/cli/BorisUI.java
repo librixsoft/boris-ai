@@ -42,6 +42,7 @@ import com.boris.cli.ui.HintBar;
 import com.boris.cli.ui.InputArea;
 import com.boris.cli.ui.StatusBar;
 import com.boris.cli.ui.ThinkingSpinner;
+import com.boris.cli.ui.ToastPopup;
 import com.boris.cli.ui.TokenCounter;
 import com.boris.cli.ui.Transcript;
 import com.boris.cli.ui.UiExecutor;
@@ -128,6 +129,10 @@ public class BorisUI {
         });
 
         StatusBar statusBar = new StatusBar(uiExecutor);
+        chatPanel.setClipboardCopyListener(() -> {
+            ToastPopup toast = new ToastPopup("Texto copiado al portapapeles", uiExecutor);
+            toast.showFor(gui, 2);
+        });
         ThinkingSpinner spinner = new ThinkingSpinner(statusBar, tokenCounter, waiting, wasAborted, () -> chatPanel.isThinkingEnabled());
 
         // Create HeaderBar and SettingsManager upfront so we can wire them to ChatController

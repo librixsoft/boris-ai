@@ -2,9 +2,21 @@ package com.boris.cli.ui;
 
 import com.googlecode.lanterna.gui2.Label;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
 public class StatusBar extends Label {
 
     private final UiExecutor uiExecutor;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "StatusBar-Timer");
+        t.setDaemon(true);
+        return t;
+    });
+    private ScheduledFuture<?> pendingClear;
+    private String persistentStatus = "";
 
     public StatusBar(UiExecutor uiExecutor) {
         super("");
@@ -17,7 +29,20 @@ public class StatusBar extends Label {
     }
 
     public void showTokenStatus(TokenCounter tokens) {
-        uiExecutor.run(() -> setText(tokens.statusText()));
+        uiExecutor.run(() -> {
+            persistentStatus = tokens.statusText();
+            setText(persistentStatus);
+        });
+    }
+
+    public void showTemporaryMessage(String message, int durationSeconds) {
+        if (pendingClear != null) {
+            pendingClear.cancel(false);
+        }
+        uiExecutor.run(() -> setText(message));
+        pendingClear = scheduler.schedule(() -> {
+            uiExecutor.run(() -> setText(persistentStatus));
+        }, durationSeconds, TimeUnit.SECONDS);
     }
 
     public void showThinking(String frame, int minutes, int seconds, TokenCounter tokens, boolean thinkingEnabled) {

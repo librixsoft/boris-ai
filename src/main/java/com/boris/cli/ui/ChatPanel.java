@@ -57,6 +57,8 @@ public class ChatPanel extends AbstractComponent<ChatPanel> {
 
     private boolean thinkingEnabled = true;
 
+    private Runnable clipboardCopyListener;
+
     public ChatPanel() {
         super();
         setPreferredSize(new TerminalSize(80, 20));
@@ -69,6 +71,10 @@ public class ChatPanel extends AbstractComponent<ChatPanel> {
     public void setThinkingEnabled(boolean thinkingEnabled) {
         this.thinkingEnabled = thinkingEnabled;
         invalidate();
+    }
+
+    public void setClipboardCopyListener(Runnable listener) {
+        this.clipboardCopyListener = listener;
     }
 
     public boolean isAtBottom() {
@@ -168,6 +174,22 @@ public class ChatPanel extends AbstractComponent<ChatPanel> {
         invalidate();
     }
 
+    public int getScrollDeltaForDrag(TerminalPosition globalPos) {
+        if (!selecting || globalPos == null) {
+            return 0;
+        }
+        TerminalPosition localPos = toLocal(globalPos);
+        int localRow = localPos.getRow();
+        int maxRows = getEffectiveRows();
+
+        if (localRow < 0) {
+            return localRow; // negative = scroll up
+        } else if (localRow >= maxRows) {
+            return localRow - maxRows + 1; // positive = scroll down
+        }
+        return 0;
+    }
+
     public void onMouseDrag(TerminalPosition globalPos) {
         if (!selecting || globalPos == null) {
             return;
@@ -202,6 +224,9 @@ public class ChatPanel extends AbstractComponent<ChatPanel> {
             String text = getSelectedText();
             if (text != null && !text.isEmpty()) {
                 ClipboardUtil.copy(text);
+                if (clipboardCopyListener != null) {
+                    clipboardCopyListener.run();
+                }
             }
         }
         invalidate();

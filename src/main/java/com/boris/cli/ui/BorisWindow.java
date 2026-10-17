@@ -60,6 +60,10 @@ public class BorisWindow extends BasicWindow {
                 }
             } else if (type == MouseActionType.DRAG) {
                 if (chatPanel != null && chatPanel.isSelecting()) {
+                    int scrollDelta = chatPanel.getScrollDeltaForDrag(pos);
+                    if (scrollDelta != 0) {
+                        onScroll.accept(scrollDelta);
+                    }
                     chatPanel.onMouseDrag(pos);
                     return true;
                 }
