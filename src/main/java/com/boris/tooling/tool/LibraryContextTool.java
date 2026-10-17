@@ -152,7 +152,12 @@ public class LibraryContextTool {
         List<String> examples = new ArrayList<>();
 
         // Navigate directory structure recursively (no auth required)
+        // Prioritize gui2 and example directories for UI libraries
         String[] basePaths = {
+            "src/test/java/com/googlecode/lanterna/gui2",
+            "src/main/java/com/googlecode/lanterna/gui2",
+            "src/test/java/com/googlecode/lanterna/screen",
+            "src/test/java/com/googlecode/lanterna/terminal",
             "src/test/java",
             "src/main/java",
             "test",
@@ -160,9 +165,8 @@ public class LibraryContextTool {
         };
 
         for (String basePath : basePaths) {
-            // DEBUG: Exploring: " + basePath);
             exploreDirectory(repo, basePath, examples, 0);
-            if (examples.size() >= 10) break;
+            if (examples.size() >= 15) break;
         }
 
         // DEBUG: Total files found: " + examples.size());
@@ -252,6 +256,22 @@ public class LibraryContextTool {
         return imports;
     }
 
+    private static final Set<String> JAVA_STANDARD_CLASSES = Set.of(
+        "ArrayList", "HashMap", "HashSet", "LinkedList", "TreeMap", "TreeSet",
+        "String", "StringBuilder", "StringBuffer", "Integer", "Long", "Double", "Float", "Boolean",
+        "Object", "Class", "Thread", "Runnable", "Exception", "Error", "Throwable",
+        "File", "Path", "Files", "Paths", "URL", "URI", "InputStream", "OutputStream",
+        "Reader", "Writer", "BufferedReader", "BufferedWriter", "PrintWriter", "PrintStream",
+        "ByteArrayInputStream", "ByteArrayOutputStream", "StringReader", "StringWriter",
+        "Arrays", "Collections", "List", "Map", "Set", "Queue", "Deque", "Iterator",
+        "Pattern", "Matcher", "Scanner", "Random", "Math", "System", "Runtime",
+        "Date", "Calendar", "LocalDate", "LocalTime", "LocalDateTime", "Instant",
+        "Optional", "Stream", "Collectors", "Function", "Consumer", "Supplier", "Predicate",
+        "ProcessBuilder", "Process", "InputStreamReader", "OutputStreamWriter",
+        "ArrayOutputStream", "FULL_WIDTH_ROMANJI", "HALF_WIDTH_KATAKANA", "HANGUL",
+        "NEW_LINE_AFTER", "SIMPLIFIED_CHINESE_2500_MOST_COMMON"
+    );
+
     private static Set<String> extractClassUsage(String content) {
         Set<String> classes = new TreeSet<>();
 
@@ -259,7 +279,10 @@ public class LibraryContextTool {
         Pattern newPattern = Pattern.compile("new\\s+([A-Z][\\w]+)\\s*[(<]");
         Matcher matcher = newPattern.matcher(content);
         while (matcher.find()) {
-            classes.add(matcher.group(1));
+            String cls = matcher.group(1);
+            if (!JAVA_STANDARD_CLASSES.contains(cls)) {
+                classes.add(cls);
+            }
         }
 
         // Pattern to find static method calls: ClassName.method(
@@ -267,8 +290,8 @@ public class LibraryContextTool {
         matcher = staticPattern.matcher(content);
         while (matcher.find()) {
             String cls = matcher.group(1);
-            if (!cls.equals("System") && !cls.equals("String") && !cls.equals("Arrays")) {
-                classes.add(matcher.group(1));
+            if (!JAVA_STANDARD_CLASSES.contains(cls)) {
+                classes.add(cls);
             }
         }
 
