@@ -196,10 +196,7 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
     }
 
     private boolean isToolDetailLine(String line) {
-        if (line == null || line.isEmpty()) {
-            return false;
-        }
-        return line.startsWith("[") && line.contains("]") && line.indexOf(']') < 30;
+        return line != null && line.startsWith("[tool]");
     }
 
     private boolean isStatsLine(String line) {
@@ -207,9 +204,10 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
     }
 
     private void renderToolDetailLine(TextGUIGraphics graphics, String line, int row, int contentWidth) {
+        String content = line.substring("[tool]".length());
         graphics.setBackgroundColor(UiTheme.BG);
         graphics.setForegroundColor(UiTheme.TOOL_DETAIL);
-        graphics.putString(0, row, padOrTruncate(line, contentWidth));
+        graphics.putString(0, row, padOrTruncate(content, contentWidth));
     }
 
     private void renderStatsLine(TextGUIGraphics graphics, String line, int row, int contentWidth) {

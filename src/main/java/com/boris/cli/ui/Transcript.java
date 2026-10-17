@@ -188,6 +188,15 @@ public class Transcript {
             }
             if (e.type() == EntryType.STATS) {
                 sb.append("[stats]").append(e.content());
+            } else if (e.type() == EntryType.TOOL_DETAIL) {
+                // Mark each line with [tool] prefix so renderer can apply correct color
+                String[] lines = e.content().split("\n", -1);
+                for (int i = 0; i < lines.length; i++) {
+                    if (i > 0) {
+                        sb.append("\n");
+                    }
+                    sb.append("[tool]").append(lines[i]);
+                }
             } else {
                 sb.append(e.content());
             }
