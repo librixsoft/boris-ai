@@ -28,6 +28,7 @@ import com.boris.llm.ollama.OllamaModelService;
 import com.boris.settings.Settings;
 import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
+import com.boris.tooling.DiffLineNotifier;
 import com.boris.tooling.ToolProgressNotifier;
 import com.boris.tooling.ToolResultNotifier;
 
@@ -126,6 +127,11 @@ public class BorisUI {
         // Progress notifications from tools (can be toggled with Ctrl+O)
         ToolProgressNotifier.addListener((toolName, message) -> {
             transcript.appendToolDetail(toolName, message);
+        });
+
+        // Diff line notifications - rendered with colors, not as tool details
+        DiffLineNotifier.addListener(line -> {
+            transcript.appendLine(line);
         });
 
         StatusBar statusBar = new StatusBar(uiExecutor);

@@ -7,19 +7,12 @@ import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.tooling.ToolDefinition;
 public class WriteTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-
-    /** Contador de intentos bloqueados por archivo */
-    private static final ConcurrentHashMap<String, AtomicInteger> BLOCKED_ATTEMPTS = new ConcurrentHashMap<>();
-    private static final int MAX_WRITE_ATTEMPTS = 3;
 
     public static ToolDefinition write_file() {
         var pathProp = Map.of("type", "string", "description", "Absolute or relative file path");
@@ -51,34 +44,13 @@ public class WriteTool {
 
         Path path = Paths.get(pathStr);
 
-        // === VALIDACIÓN: Escritura incremental obligatoria ===
+        // Sugerir usar streaming_edit para archivos de código
         if (isCodeFile(pathStr)) {
             long lineCount = content.lines().count();
-            if (lineCount > 10) {
-                // Incrementar contador de intentos para este archivo
-                AtomicInteger attempts = BLOCKED_ATTEMPTS.computeIfAbsent(pathStr, k -> new AtomicInteger(0));
-                int attemptCount = attempts.incrementAndGet();
-
-                if (attemptCount >= MAX_WRITE_ATTEMPTS) {
-                    return formatOutput(false,
-                        "STOP. DETENERSE AHORA.\n" +
-                        "Has intentado " + attemptCount + " veces escribir archivo completo.\n\n" +
-                        "EL ESQUELETO YA EXISTE. NO uses write_file de nuevo.\n\n" +
-                        "ÚNICA OPCIÓN:\n" +
-                        "1. search_context(query: \"Clase\") → buscar métodos\n" +
-                        "2. apply_edit(path, old_text, new_text) → añadir código\n\n" +
-                        "NO REINTENTES write_file. USA apply_edit.");
-                }
-
-                String className = extractClassName(pathStr);
+            if (lineCount > 15) {
                 return formatOutput(false,
-                    "BLOQUEADO (intento " + attemptCount + "/" + MAX_WRITE_ATTEMPTS + ").\n" +
-                    "El archivo tiene " + lineCount + " líneas (máximo: 10).\n\n" +
-                    "Crea SOLO esqueleto, luego usa apply_edit.\n" +
-                    "Si insistes, serás bloqueado.");
-            } else {
-                // Escribió esqueleto OK - resetear contador
-                BLOCKED_ATTEMPTS.remove(pathStr);
+                    "Para archivos de código grandes, usa streaming_edit_start/line/finish.\n" +
+                    "write_file es solo para archivos de configuración (json, xml, properties).");
             }
         }
 
@@ -129,15 +101,6 @@ public class WriteTool {
             .anyMatch(imp -> !imp.startsWith("java.") &&
                            !imp.startsWith("javax.") &&
                            !imp.startsWith("jdk."));
-    }
-
-    private static String extractClassName(String path) {
-        String fileName = Paths.get(path).getFileName().toString();
-        int dotIndex = fileName.lastIndexOf('.');
-        if (dotIndex > 0) {
-            return fileName.substring(0, dotIndex);
-        }
-        return fileName;
     }
 
     private static boolean isCodeFile(String path) {
