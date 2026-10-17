@@ -52,8 +52,13 @@ public class WriteTool {
                 if (!Files.exists(contextFile)) {
                     return formatOutput(false,
                         "BLOQUEADO: Antes de escribir codigo con bibliotecas externas, " +
-                        "debes crear .boris/CONTEXT.md con la documentacion de la API. " +
-                        "Ejecuta: mkdir -p .boris && write_file .boris/CONTEXT.md con imports, clases y ejemplos.");
+                        "debes crear .boris/CONTEXT.md. Usa: create_library_context(repo, version, project_path)");
+                }
+                // Verificar si el contexto fue leído en esta sesión
+                if (!ContextTracker.wasRead(projectRoot)) {
+                    return formatOutput(false,
+                        "BLOQUEADO: Debes leer .boris/CONTEXT.md antes de escribir codigo. " +
+                        "Ejecuta: batch_read_files([\".boris/CONTEXT.md\"]) y usa SOLO las clases documentadas ahi.");
                 }
             }
         }
