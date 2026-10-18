@@ -18,6 +18,11 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ToolParam {
     /**
+     * Nombre explícito del parámetro para el schema del LLM (opcional, por defecto el del parámetro Java).
+     */
+    String name() default "";
+
+    /**
      * Descripción del parámetro para el schema del LLM.
      */
     String description() default "";

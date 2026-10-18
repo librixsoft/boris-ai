@@ -69,4 +69,33 @@ class ChatServiceTest {
         service.clearHistory();
         assertTrue(service.getConversationHistory().isEmpty());
     }
+
+    @Test
+    void testToolRegistryHasExpectedTools() {
+        var registry = com.boris.tooling.integration.ToolCallingConfig.buildToolRegistry();
+        assertTrue(registry.hasTool("maven_build"));
+        assertTrue(registry.hasTool("read_file"));
+        assertTrue(registry.hasTool("batch_read_files"));
+        assertTrue(registry.hasTool("execute_command"));
+        assertTrue(registry.hasTool("write_file"));
+        assertTrue(registry.hasTool("apply_edit"));
+    }
+
+    @Test
+    void testSystemPromptContainsToolGuidance() {
+        String prompt = com.boris.tooling.integration.ToolCallingConfig.loadSystemPrompt(null);
+        assertNotNull(prompt);
+        assertTrue(prompt.contains("maven_build"));
+        assertTrue(prompt.contains("REGLA OBLIGATORIA DE TOOL CALLING"));
+    }
+
+    @Test
+    void testStreamingFileWriterSuppressesThinkingTags() {
+        var writer = new com.boris.edit.StreamingFileWriter();
+        String output = writer.processChunk("<think>\nAnalizando proyecto\n</think>\nVoy a compilar.");
+        writer.finish();
+        assertFalse(output.contains("<think>"));
+        assertFalse(output.contains("</think>"));
+        assertTrue(output.contains("Voy a compilar."));
+    }
 }

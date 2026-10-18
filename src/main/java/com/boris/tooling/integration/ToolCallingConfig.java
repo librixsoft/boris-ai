@@ -127,7 +127,12 @@ public class ToolCallingConfig {
 
         try {
             for (String path : SYSTEM_PROMPT_PATHS) {
-                Path resolved = Path.of(System.getProperty("user.home"), path.substring(1));
+                Path resolved;
+                if (path.startsWith("~/")) {
+                    resolved = Path.of(System.getProperty("user.home"), path.substring(2));
+                } else {
+                    resolved = Path.of(path);
+                }
                 if (Files.exists(resolved)) {
                     String agentsContent = Files.readString(resolved).trim();
                     if (!agentsContent.isEmpty()) {
@@ -136,6 +141,10 @@ public class ToolCallingConfig {
                 }
             }
         } catch (IOException ignored) {}
+
+        if (settings != null && settings.getSystemPrompt() != null && !settings.getSystemPrompt().isBlank()) {
+            prompt.append("\n\n").append(settings.getSystemPrompt().trim());
+        }
 
         return prompt.toString();
     }
@@ -394,8 +403,23 @@ public class ToolCallingConfig {
         return result;
     }
 
-    // execute_command y batch_execute_commands ELIMINADOS
-    // Ver TODO.md para plan de reemplazo con git_tool y build_tool
+    @Tool(
+            name = "execute_command",
+            description = "Execute a shell command (e.g. build, compile, scripts) in the project workspace.")
+    public String execute_command(@ToolParam(description = "Shell command to execute") String command) {
+        if (command == null || command.isBlank()) {
+            return "{\"success\": false, \"error\": \"Command is required\"}";
+        }
+        String dir = ProjectContext.getProjectPath();
+        if (dir == null || dir.isBlank()) {
+            dir = System.getProperty("user.dir");
+        }
+        ToolProgressNotifier.notify("execute_command", "Ejecutando: " + command);
+        String result = batchExecuteCommandTool.execute(List.of(new BatchExecuteCommandTool.CommandSpec(command, dir)));
+        notifyToolTokens("execute_command", command, result);
+        ToolResultNotifier.notifyQueryResult("execute_command", command, result);
+        return result;
+    }
 
     // ========== Git Tool ==========
 
@@ -404,8 +428,8 @@ public class ToolCallingConfig {
             description = "Execute git commands for version control. Supports: status, diff, log, add, commit, push, pull, branch, checkout, reset, stash, fetch, merge, rebase. Use for all git operations.")
     public String git(
             @ToolParam(description = "Git command: status, diff, log, add, commit, push, pull, branch, checkout, reset, stash, fetch, merge, rebase") String command,
-            @ToolParam(description = "Additional arguments (file paths, branch names, commit messages, etc.)") String args,
-            @ToolParam(description = "Working directory (default: current)") String working_dir) {
+            @ToolParam(description = "Additional arguments (file paths, branch names, commit messages, etc.)", required = false) String args,
+            @ToolParam(description = "Working directory (default: current)", required = false) String working_dir) {
 
         if (command == null || command.isBlank()) {
             return "{\"success\": false, \"error\": \"Command is required\"}";
@@ -428,32 +452,36 @@ public class ToolCallingConfig {
     // ========== Existing Batch Tools ==========
 
     @Tool(
+            name = "read_file",
+            description = "Read a single file from disk. Returns file content.")
+    public String read_file(
+            @ToolParam(description = "Absolute or relative file path to read") String path,
+            @ToolParam(description = "Optional maximum lines to read (default: all)", required = false) Integer max_lines_per_file) {
+        String resolvedPath = ProjectContext.resolveRelativePath(path != null ? path : "");
+        String result = batchReadFileTool.execute(List.of(resolvedPath), max_lines_per_file);
+        notifyToolTokens("read_file", path != null ? path : "", result);
+        ToolResultNotifier.notifyQueryResult("read_file", path != null ? path : "", result);
+        return result;
+    }
+
+    @Tool(
             name = "batch_read_files",
             description = "Read files from disk. Use this when inspecting files, dependencies, or tests.")
     public String batch_read_files(
             @ToolParam(description = "List of absolute or relative file paths to read") java.util.List<String> paths,
-            @ToolParam(description = "Optional maximum lines to read per file (default: all)") Integer max_lines_per_file) {
-        String result = batchReadFileTool.execute(paths, max_lines_per_file);
-        String pathsStr = (paths != null && !paths.isEmpty()) ? String.join(", ", paths) : "empty";
+            @ToolParam(description = "Optional maximum lines to read per file (default: all)", required = false) Integer max_lines_per_file) {
+        List<String> resolvedPaths = new ArrayList<>();
+        if (paths != null) {
+            for (String p : paths) {
+                resolvedPaths.add(ProjectContext.resolveRelativePath(p));
+            }
+        }
+        String result = batchReadFileTool.execute(resolvedPaths, max_lines_per_file);
+        String pathsStr = !resolvedPaths.isEmpty() ? String.join(", ", resolvedPaths) : "empty";
         notifyToolTokens("batch_read_files", pathsStr, result);
         ToolResultNotifier.notifyQueryResult("batch_read_files", pathsStr, result);
         return result;
     }
-
-    // batch_apply_edits ELIMINADO - usar bulk_edit para crear archivos, apply_edit para ediciones
-    /*
-    @Tool(
-            name = "batch_apply_edits",
-            description = "Apply surgical edits across multiple files in parallel.")
-    @SuppressWarnings("unchecked")
-    public String batch_apply_edits(
-            @ToolParam(description = "List of edit specifications") java.util.List<java.util.Map<String, Object>> edits) {
-        // DISABLED
-        return "{\"error\": \"batch_apply_edits disabled. Use bulk_edit or apply_edit.\"}";
-    }
-    */
-
-    // parallel_search ELIMINADO
 
     // ========== Maven Build Tool ==========
 
@@ -461,8 +489,8 @@ public class ToolCallingConfig {
             name = "maven_build",
             description = "Execute Maven commands (compile, test, package, clean). Use to compile and check for errors.")
     public String maven_build(
-            @ToolParam(description = "Maven goal: compile, test, package, clean, verify, install") String goal,
-            @ToolParam(description = "Project directory (optional, default: current)") String project_path) {
+            @ToolParam(description = "Maven goal: compile, test, package, clean, verify, install", required = false) String goal,
+            @ToolParam(description = "Project directory (optional, default: current workspace)", required = false) String project_path) {
 
         // Solo permitir goals seguros
         java.util.Set<String> allowedGoals = java.util.Set.of(
@@ -479,14 +507,26 @@ public class ToolCallingConfig {
             return "{\"success\": false, \"error\": \"Goal no permitido: " + goal + ". Usa: compile, test, package, clean, verify, install\"}";
         }
 
-        String dir = project_path != null && !project_path.isBlank()
-            ? project_path
-            : System.getProperty("user.dir");
+        String dir = (project_path != null && !project_path.isBlank())
+            ? ProjectContext.resolveRelativePath(project_path)
+            : ProjectContext.getProjectPath();
+        if (dir == null || dir.isBlank()) {
+            dir = System.getProperty("user.dir");
+        }
 
-        ToolProgressNotifier.notify("maven_build", "mvn " + goal + " en " + dir);
+        ToolProgressNotifier.notify("maven_build", "mvn " + normalizedGoal + " en " + dir);
 
         try {
-            ProcessBuilder pb = new ProcessBuilder("mvn", goal, "-q");
+            List<String> cmd = new ArrayList<>();
+            cmd.add("mvn");
+            for (String part : normalizedGoal.split("\\s+")) {
+                if (!part.isBlank()) {
+                    cmd.add(part);
+                }
+            }
+            cmd.add("-q");
+
+            ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(new java.io.File(dir));
             pb.redirectErrorStream(true);
 
@@ -494,13 +534,19 @@ public class ToolCallingConfig {
             String output = new String(process.getInputStream().readAllBytes());
             int exitCode = process.waitFor();
 
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            Map<String, Object> resultMap = new java.util.LinkedHashMap<>();
+
             if (exitCode == 0) {
-                return "{\"success\": true, \"message\": \"mvn " + goal + " completado OK\"}";
+                resultMap.put("success", true);
+                resultMap.put("message", "mvn " + normalizedGoal + " completado OK");
+                return mapper.writeValueAsString(resultMap);
             } else {
-                // Extraer errores de compilación
                 String errors = extractCompileErrors(output);
-                return "{\"success\": false, \"exit_code\": " + exitCode + ", \"errors\": \"" +
-                    errors.replace("\"", "\\\"").replace("\n", "\\n") + "\"}";
+                resultMap.put("success", false);
+                resultMap.put("exit_code", exitCode);
+                resultMap.put("errors", errors);
+                return mapper.writeValueAsString(resultMap);
             }
         } catch (Exception e) {
             return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}";

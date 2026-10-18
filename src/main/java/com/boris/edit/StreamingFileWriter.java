@@ -55,6 +55,12 @@ public class StreamingFileWriter {
         "^\\s*</?(invoke|tool_call|tool_calls|function_calls|function_call|antml:[a-zA-Z0-9_-]+)\\b.*>\\s*$"
     );
 
+    // Patrón para detectar tags de pensamiento y evitar que se filtren en la interfaz
+    private static final Pattern THINK_TAG_PATTERN = Pattern.compile(
+        "^\\s*`*</?(?:think|thinking|thought|reasoning)\\b.*?>?\\s*`*$",
+        Pattern.CASE_INSENSITIVE
+    );
+
     private StringBuilder buffer = new StringBuilder();
     private String currentFilePath = null;
     private String currentLanguage = null;
@@ -62,6 +68,7 @@ public class StreamingFileWriter {
     private int lineNumber = 0;
     private boolean inCodeBlock = false;
     private boolean isEditMode = false;
+    private boolean inThinkingBlock = false;
 
     // Estado para SEARCH/REPLACE
     private boolean inSearchBlock = false;
@@ -93,7 +100,9 @@ public class StreamingFileWriter {
 
         if (!inCodeBlock && buffer.length() > 0) {
             String pending = buffer.toString();
-            if (!pending.startsWith("`")) {
+            if (pending.matches("(?i).*`*</?(?:think|thinking|thought|reasoning)>`*.*")) {
+                buffer.setLength(0);
+            } else if (!pending.startsWith("`")) {
                 nonCodeOutput.append(pending);
                 buffer.setLength(0);
             }
@@ -104,6 +113,25 @@ public class StreamingFileWriter {
 
     private String processLine(String line) {
         String trimmed = line.trim();
+
+        // Filtrar tags y contenido de pensamiento
+        if (trimmed.matches("(?i)^`*<(?:think|thinking|thought|reasoning)\\b.*")) {
+            inThinkingBlock = true;
+            if (trimmed.matches("(?i).*</(?:think|thinking|thought|reasoning)>`*$")) {
+                inThinkingBlock = false;
+            }
+            return null;
+        }
+        if (inThinkingBlock) {
+            if (trimmed.matches("(?i).*</(?:think|thinking|thought|reasoning)>`*$")) {
+                inThinkingBlock = false;
+            }
+            return null;
+        }
+        if (trimmed.matches("(?i)^`*</(?:think|thinking|thought|reasoning)>`*$") || THINK_TAG_PATTERN.matcher(trimmed).matches()) {
+            inThinkingBlock = false;
+            return null;
+        }
 
         // ¿Inicio de bloque EDIT?
         Matcher editMatcher = EDIT_BLOCK_START.matcher(trimmed);
@@ -323,6 +351,7 @@ public class StreamingFileWriter {
         searchLines.clear();
         replaceLines.clear();
         pendingEdits.clear();
+        inThinkingBlock = false;
     }
 
     public void finish() {

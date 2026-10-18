@@ -78,7 +78,9 @@ public class ToolRegistry {
 
             for (Parameter p : methodParams) {
                 ToolParam paramAnnotation = p.getAnnotation(ToolParam.class);
-                String paramName = p.getName();
+                String paramName = (paramAnnotation != null && !paramAnnotation.name().isBlank())
+                        ? paramAnnotation.name().trim()
+                        : p.getName();
                 String paramDesc = paramAnnotation != null ? paramAnnotation.description() : "";
                 boolean required = paramAnnotation == null || paramAnnotation.required();
 
@@ -129,6 +131,24 @@ public class ToolRegistry {
             schemas.add(def.openAiToolSchema());
         }
         return schemas;
+    }
+
+    /**
+     * Construye un resumen en texto de las herramientas registradas para enriquecer el system prompt.
+     */
+    public String buildToolsSummary() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("HERRAMIENTAS DISPONIBLES (NATIVAS):\n");
+        for (ToolDefinition def : tools.values()) {
+            sb.append("- ").append(def.name()).append("(");
+            List<String> paramDefs = new ArrayList<>();
+            for (ToolParameter p : def.parameters()) {
+                paramDefs.add(p.name() + (p.required() ? "" : " [opcional]"));
+            }
+            sb.append(String.join(", ", paramDefs)).append("): ");
+            sb.append(def.description()).append("\n");
+        }
+        return sb.toString();
     }
 
     /**

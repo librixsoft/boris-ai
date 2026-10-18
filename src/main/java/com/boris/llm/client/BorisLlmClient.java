@@ -162,8 +162,17 @@ public class BorisLlmClient {
         }
     }
 
+    private static final java.util.regex.Pattern THINK_BLOCK_PATTERN =
+            java.util.regex.Pattern.compile("(?is)<(think|thinking|thought|reasoning)>(.*?)</\\1>");
+    private static final java.util.regex.Pattern ORPHAN_THINK_TAGS =
+            java.util.regex.Pattern.compile("(?i)</?(?:think|thinking|thought|reasoning)>");
+    private static final java.util.regex.Pattern FALLBACK_MAVEN_BLOCK =
+            java.util.regex.Pattern.compile("```(?:bash:compile|bash|sh|cmd)\\s*\\n\\s*(mvn\\s+[^`\\n]+)", java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final java.util.regex.Pattern FALLBACK_TOOL_JSON_BLOCK =
+            java.util.regex.Pattern.compile("```(?:tool:)?([a-zA-Z0-9_-]+)\\s*\\n\\s*(\\{[^`]+\\})\\s*```", java.util.regex.Pattern.DOTALL);
+
     /**
-     * Bucle del agente: gestiona peticiones síncronas con llamadas a tools automáticas.
+     * Bucle del agente: gestiona peticiones con llamadas a tools automáticas.
      */
     public ChatTurn executeChatWithTools(
             List<ChatMessage> conversation,
@@ -172,6 +181,21 @@ public class BorisLlmClient {
             ToolRegistry toolRegistry,
             String thinkMode,
             Double temperature,
+            Supplier<Boolean> isAborted) throws Exception {
+        return executeChatWithTools(conversation, model, systemPrompt, toolRegistry, thinkMode, temperature, null, isAborted);
+    }
+
+    /**
+     * Bucle del agente con soporte de streaming incremental de texto.
+     */
+    public ChatTurn executeChatWithTools(
+            List<ChatMessage> conversation,
+            String model,
+            String systemPrompt,
+            ToolRegistry toolRegistry,
+            String thinkMode,
+            Double temperature,
+            Consumer<String> onChunk,
             Supplier<Boolean> isAborted) throws Exception {
 
         List<ChatMessage> fullMessages = new ArrayList<>();
@@ -219,21 +243,49 @@ public class BorisLlmClient {
                 break;
             }
 
-            // Capturar thinking / reasoning si el modelo lo envió
+            // Capturar thinking / reasoning si el modelo lo envió en campo nativo
             if (assistantMsg.reasoningContent() != null && !assistantMsg.reasoningContent().isBlank()) {
-                totalThinking.append(assistantMsg.reasoningContent());
+                totalThinking.append(assistantMsg.reasoningContent()).append("\n");
             }
 
+            // Capturar y limpiar thinking embebido en content (<think>...</think>)
+            String rawContent = assistantMsg.content() != null ? assistantMsg.content() : "";
+            var matcher = THINK_BLOCK_PATTERN.matcher(rawContent);
+            while (matcher.find()) {
+                totalThinking.append(matcher.group(2).trim()).append("\n");
+            }
+            String cleanContent = THINK_BLOCK_PATTERN.matcher(rawContent).replaceAll("").trim();
+            cleanContent = ORPHAN_THINK_TAGS.matcher(cleanContent).replaceAll("").trim();
+
             List<ToolCall> toolCalls = assistantMsg.toolCalls();
+
+            // Fallback de tool calling: Si el modelo no emitió tool_calls nativos pero simuló bloques bash o tool en texto
+            if ((toolCalls == null || toolCalls.isEmpty()) && toolRegistry != null && !cleanContent.isBlank()) {
+                toolCalls = extractFallbackToolCalls(cleanContent, toolRegistry);
+            }
+
             if (toolCalls == null || toolCalls.isEmpty() || toolRegistry == null) {
-                // El modelo respondió con texto final
-                String finalContent = assistantMsg.content() != null ? assistantMsg.content() : "";
-                String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString() : null;
-                return new ChatTurn(finalContent, thinkingResult);
+                // El modelo respondió con texto final (sin llamadas a herramientas)
+                if (onChunk != null && !cleanContent.isEmpty()) {
+                    emitText(cleanContent, onChunk);
+                }
+                String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
+                return new ChatTurn(cleanContent, thinkingResult);
             }
 
             // El modelo solicitó invocar herramientas
-            fullMessages.add(assistantMsg);
+            if (onChunk != null && !cleanContent.isEmpty()) {
+                // Emitir texto previo a la invocación de la herramienta (ej. "Voy a compilar...")
+                String displayContent = cleanContent;
+                if (FALLBACK_MAVEN_BLOCK.matcher(displayContent).find()) {
+                    displayContent = FALLBACK_MAVEN_BLOCK.matcher(displayContent).replaceAll("").trim();
+                }
+                if (!displayContent.isEmpty()) {
+                    emitText(displayContent + "\n", onChunk);
+                }
+            }
+
+            fullMessages.add(ChatMessage.assistant(cleanContent, toolCalls, assistantMsg.reasoningContent()));
 
             for (ToolCall call : toolCalls) {
                 if (isAborted != null && Boolean.TRUE.equals(isAborted.get())) {
@@ -254,7 +306,40 @@ public class BorisLlmClient {
             }
         }
 
-        return new ChatTurn("", totalThinking.length() > 0 ? totalThinking.toString() : null);
+        return new ChatTurn("", totalThinking.length() > 0 ? totalThinking.toString().trim() : null);
+    }
+
+    private List<ToolCall> extractFallbackToolCalls(String content, ToolRegistry registry) {
+        List<ToolCall> list = new ArrayList<>();
+        var mavenMatcher = FALLBACK_MAVEN_BLOCK.matcher(content);
+        if (mavenMatcher.find() && registry.hasTool("maven_build")) {
+            String mvnCmd = mavenMatcher.group(1).trim();
+            String goal = mvnCmd.substring(3).trim();
+            if (goal.isBlank()) goal = "compile";
+            String jsonArgs = "{\"goal\":\"" + goal + "\"}";
+            list.add(new ToolCall("call_fallback_maven", "function", new ToolCallFunction("maven_build", jsonArgs)));
+            return list;
+        }
+
+        var jsonMatcher = FALLBACK_TOOL_JSON_BLOCK.matcher(content);
+        if (jsonMatcher.find()) {
+            String toolName = jsonMatcher.group(1).trim();
+            String jsonArgs = jsonMatcher.group(2).trim();
+            if (registry.hasTool(toolName)) {
+                list.add(new ToolCall("call_fallback_" + toolName, "function", new ToolCallFunction(toolName, jsonArgs)));
+                return list;
+            }
+        }
+
+        return list;
+    }
+
+    private void emitText(String text, Consumer<String> onChunk) {
+        if (text == null || text.isEmpty() || onChunk == null) return;
+        String[] lines = text.split("(?<=\\n)");
+        for (String line : lines) {
+            onChunk.accept(line);
+        }
     }
 
     public record ChatTurn(String response, String thinking) {}

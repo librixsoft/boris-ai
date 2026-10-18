@@ -14,12 +14,23 @@ public final class OllamaThinkSpringAiFactory {
     }
 
     public static String resolveThinkMode(Settings settings) {
-        if (settings == null || settings.getOptions() == null) {
+        if (settings == null) {
             return null;
         }
-        Object thinkValue = settings.getOptions().get("think");
-        if (thinkValue instanceof String thinkStr && !thinkStr.isBlank()) {
-            return thinkStr;
+        if (settings.getOptions() != null) {
+            Object thinkValue = settings.getOptions().get("think");
+            if (thinkValue instanceof String thinkStr && !thinkStr.isBlank()) {
+                return thinkStr;
+            }
+        }
+        if (settings.getModel() != null && settings.getModel().getOptions() != null) {
+            Object thinkValue = settings.getModel().getOptions().get("think");
+            if (thinkValue instanceof String thinkStr && !thinkStr.isBlank()) {
+                return thinkStr;
+            }
+        }
+        if (settings.getThinkingMode() != null && !settings.getThinkingMode().isBlank()) {
+            return settings.getThinkingMode();
         }
         return null;
     }

@@ -48,7 +48,8 @@ public class ChatService {
     private volatile ToolRegistry toolRegistry;
     private volatile String systemPrompt;
     private final StreamingFileWriter fileWriter;
-    private static final Pattern THINKING_PATTERN = Pattern.compile("(?i)(?:<think>|<thinking>|<thought>|<reasoning>|```)(.*?)(?:</think>|</thinking>|</thought>|</reasoning>|```)", Pattern.DOTALL);
+    private static final Pattern THINKING_PATTERN = Pattern.compile("(?is)<(think|thinking|thought|reasoning)>(.*?)</\\1>");
+    private static final Pattern ORPHAN_THINK_TAGS = Pattern.compile("(?i)</?(?:think|thinking|thought|reasoning)>");
     private static final Pattern PROJECT_PATH_PATTERN = Pattern.compile("^\\s*(/[^\\s]+|~/[^\\s]+)\\s+(.+)$", Pattern.DOTALL);
     private static final Pattern INLINE_PATH_PATTERN = Pattern.compile("(?:en|in|to|at|dentro de|path|ruta|directorio|carpeta|folder)\\s+(/[^\\s\"']+|~/[^\\s\"']+)", Pattern.CASE_INSENSITIVE);
     private volatile String currentProjectPath;
@@ -176,64 +177,57 @@ public class ChatService {
 
             fileWriter.reset();
             StringBuilder fullResponse = new StringBuilder();
-            CountDownLatch latch = new CountDownLatch(1);
-            AtomicReference<Throwable> errorRef = new AtomicReference<>();
 
-            List<ChatMessage> messages = new ArrayList<>();
-            String sysPrompt = this.systemPrompt != null ? this.systemPrompt :
-                    (currentSettings != null ? ToolCallingConfig.loadSystemPrompt(currentSettings) : "");
-            if (sysPrompt != null && !sysPrompt.isBlank()) {
-                messages.add(ChatMessage.system(sysPrompt));
+            List<ChatMessage> conv = new ArrayList<>();
+            for (String hist : conversationHistory) {
+                if (hist.startsWith("User: ")) {
+                    conv.add(ChatMessage.user(hist.substring(6)));
+                } else if (hist.startsWith(botName + ": ")) {
+                    conv.add(ChatMessage.assistant(hist.substring(botName.length() + 2)));
+                }
             }
-            messages.add(ChatMessage.user(fullMessage));
+            conv.add(ChatMessage.user(fullMessage));
 
             Double temp = currentSettings != null ? currentSettings.getTemperature() : 0.7;
-            ChatRequest request = ChatRequest.builder()
-                    .model(modelName)
-                    .messages(messages)
-                    .temperature(temp)
-                    .think(effectiveThink != null ? effectiveThink : false)
-                    .reasoningEffort(effectiveThink != null ? effectiveThink : "none")
-                    .stream(true)
-                    .build();
+            String sysPrompt = this.systemPrompt != null ? this.systemPrompt :
+                    (currentSettings != null ? ToolCallingConfig.loadSystemPrompt(currentSettings) : "");
 
-            client.chatStream(
-                    request,
+            ToolRegistry registry = this.toolRegistry != null ? this.toolRegistry :
+                    (currentSettings != null ? ToolCallingConfig.buildToolRegistry(currentSettings) : null);
+
+            BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
+                    conv,
+                    modelName,
+                    sysPrompt,
+                    registry,
+                    effectiveThink,
+                    temp,
                     chunk -> {
                         if (taskAborter != null && taskAborter.isAborted()) {
                             return;
                         }
-                        String content = chunk.getContent();
-                        if (content != null && !content.isEmpty()) {
-                            fullResponse.append(content);
-                            String chatText = fileWriter.processChunk(content);
+                        if (chunk != null && !chunk.isEmpty()) {
+                            fullResponse.append(chunk);
+                            String chatText = fileWriter.processChunk(chunk);
                             if (chatText != null && !chatText.isEmpty() && onChunk != null) {
                                 onChunk.accept(chatText);
                             }
                         }
                     },
-                    () -> {
-                        latch.countDown();
-                    },
-                    error -> {
-                        errorRef.set(error);
-                        latch.countDown();
-                    },
                     () -> taskAborter != null && taskAborter.isAborted()
             );
 
-            latch.await(10, TimeUnit.MINUTES);
-
-            if (errorRef.get() != null) {
-                throw new RuntimeException(errorRef.get());
-            }
-
             fileWriter.finish();
 
-            String finalResponse = fullResponse.toString();
-            if (enableHistory && !finalResponse.isEmpty()) {
+            String finalResponse = fullResponse.length() > 0 ? fullResponse.toString() : (turn != null ? turn.response() : "");
+            if (enableHistory && finalResponse != null && !finalResponse.isEmpty()) {
                 conversationHistory.add(botName + ": " + finalResponse);
                 trimHistory();
+            }
+
+            if (turn != null && turn.thinking() != null && !turn.thinking().isBlank()) {
+                this.lastThinkingContent = turn.thinking();
+                ThinkContextHolder.setLastThinking(turn.thinking());
             }
 
             if (onComplete != null) {
@@ -558,7 +552,7 @@ public class ChatService {
         }
         Matcher matcher = THINKING_PATTERN.matcher(response);
         if (matcher.find()) {
-            return matcher.group(1).trim();
+            return matcher.group(2).trim();
         }
         return null;
     }
@@ -567,7 +561,8 @@ public class ChatService {
         if (response == null) {
             return null;
         }
-        return THINKING_PATTERN.matcher(response).replaceAll("").trim();
+        String clean = THINKING_PATTERN.matcher(response).replaceAll("").trim();
+        return ORPHAN_THINK_TAGS.matcher(clean).replaceAll("").trim();
     }
 
     public String getLastThinkingContent() {
