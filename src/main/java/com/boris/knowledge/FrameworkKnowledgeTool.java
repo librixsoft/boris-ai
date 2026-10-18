@@ -3,6 +3,7 @@ package com.boris.knowledge;
 import com.boris.context.CodeSymbol;
 import com.boris.context.SymbolRepository;
 import com.boris.tooling.ToolProgressNotifier;
+import com.boris.tooling.LearningLimiter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -26,6 +27,13 @@ public class FrameworkKnowledgeTool {
         }
         if (className == null || className.isBlank()) {
             return error("className es requerido");
+        }
+
+        // Check learning limits (applies to ALL calls, including cache hits)
+        String conceptKey = framework + ":" + className;
+        if (!LearningLimiter.allowLearningCall(conceptKey)) {
+            return error("Límite de aprendizaje alcanzado. " + LearningLimiter.getStatus() + 
+                ". Corrige el código con la información que ya tienes y compila para ver errores específicos.");
         }
 
         Path projectRoot = KnowledgeStorageService.resolveProjectRoot(projectPath);

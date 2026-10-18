@@ -14,6 +14,7 @@ import com.boris.context.CodeIndexerService;
 import com.boris.context.SymbolRepository;
 import com.boris.tooling.ToolDefinition;
 import com.boris.tooling.ToolProgressNotifier;
+import com.boris.tooling.LearningLimiter;
 
 /**
  * Tool that downloads GitHub repositories and indexes them into SQLite for fast symbol queries.
@@ -68,6 +69,13 @@ public class LibraryContextTool {
 
         if (repo == null || repo.isBlank() || !repo.contains("/")) {
             return formatOutput(false, "Error: repo is required (format: owner/repo)");
+        }
+
+        // Check learning limits (library context is expensive)
+        if (!force && !LearningLimiter.allowLearningCall(repo)) {
+            return formatOutput(false,
+                "Límite de aprendizaje alcanzado. " + LearningLimiter.getStatus() + 
+                ". NO intentes descargar más repositorios. Corrige el código con la información que ya tienes.");
         }
 
         String repoKey = repo.toLowerCase();

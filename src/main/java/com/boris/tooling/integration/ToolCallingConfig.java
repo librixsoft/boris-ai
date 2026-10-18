@@ -218,6 +218,10 @@ public class ToolCallingConfig {
     public String write_file(
             @ToolParam(description = "Absolute or relative file path") String path,
             @ToolParam(description = "Content to write to the file") String content) {
+        // Clear compile error flag and reset learning limits when agent starts writing
+        com.boris.tooling.LearningLimiter.clearCompileErrors();
+        com.boris.tooling.LearningLimiter.reset();
+        
         ToolProgressNotifier.notify("write_file", "Escribiendo: " + path);
         String result = WriteTool.execute(Map.of("path", path, "content", content != null ? content : ""));
         notifyToolTokens("write_file", path + "\n" + content, result);
@@ -259,6 +263,10 @@ public class ToolCallingConfig {
     public String apply_edit(@ToolParam(description = "Absolute or relative file path") String path,
                              @ToolParam(description = "Exact text to find and replace in the file") String old_text,
                              @ToolParam(description = "Replacement text") String new_text) {
+        // Clear compile error flag and reset learning limits when agent starts editing
+        com.boris.tooling.LearningLimiter.clearCompileErrors();
+        com.boris.tooling.LearningLimiter.reset();
+        
         ToolProgressNotifier.notify("apply_edit", "Editando archivo: " + path);
         String inputText = path + "\n" + old_text + "\n" + new_text;
         String result = EditTool.apply_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
@@ -524,6 +532,9 @@ public class ToolCallingConfig {
                 resultMap.put("message", "mvn " + normalizedGoal + " completado OK");
                 return mapper.writeValueAsString(resultMap);
             } else {
+                // Mark that there are compile errors - block further learning
+                com.boris.tooling.LearningLimiter.markCompileErrors();
+                
                 String errors = extractCompileErrors(output);
                 resultMap.put("success", false);
                 resultMap.put("exit_code", exitCode);

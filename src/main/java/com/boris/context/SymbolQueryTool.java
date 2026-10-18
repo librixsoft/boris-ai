@@ -2,6 +2,7 @@ package com.boris.context;
 
 import com.boris.context.CodeSymbol.SymbolType;
 import com.boris.tooling.ToolProgressNotifier;
+import com.boris.tooling.LearningLimiter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -26,6 +27,12 @@ public class SymbolQueryTool {
     public static String search(String query, String type, String repo) {
         if (query == null || query.isBlank()) {
             return error("query es requerido");
+        }
+
+        // Check learning limits
+        if (!LearningLimiter.allowLearningCall(query)) {
+            return error("Límite de aprendizaje alcanzado. " + LearningLimiter.getStatus() + 
+                ". Corrige el código con la información que ya tienes y compila para ver errores específicos.");
         }
 
         // Cache key

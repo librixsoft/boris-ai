@@ -21,6 +21,7 @@ import com.boris.llm.think.ThinkContextHolder;
 import com.boris.tooling.ToolResultNotifier;
 import com.boris.tooling.engine.ToolRegistry;
 import com.boris.tooling.integration.ToolCallingConfig;
+import com.boris.tooling.LearningLimiter;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 import com.boris.task.TaskAborter;
@@ -97,6 +98,10 @@ public class ChatService {
         if (userMessage == null || userMessage.trim().isEmpty()) {
             throw new com.boris.exceptions.BorisException("User message cannot be null or empty");
         }
+        
+        // Reset learning limits for new user message
+        LearningLimiter.reset();
+        
         if (taskAborter != null && taskAborter.isAborted()) {
             return null;
         }
