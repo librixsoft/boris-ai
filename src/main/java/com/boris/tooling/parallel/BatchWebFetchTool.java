@@ -6,11 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -21,16 +16,8 @@ import com.boris.task.TaskAborter;
 import com.boris.tooling.ToolProgressNotifier;
 
 /**
- * Batch web fetch tool using Playwright with PARALLEL URL fetching.
- * Fetches multiple URLs simultaneously using Virtual Threads.
- *
- * Features:
- * - Parallel fetching of multiple URLs
- * - Single URL works exactly like old WebFetchTool
- * - Code block extraction for documentation
- * - Main content extraction with smart selectors
- * - GitHub README support
- * - Progress notifications to UI
+ * Web fetch tool using Playwright.
+ * SECUENCIAL - sin paralelismo, una URL a la vez.
  */
 public class BatchWebFetchTool {
 
@@ -39,7 +26,6 @@ public class BatchWebFetchTool {
     private static final boolean HEADLESS = Boolean.parseBoolean(PROPERTIES.getProperty("web.fetch.headless", "true"));
     private static final int TIMEOUT_MS = Integer.parseInt(PROPERTIES.getProperty("web.fetch.timeout.ms", "30000"));
     private static final int MAX_CONTENT_LENGTH = Integer.parseInt(PROPERTIES.getProperty("web.fetch.max.content.length", "50000"));
-    private static final int PARALLEL_TIMEOUT_MS = 45000;
 
     public record FetchSpec(String url, String selector, boolean extractCode) {}
     public record FetchResult(String url, boolean success, String title, String content, String error) {}
@@ -67,11 +53,8 @@ public class BatchWebFetchTool {
         if (totalUrls == 1) {
             ToolProgressNotifier.notify("web_fetch", "Navegando a: " + uniqueSpecs.get(0).url());
         } else {
-            ToolProgressNotifier.notify("web_fetch", "Fetching " + totalUrls + " URLs en paralelo...");
+            ToolProgressNotifier.notify("web_fetch", "Fetching " + totalUrls + " URLs...");
         }
-
-        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
-        List<Future<FetchResult>> futures = new ArrayList<>();
 
         try (Playwright playwright = Playwright.create()) {
             Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
@@ -82,26 +65,19 @@ public class BatchWebFetchTool {
                 .setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"));
 
             try {
-                for (FetchSpec spec : uniqueSpecs) {
-                    Page page = context.newPage();
-                    futures.add(executor.submit(() -> fetchUrl(page, spec, aborter)));
-                }
-
                 List<FetchResult> results = new ArrayList<>();
                 int successCount = 0;
                 int failCount = 0;
 
-                for (Future<FetchResult> future : futures) {
-                    try {
-                        FetchResult result = future.get(PARALLEL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-                        results.add(result);
-                        if (result.success()) {
-                            successCount++;
-                        } else {
-                            failCount++;
-                        }
-                    } catch (Exception e) {
-                        results.add(new FetchResult("unknown", false, "", "", "Fetch timed out or failed: " + e.getMessage()));
+                // SECUENCIAL - una URL a la vez
+                for (FetchSpec spec : uniqueSpecs) {
+                    Page page = context.newPage();
+                    FetchResult result = fetchUrl(page, spec, aborter);
+                    page.close();
+                    results.add(result);
+                    if (result.success()) {
+                        successCount++;
+                    } else {
                         failCount++;
                     }
                 }
@@ -121,8 +97,6 @@ public class BatchWebFetchTool {
             }
         } catch (Exception e) {
             return formatError("Error en fetch: " + e.getMessage());
-        } finally {
-            executor.shutdown();
         }
     }
 

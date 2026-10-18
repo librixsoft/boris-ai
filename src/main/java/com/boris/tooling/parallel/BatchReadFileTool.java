@@ -6,11 +6,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -19,15 +14,11 @@ import com.boris.task.TaskAborter;
 import com.boris.tooling.ToolProgressNotifier;
 
 /**
- * Herramienta para leer múltiples archivos concurrentemente del sistema
- * usando Virtual Threads de Java 21.
- * 
- * Beneficio: 1 turno de LLM reemplaza N turnos individuales.
- * Ahorro de tiempo: de ~45s a ~8s para 5 archivos.
+ * Herramienta para leer archivos del sistema.
+ * SECUENCIAL - sin paralelismo, un archivo a la vez.
  */
 public class BatchReadFileTool {
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     public record FileResult(String path, boolean success, String content, String error, int lineCount) {}
 
@@ -46,8 +37,8 @@ public class BatchReadFileTool {
     }
 
     /**
-     * Lee múltiples archivos en paralelo y devuelve un JSON agregado.
-     * 
+     * Lee archivos secuencialmente y devuelve un JSON agregado.
+     *
      * @param paths Lista de rutas de archivos a leer
      * @param maxLinesPerFile Líneas máximas a leer por archivo (null = todas)
      * @param aborter Referencia al TaskAborter para cancelación (opcional)
@@ -62,47 +53,34 @@ public class BatchReadFileTool {
             }
         }
 
-        List<Future<FileResult>> futures = new ArrayList<>();
         List<String> uniquePaths = paths.stream().distinct().toList();
 
         String fileList = String.join(", ", uniquePaths);
-        ToolProgressNotifier.notify("batch_read_files", "Leyendo " + uniquePaths.size() + " archivo(s) en paralelo: " + fileList);
+        ToolProgressNotifier.notify("batch_read_files", "Leyendo " + uniquePaths.size() + " archivo(s): " + fileList);
 
-        // Capturar ProjectContext ANTES de crear virtual threads (ThreadLocal no se propaga)
+        // Obtener projectPath para resolver rutas relativas
         String rawProjectPath = ProjectContext.getProjectPath();
-        // Fallback: si no hay projectPath, usar el directorio actual del proceso
         final String capturedProjectPath = (rawProjectPath == null || rawProjectPath.isBlank())
             ? System.getProperty("user.dir")
             : rawProjectPath;
-
-        for (String p : uniquePaths) {
-            futures.add(executor.submit(() -> readFileTask(p, maxLinesPerFile, aborter, capturedProjectPath)));
-        }
 
         ObjectNode root = MAPPER.createObjectNode();
         ArrayNode filesArray = root.putArray("files");
         int totalSuccess = 0;
         int totalFailed = 0;
 
-        for (Future<FileResult> f : futures) {
-            try {
-                FileResult r = f.get(15, TimeUnit.SECONDS);
-                ObjectNode item = filesArray.addObject();
-                item.put("path", r.path());
-                item.put("success", r.success());
-                item.put("lines", r.lineCount());
-                if (r.success()) {
-                    item.put("content", r.content());
-                    totalSuccess++;
-                } else {
-                    item.put("error", r.error());
-                    totalFailed++;
-                }
-            } catch (Exception e) {
-                ObjectNode item = filesArray.addObject();
-                item.put("path", "unknown");
-                item.put("success", false);
-                item.put("error", "Read failed: " + e.getMessage());
+        // SECUENCIAL - un archivo a la vez
+        for (String p : uniquePaths) {
+            FileResult r = readFileTask(p, maxLinesPerFile, aborter, capturedProjectPath);
+            ObjectNode item = filesArray.addObject();
+            item.put("path", r.path());
+            item.put("success", r.success());
+            item.put("lines", r.lineCount());
+            if (r.success()) {
+                item.put("content", r.content());
+                totalSuccess++;
+            } else {
+                item.put("error", r.error());
                 totalFailed++;
             }
         }
@@ -110,7 +88,7 @@ public class BatchReadFileTool {
         root.put("totalFiles", paths.size());
         root.put("successfulReads", totalSuccess);
         root.put("failedReads", totalFailed);
-        
+
         try {
             return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root);
         } catch (Exception e) {
@@ -153,18 +131,7 @@ public class BatchReadFileTool {
         }
     }
 
-    /**
-     * Cierra el executor y libera recursos.
-     */
     public void shutdown() {
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        // No hay recursos que liberar (ya no usa executor)
     }
 }

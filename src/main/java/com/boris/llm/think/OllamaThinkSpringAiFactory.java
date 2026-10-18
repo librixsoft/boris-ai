@@ -72,6 +72,8 @@ public final class OllamaThinkSpringAiFactory {
         }
         // Aumentar límite de tokens de salida para permitir archivos grandes
         optionsBuilder.maxTokens(32000);
+        // Deshabilitar tool calls paralelas - forzar una a la vez
+        optionsBuilder.parallelToolCalls(false);
 
         return OpenAiChatModel.builder()
                 .openAiApi(openAiApi)

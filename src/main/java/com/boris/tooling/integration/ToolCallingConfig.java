@@ -34,10 +34,8 @@ import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchEditTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
 import com.boris.tooling.parallel.BatchExecuteCommandTool;
-import com.boris.tooling.parallel.BatchListDirectoriesTool;
 // BatchGitHubSearchTool ELIMINADO - usar create_library_context
 import com.boris.tooling.parallel.ParallelSearchTool;
-import com.boris.tooling.ToolCallLimiter;
 import com.boris.tooling.ToolProgressNotifier;
 import com.boris.context.ProjectContext;
 import com.boris.tooling.ToolResultNotifier;
@@ -91,7 +89,6 @@ public class ToolCallingConfig {
     private final BatchEditTool batchEditTool;
     private final BatchWebFetchTool batchWebFetchTool;
     private final BatchExecuteCommandTool batchExecuteCommandTool;
-    private final BatchListDirectoriesTool batchListDirectoriesTool;
     // batchGitHubSearchTool ELIMINADO
     private final ParallelSearchTool parallelSearchTool;
     private final WebSearchTool webSearchTool;
@@ -112,12 +109,11 @@ public class ToolCallingConfig {
         this.taskPlannerTool = taskPlannerTool;
         this.settings = settings;
 
-        // Initialize all parallel tools
+        // Initialize tools
         this.batchReadFileTool = new BatchReadFileTool();
         this.batchEditTool = new BatchEditTool();
         this.batchWebFetchTool = new BatchWebFetchTool();
         this.batchExecuteCommandTool = new BatchExecuteCommandTool();
-        this.batchListDirectoriesTool = new BatchListDirectoriesTool();
         // batchGitHubSearchTool ELIMINADO
         this.parallelSearchTool = new ParallelSearchTool();
         this.webSearchTool = new WebSearchTool();
@@ -339,59 +335,14 @@ public class ToolCallingConfig {
         return result;
     }
 
-    // ========== PARALLEL Tools (Replace Sequential) ==========
-
-    @Tool(
-            name = "list_files",
-            description = "List files and directories. Accepts one or multiple paths - multiple paths are listed IN PARALLEL for faster results. MAX 3 calls with same path.")
-    public String list_files(@ToolParam(description = "Single path or array of directory paths to list") Object paths) {
-        // First, normalize and resolve paths
-        List<String> pathList = new ArrayList<>();
-        if (paths instanceof String s) {
-            pathList.add(s);
-        } else if (paths instanceof List<?> list) {
-            for (Object item : list) {
-                if (item instanceof String s) {
-                    pathList.add(s);
-                }
-            }
-        }
-        if (pathList.isEmpty()) {
-            pathList.add(".");
-        }
-
-        // Resolve relative paths using ProjectContext BEFORE loop check
-        // This ensures ".", "", null all resolve to the same absolute path
-        List<String> resolvedPaths = pathList.stream()
-            .map(ProjectContext::resolveRelativePath)
-            .toList();
-
-        // Anti-loop protection using RESOLVED paths (not original args)
-        // This catches ".", "", null as the same call
-        if (!ToolCallLimiter.checkSameCallLoop("list_files", resolvedPaths)) {
-            String msg = "LOOP DETECTADO: list_files con mismos argumentos llamado mas de 3 veces. DETENTE y usa la informacion que ya tienes.";
-            ToolProgressNotifier.notify("list_files", "⛔ " + msg);
-            return "{\"success\":false,\"error\":\"" + msg + "\",\"action\":\"STOP_AND_PROCEED\"}";
-        }
-        if (!ToolCallLimiter.incrementAndCheck()) {
-            return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLimitMessage() + "\"}";
-        }
-
-        String result = batchListDirectoriesTool.execute(resolvedPaths);
-        String pathsStr = String.join(", ", resolvedPaths);
-        notifyToolTokens("list_files", pathsStr, result);
-        ToolResultNotifier.notifyQueryResult("list_files", pathsStr, result);
-        return result;
-    }
+    // ========== Web Tools ==========
 
     @Tool(
             name = "web_search",
-            description = "Search the web using Google, Bing, and DuckDuckGo IN PARALLEL. Returns combined, deduplicated results from all engines.")
+            description = "Search the web using DuckDuckGo. Returns titles, URLs, and snippets.")
     public String web_search(@ToolParam(description = "Search query string") String query,
                              @ToolParam(description = "Number of results to return (1-10, default 5)") Integer count) {
-        if (!ToolCallLimiter.incrementAndCheck()) {
-            return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLimitMessage() + "\"}";
-        }
+        ToolProgressNotifier.notify("web_search", "Buscando: " + query);
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("query", query);
         if (count != null) args.put("count", count);
@@ -403,14 +354,10 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "web_fetch",
-            description = "Fetch and extract content from URLs. Accepts one or multiple URLs - multiple URLs are fetched IN PARALLEL for faster results. Can extract text, code blocks, or specific sections.")
+            description = "Fetch and extract content from URLs. Can extract text, code blocks, or specific sections.")
     public String web_fetch(@ToolParam(description = "Single URL or array of URLs to fetch") Object urls,
                             @ToolParam(description = "Optional CSS selector to extract specific content (e.g., 'article', '.content', '#readme')") String selector,
                             @ToolParam(description = "If true, extract code blocks from the page (useful for documentation)") Boolean extract_code) {
-        if (!ToolCallLimiter.incrementAndCheck()) {
-            return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLimitMessage() + "\"}";
-        }
-
         List<BatchWebFetchTool.FetchSpec> specs = new ArrayList<>();
         boolean extractCode = extract_code != null && extract_code;
 
@@ -477,11 +424,10 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "batch_read_files",
-            description = "Read multiple files concurrently from disk in a single call. Much faster than reading files one by one. Use this when inspecting multiple files, dependencies, or tests.")
+            description = "Read files from disk. Use this when inspecting files, dependencies, or tests.")
     public String batch_read_files(
             @ToolParam(description = "List of absolute or relative file paths to read") java.util.List<String> paths,
             @ToolParam(description = "Optional maximum lines to read per file (default: all)") Integer max_lines_per_file) {
-
         String result = batchReadFileTool.execute(paths, max_lines_per_file);
         String pathsStr = (paths != null && !paths.isEmpty()) ? String.join(", ", paths) : "empty";
         notifyToolTokens("batch_read_files", pathsStr, result);

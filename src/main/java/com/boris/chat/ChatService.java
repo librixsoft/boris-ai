@@ -18,7 +18,6 @@ import com.boris.exceptions.ChatException;
 import com.boris.exceptions.ChatException.ErrorType;
 import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.llm.think.ThinkContextHolder;
-import com.boris.tooling.ToolCallLimiter;
 import com.boris.tooling.ToolResultNotifier;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
@@ -105,8 +104,7 @@ public class ChatService {
             this.currentProjectPath = extracted[1];
             ProjectContext.setProjectPath(extracted[1]);
         }
-        ToolCallLimiter.reset();
-        ChatClient client = getActiveClient();
+                ChatClient client = getActiveClient();
         try {
             String fullMessage = buildPromptWithHistory(cleanMessage);
             if (enableHistory) {
@@ -152,8 +150,7 @@ public class ChatService {
             this.currentProjectPath = extracted[1];
             ProjectContext.setProjectPath(extracted[1]);
         }
-        ToolCallLimiter.reset();
-        ChatClient client = getActiveClient();
+                ChatClient client = getActiveClient();
         String effectiveThink = thinkingEnabled ? resolveThinkMode() : null;
 
         try {
