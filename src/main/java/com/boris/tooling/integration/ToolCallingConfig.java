@@ -8,10 +8,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.tool.ToolCallbacks;
-import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.ai.tool.annotation.ToolParam;
+import com.boris.tooling.annotation.Tool;
+import com.boris.tooling.annotation.ToolParam;
+import com.boris.tooling.engine.ToolRegistry;
 
 import com.knuddels.jtokkit.Encodings;
 import com.knuddels.jtokkit.api.Encoding;
@@ -41,7 +40,6 @@ import com.boris.tooling.parallel.BatchExecuteCommandTool;
 import com.boris.tooling.ToolProgressNotifier;
 import com.boris.context.ProjectContext;
 import com.boris.tooling.ToolResultNotifier;
-import com.boris.tooling.quality.QualityIteratorHolder;
 import com.boris.task.decomposition.TaskPlannerTool;
 
 /**
@@ -159,29 +157,13 @@ public class ToolCallingConfig {
             throw new BorisException("Failed to load default system prompt: " + e.getMessage(), e);
         }
     }
-
-    public static ChatClient buildChatClientWithTools(String settingsPath) throws Exception {
-        LlmClient llmClient = new LlmClient(settingsPath);
-        var chatModel = extractChatModel(llmClient);
-        SettingsManager mgr = new SettingsManager();
-        Settings s = mgr.loadSettings(settingsPath);
-        String prompt = loadSystemPrompt(s);
-        ToolCallingConfig config = createDefaultConfig(s);
-        ChatClient client = ChatClient.builder(chatModel)
-                .defaultSystem(prompt)
-                .defaultTools(ToolCallbacks.from(config))
-                .build();
-
-        return client;
+    public static ToolRegistry buildToolRegistry() {
+        return buildToolRegistry(null);
     }
 
-    public static org.springframework.ai.tool.ToolCallback[] buildNativeToolCallbacks() {
-        return buildNativeToolCallbacks(null);
-    }
-
-    public static org.springframework.ai.tool.ToolCallback[] buildNativeToolCallbacks(Settings settings) {
+    public static ToolRegistry buildToolRegistry(Settings settings) {
         ToolCallingConfig config = createDefaultConfig(settings);
-        return ToolCallbacks.from(config);
+        return ToolRegistry.from(config);
     }
 
     private static ToolCallingConfig createDefaultConfig(Settings settings) {
@@ -194,15 +176,6 @@ public class ToolCallingConfig {
                 new TaskPlannerTool(),
                 settings
         );
-    }
-
-    @SuppressWarnings("unchecked")
-    private static org.springframework.ai.chat.model.ChatModel extractChatModel(LlmClient llmClient) throws Exception {
-        var field = llmClient.getClass().getDeclaredField("chatClient");
-        field.setAccessible(true);
-        ChatClient client = (ChatClient) field.get(llmClient);
-        var method = client.getClass().getMethod("getModel");
-        return (org.springframework.ai.chat.model.ChatModel) method.invoke(client);
     }
 
     @SuppressWarnings("unchecked")

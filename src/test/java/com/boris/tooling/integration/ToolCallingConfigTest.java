@@ -1,85 +1,61 @@
 package com.boris.tooling.integration;
 
-import org.junit.jupiter.api.*;
-import org.springframework.ai.model.function.FunctionCallback;
-import org.springframework.ai.tool.ToolCallback;
-
-import com.boris.settings.Settings;
-
+import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
+
+import com.boris.tooling.engine.ToolRegistry;
+import com.boris.tooling.engine.ToolDefinition;
 
 class ToolCallingConfigTest {
 
     @Test
-    void buildNativeToolCallbacks_returnsNonEmptyArray() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
+    void buildToolRegistry_returnsNonEmptyRegistry() {
+        ToolRegistry registry = ToolCallingConfig.buildToolRegistry();
 
-        assertNotNull(callbacks);
-        assertTrue(callbacks.length > 0);
+        assertNotNull(registry);
+        assertFalse(registry.getAllTools().isEmpty());
     }
 
     @Test
-    void buildNativeToolCallbacks_allHaveValidDefinitions() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
+    void buildToolRegistry_allHaveValidDefinitions() {
+        ToolRegistry registry = ToolCallingConfig.buildToolRegistry();
 
-        for (ToolCallback callback : callbacks) {
-            assertNotNull(callback.getToolDefinition().name());
-            assertFalse(callback.getToolDefinition().description().isBlank());
-            assertNotNull(callback.getToolDefinition().inputSchema());
+        for (ToolDefinition tool : registry.getAllTools()) {
+            assertNotNull(tool.name());
+            assertFalse(tool.description().isBlank());
+            assertNotNull(tool.openAiToolSchema());
         }
     }
 
     @Test
-    void buildNativeToolCallbacks_containsExpectedTools() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
+    void buildToolRegistry_containsExpectedTools() {
+        ToolRegistry registry = ToolCallingConfig.buildToolRegistry();
 
-        var names = java.util.Arrays.stream(callbacks)
-                .map(cb -> cb.getToolDefinition().name())
-                .toList();
-
-        assertTrue(names.contains("delete_file"));
-        assertTrue(names.contains("get_system_info"));
-        assertTrue(names.contains("generate_pdf"));
-        assertTrue(names.contains("create_office_document"));
+        assertTrue(registry.hasTool("delete_file"));
+        assertTrue(registry.hasTool("get_system_info"));
+        assertTrue(registry.hasTool("generate_pdf"));
+        assertTrue(registry.hasTool("create_office_document"));
     }
 
     @Test
-    void toolCallbacks_allAreFunctionCallbacks() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
+    void generatePdfTool_hasCorrectDefinition() {
+        ToolRegistry registry = ToolCallingConfig.buildToolRegistry();
+        ToolDefinition tool = registry.getTool("generate_pdf");
 
-        for (ToolCallback cb : callbacks) {
-            assertInstanceOf(FunctionCallback.class, cb);
-        }
+        assertNotNull(tool);
+        assertEquals("generate_pdf", tool.name());
+        assertTrue(tool.description().contains("PDF"));
+        assertNotNull(tool.openAiToolSchema());
     }
 
     @Test
-    void generatePdfTool_callbackHasCorrectDefinition() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
-
-        var pdfCb = java.util.Arrays.stream(callbacks)
-                .filter(cb -> "generate_pdf".equals(cb.getToolDefinition().name()))
-                .findFirst()
-                .orElseThrow();
-
-        assertEquals("generate_pdf", pdfCb.getToolDefinition().name());
-        assertTrue(pdfCb.getToolDefinition().description().contains("PDF"));
-        assertNotNull(pdfCb.getToolDefinition().inputSchema());
-    }
-
-    @Test
-    void generatePdfTool_callbackCanBeInvoked() {
-        ToolCallback[] callbacks = ToolCallingConfig.buildNativeToolCallbacks();
-
-        var pdfCb = java.util.Arrays.stream(callbacks)
-                .filter(cb -> "generate_pdf".equals(cb.getToolDefinition().name()))
-                .findFirst()
-                .orElseThrow();
+    void generatePdfTool_canBeInvoked() throws Exception {
+        ToolRegistry registry = ToolCallingConfig.buildToolRegistry();
 
         // Test with invalid parameters to verify the tool is reachable
-        String result = pdfCb.call("{\"content\":\"\",\"outputPath\":\"/tmp/test.pdf\",\"contentType\":\"text\"}");
+        String result = registry.execute("generate_pdf", "{\"content\":\"\",\"outputPath\":\"/tmp/test.pdf\",\"contentType\":\"text\"}");
 
         assertNotNull(result);
         assertTrue(result.contains("success") || result.contains("error"));
     }
-
 }

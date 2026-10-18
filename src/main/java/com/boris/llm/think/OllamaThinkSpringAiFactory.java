@@ -2,26 +2,11 @@ package com.boris.llm.think;
 
 import java.util.Map;
 
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.openai.OpenAiChatModel;
-import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
-import org.springframework.web.client.RestClient;
-
+import com.boris.llm.client.BorisLlmClient;
 import com.boris.settings.Settings;
-import com.boris.tooling.integration.ToolCallingConfig;
 
 /**
- * Fabrica Spring AI para Ollama con control de think.
- *
- * Mapeo implementado: el parametro custom del settings.json (options.think:
- * "low"/"medium"/"high") se traduce al campo estandar de Spring AI
- * OpenAiChatOptions.reasoningEffort, que viaja como "reasoning_effort" al
- * endpoint /v1/chat/completions de Ollama. Ollama lo mapea a su Think interno:
- * "low"/"medium"/"high" prenden el think, "none" lo apaga. El parametro nativo
- * "think"/"options.think" NO funciona en ese endpoint (solo en /api/chat), por
- * eso sin think configurado se envia reasoning_effort="none": si se omite,
- * Ollama auto-activa el think. Sin llamadas HTTP directas ni fallbacks.
+ * Fábrica para construir el BorisLlmClient configurado para Ollama / OpenAI.
  */
 public final class OllamaThinkSpringAiFactory {
 
@@ -39,58 +24,20 @@ public final class OllamaThinkSpringAiFactory {
         return null;
     }
 
-    public static OpenAiChatModel createChatModel(Settings settings, String thinkMode) {
+    public static BorisLlmClient createClient(Settings settings) {
         if (settings == null || settings.getModel() == null) {
             throw new IllegalStateException("Settings model is required");
         }
         String baseUrl = normalizeBaseUrl(settings.getModel().getBaseUrl());
-        String modelName = settings.getModel().getName();
         Map<String, String> envMap = settings.getEnv();
         String apiKey = "ollama";
         if (envMap != null) {
             apiKey = envMap.getOrDefault("OLLAMA_API_KEY", "ollama");
         }
-        String completionsPath = "/v1/chat/completions";
-        String embeddingsPath = "/v1/embeddings";
-
-        OpenAiApi openAiApi = new OpenAiApi.Builder()
-                .baseUrl(baseUrl)
-                .apiKey(apiKey)
-                .completionsPath(completionsPath)
-                .embeddingsPath(embeddingsPath)
-                .restClientBuilder(RestClient.builder().requestInterceptor(new ThinkClientHttpInterceptor()))
-                .build();
-
-        OpenAiChatOptions.Builder optionsBuilder = OpenAiChatOptions.builder().model(modelName);
-        if (settings.getTemperature() != null) {
-            optionsBuilder.temperature(settings.getTemperature());
-        }
-        if (thinkMode != null && !thinkMode.isBlank()) {
-            optionsBuilder.reasoningEffort(thinkMode);
-        } else {
-            optionsBuilder.reasoningEffort("none");
-        }
-        // Aumentar límite de tokens de salida para permitir archivos grandes
-        optionsBuilder.maxTokens(32000);
-        // Deshabilitar tool calls paralelas - forzar una a la vez
-        optionsBuilder.parallelToolCalls(false);
-
-        return OpenAiChatModel.builder()
-                .openAiApi(openAiApi)
-                .defaultOptions(optionsBuilder.build())
-                .build();
+        return new BorisLlmClient(baseUrl, apiKey);
     }
 
-    public static ChatClient createChatClient(Settings settings, String thinkMode) throws Exception {
-        String prompt = ToolCallingConfig.loadSystemPrompt(settings);
-        OpenAiChatModel chatModel = createChatModel(settings, thinkMode);
-        return ChatClient.builder(chatModel)
-                .defaultSystem(prompt)
-                .defaultTools(ToolCallingConfig.buildNativeToolCallbacks(settings))
-                .build();
-    }
-
-    static String normalizeBaseUrl(String baseUrl) {
+    public static String normalizeBaseUrl(String baseUrl) {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalStateException("Model baseUrl is required");
         }

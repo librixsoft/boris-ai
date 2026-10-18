@@ -10,15 +10,17 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.openai.OpenAiChatOptions;
-
 import com.boris.edit.StreamingFileWriter;
 import com.boris.exceptions.ChatException;
 import com.boris.exceptions.ChatException.ErrorType;
+import com.boris.llm.client.BorisLlmClient;
+import com.boris.llm.client.ChatMessage;
+import com.boris.llm.client.ChatRequest;
 import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.llm.think.ThinkContextHolder;
 import com.boris.tooling.ToolResultNotifier;
+import com.boris.tooling.engine.ToolRegistry;
+import com.boris.tooling.integration.ToolCallingConfig;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 import com.boris.task.TaskAborter;
@@ -29,7 +31,7 @@ public class ChatService {
 
     public static final String EXIT_COMMAND = "EXIT";
 
-    private final Supplier<ChatClient> chatClientSupplier;
+    private final Supplier<BorisLlmClient> llmClientSupplier;
     private final String botName;
     private final TaskAborter taskAborter;
     private final List<String> conversationHistory;
@@ -41,28 +43,30 @@ public class ChatService {
     private String thinkingMode;
     private volatile String modelName;
     private String lastThinkingContent;
-    private volatile ChatClient currentClient;
+    private volatile BorisLlmClient currentClient;
     private volatile Settings currentSettings;
+    private volatile ToolRegistry toolRegistry;
+    private volatile String systemPrompt;
     private final StreamingFileWriter fileWriter;
     private static final Pattern THINKING_PATTERN = Pattern.compile("(?i)(?:<think>|<thinking>|<thought>|<reasoning>|```)(.*?)(?:</think>|</thinking>|</thought>|</reasoning>|```)", Pattern.DOTALL);
     private static final Pattern PROJECT_PATH_PATTERN = Pattern.compile("^\\s*(/[^\\s]+|~/[^\\s]+)\\s+(.+)$", Pattern.DOTALL);
     private static final Pattern INLINE_PATH_PATTERN = Pattern.compile("(?:en|in|to|at|dentro de|path|ruta|directorio|carpeta|folder)\\s+(/[^\\s\"']+|~/[^\\s\"']+)", Pattern.CASE_INSENSITIVE);
     private volatile String currentProjectPath;
 
-    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory) {
-        this(chatClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, true, "think", "");
+    public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory) {
+        this(llmClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, true, "think", "");
     }
 
-    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode) {
-        this(chatClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, thinkingEnabled, thinkingMode, "");
+    public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode) {
+        this(llmClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, thinkingEnabled, thinkingMode, "");
     }
 
-    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode, String modelName) {
-        this(chatClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, thinkingEnabled, thinkingMode, modelName, null);
+    public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode, String modelName) {
+        this(llmClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, thinkingEnabled, thinkingMode, modelName, null);
     }
 
-    public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode, String modelName, String ollamaBaseUrl) {
-        this.chatClientSupplier = chatClientSupplier;
+    public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode, String modelName, String ollamaBaseUrl) {
+        this.llmClientSupplier = llmClientSupplier;
         this.botName = botName;
         this.taskAborter = taskAborter;
         this.conversationHistory = new ArrayList<>();
@@ -92,22 +96,21 @@ public class ChatService {
         if (userMessage == null || userMessage.trim().isEmpty()) {
             throw new com.boris.exceptions.BorisException("User message cannot be null or empty");
         }
-        if (taskAborter.isAborted()) {
+        if (taskAborter != null && taskAborter.isAborted()) {
             return null;
         }
         String lower = userMessage.toLowerCase().trim();
         if ("q".equals(lower) || "exit".equals(lower)) {
             return EXIT_COMMAND;
         }
-        WebSearchTool.resetCallCount();
-        // Extraer ruta del proyecto si el mensaje comienza con una ruta absoluta
+
         String[] extracted = extractProjectPath(userMessage);
         String cleanMessage = extracted[0];
         if (extracted[1] != null) {
             this.currentProjectPath = extracted[1];
             ProjectContext.setProjectPath(extracted[1]);
         }
-                ChatClient client = getActiveClient();
+        BorisLlmClient client = getActiveClient();
         try {
             String fullMessage = buildPromptWithHistory(cleanMessage);
             if (enableHistory) {
@@ -115,7 +118,7 @@ public class ChatService {
                 trimHistory();
             }
             String effectiveThink = thinkingEnabled ? resolveThinkMode() : null;
-            ChatTurn turn = callSpringAiOnce(client, fullMessage, effectiveThink);
+            ChatTurn turn = callLlmOnce(client, fullMessage, effectiveThink);
             String thinkingContent = turn.thinking();
             String finalResponse = turn.response();
             if (enableHistory && finalResponse != null && !finalResponse.isEmpty()) {
@@ -128,7 +131,7 @@ public class ChatService {
             return "*%s* %s".formatted(botName, finalResponse != null ? finalResponse : "");
         } catch (Exception e) {
             ThinkContextHolder.clearAll();
-            if (taskAborter.isAborted()) {
+            if (taskAborter != null && taskAborter.isAborted()) {
                 return null;
             }
             throw new ChatException("Error en chat", e, classifyError(e), modelName);
@@ -139,7 +142,7 @@ public class ChatService {
         if (userMessage == null || userMessage.trim().isEmpty()) {
             throw new ChatException("El mensaje no puede estar vacío", ErrorType.INVALID_INPUT);
         }
-        if (taskAborter.isAborted()) {
+        if (taskAborter != null && taskAborter.isAborted()) {
             return;
         }
         String lower = userMessage.toLowerCase().trim();
@@ -147,14 +150,14 @@ public class ChatService {
             return;
         }
         WebSearchTool.resetCallCount();
-        // Extraer ruta del proyecto si el mensaje comienza con una ruta absoluta
+
         String[] extracted = extractProjectPath(userMessage);
         String cleanMessage = extracted[0];
         if (extracted[1] != null) {
             this.currentProjectPath = extracted[1];
             ProjectContext.setProjectPath(extracted[1]);
         }
-                ChatClient client = getActiveClient();
+        BorisLlmClient client = getActiveClient();
         String effectiveThink = thinkingEnabled ? resolveThinkMode() : null;
 
         try {
@@ -171,58 +174,62 @@ public class ChatService {
                 taskAborter.startTask(currentThread);
             }
 
-            // STREAMING REAL - cada chunk se procesa conforme llega
             fileWriter.reset();
             StringBuilder fullResponse = new StringBuilder();
             CountDownLatch latch = new CountDownLatch(1);
             AtomicReference<Throwable> errorRef = new AtomicReference<>();
 
-            client.prompt(fullMessage)
-                .options(buildSpringAiOptions(effectiveThink))
-                .stream()
-                .chatResponse()
-                .doOnNext(response -> {
-                    if (taskAborter != null && taskAborter.isAborted()) {
-                        return;
-                    }
-                    String content = null;
-                    try {
-                        if (response != null && response.getResult() != null &&
-                            response.getResult().getOutput() != null) {
-                            content = response.getResult().getOutput().getText();
-                        }
-                    } catch (Exception ignored) {}
+            List<ChatMessage> messages = new ArrayList<>();
+            String sysPrompt = this.systemPrompt != null ? this.systemPrompt :
+                    (currentSettings != null ? ToolCallingConfig.loadSystemPrompt(currentSettings) : "");
+            if (sysPrompt != null && !sysPrompt.isBlank()) {
+                messages.add(ChatMessage.system(sysPrompt));
+            }
+            messages.add(ChatMessage.user(fullMessage));
 
-                    if (content != null && !content.isEmpty()) {
-                        fullResponse.append(content);
-                        // Procesar con StreamingFileWriter: detecta bloques ```lang:path
-                        // y escribe archivos en streaming estilo Aider
-                        String chatText = fileWriter.processChunk(content);
-                        if (chatText != null && !chatText.isEmpty()) {
-                            onChunk.accept(chatText);
-                        }
-                    }
-                })
-                .doOnError(error -> {
-                    errorRef.set(error);
-                    latch.countDown();
-                })
-                .doOnComplete(() -> {
-                    latch.countDown();
-                })
-                .subscribe();
+            Double temp = currentSettings != null ? currentSettings.getTemperature() : 0.7;
+            ChatRequest request = ChatRequest.builder()
+                    .model(modelName)
+                    .messages(messages)
+                    .temperature(temp)
+                    .think(effectiveThink != null ? effectiveThink : false)
+                    .reasoningEffort(effectiveThink != null ? effectiveThink : "none")
+                    .stream(true)
+                    .build();
 
-            // Esperar a que termine el stream (máximo 10 minutos)
+            client.chatStream(
+                    request,
+                    chunk -> {
+                        if (taskAborter != null && taskAborter.isAborted()) {
+                            return;
+                        }
+                        String content = chunk.getContent();
+                        if (content != null && !content.isEmpty()) {
+                            fullResponse.append(content);
+                            String chatText = fileWriter.processChunk(content);
+                            if (chatText != null && !chatText.isEmpty() && onChunk != null) {
+                                onChunk.accept(chatText);
+                            }
+                        }
+                    },
+                    () -> {
+                        latch.countDown();
+                    },
+                    error -> {
+                        errorRef.set(error);
+                        latch.countDown();
+                    },
+                    () -> taskAborter != null && taskAborter.isAborted()
+            );
+
             latch.await(10, TimeUnit.MINUTES);
 
             if (errorRef.get() != null) {
                 throw new RuntimeException(errorRef.get());
             }
 
-            // Finalizar StreamingFileWriter (cierra archivos pendientes)
             fileWriter.finish();
 
-            // Guardar en historial
             String finalResponse = fullResponse.toString();
             if (enableHistory && !finalResponse.isEmpty()) {
                 conversationHistory.add(botName + ": " + finalResponse);
@@ -293,10 +300,7 @@ public class ChatService {
         return ErrorType.UNKNOWN;
     }
 
-    // Unico punto de llamada al LLM: todo pasa por el ChatClient de Spring AI.
-    // El think viaja como reasoning_effort (nivel o "none" si va apagado) y el
-    // trace se recupera de ThinkContextHolder (campos fuera del content).
-    private ChatTurn callSpringAiOnce(ChatClient client, String fullMessage, String effectiveThink) {
+    private ChatTurn callLlmOnce(BorisLlmClient client, String fullMessage, String effectiveThink) throws Exception {
         ThinkContextHolder.setThinkMode(effectiveThink);
         ThinkContextHolder.clearLastThinking();
         Thread currentThread = Thread.currentThread();
@@ -308,13 +312,40 @@ public class ChatService {
             if (taskAborter != null && taskAborter.isAborted()) {
                 return new ChatTurn("", null);
             }
-            String response = client.prompt(fullMessage)
-                    .options(buildSpringAiOptions(effectiveThink))
-                    .call().content();
+
+            List<ChatMessage> conv = new ArrayList<>();
+            for (String hist : conversationHistory) {
+                if (hist.startsWith("User: ")) {
+                    conv.add(ChatMessage.user(hist.substring(6)));
+                } else if (hist.startsWith(botName + ": ")) {
+                    conv.add(ChatMessage.assistant(hist.substring(botName.length() + 2)));
+                }
+            }
+            conv.add(ChatMessage.user(fullMessage));
+
+            Double temp = currentSettings != null ? currentSettings.getTemperature() : 0.7;
+            String sysPrompt = this.systemPrompt != null ? this.systemPrompt :
+                    (currentSettings != null ? ToolCallingConfig.loadSystemPrompt(currentSettings) : "");
+
+            ToolRegistry registry = this.toolRegistry != null ? this.toolRegistry :
+                    (currentSettings != null ? ToolCallingConfig.buildToolRegistry(currentSettings) : null);
+
+            BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
+                    conv,
+                    modelName,
+                    sysPrompt,
+                    registry,
+                    effectiveThink,
+                    temp,
+                    () -> taskAborter != null && taskAborter.isAborted()
+            );
+
             if (taskAborter != null && taskAborter.isAborted()) {
                 return new ChatTurn("", null);
             }
-            String thinkingContent = ThinkContextHolder.getLastThinking();
+
+            String response = turn.response();
+            String thinkingContent = turn.thinking();
             if ((thinkingContent == null || thinkingContent.isBlank()) && thinkingEnabled) {
                 thinkingContent = extractThinkingContent(response);
             }
@@ -324,6 +355,7 @@ public class ChatService {
             }
             if (thinkingContent != null && !thinkingContent.isBlank()) {
                 this.lastThinkingContent = thinkingContent;
+                ThinkContextHolder.setLastThinking(thinkingContent);
             }
             return new ChatTurn(finalResponse, thinkingContent);
         } catch (Exception e) {
@@ -340,8 +372,7 @@ public class ChatService {
         }
     }
 
-    private record ChatTurn(String response, String thinking) {
-    }
+    public record ChatTurn(String response, String thinking) {}
 
     public static ChatService withTools(String settingsPath, String botName) throws Exception {
         SettingsManager mgr = new SettingsManager();
@@ -355,15 +386,20 @@ public class ChatService {
         String resolvedThink = OllamaThinkSpringAiFactory.resolveThinkMode(s);
         boolean thinkingEnabled = resolvedThink != null;
         String thinkingMode = resolvedThink != null ? resolvedThink : "low";
-        ChatClient client = OllamaThinkSpringAiFactory.createChatClient(s, thinkingEnabled ? thinkingMode : null);
+        BorisLlmClient client = OllamaThinkSpringAiFactory.createClient(s);
         int historySize = s.getMaxHistorySize();
         boolean enableHistory = s.getEnableHistory() != null ? s.getEnableHistory() : true;
         TaskAborter aborter = new TaskAborter();
         if (s.getModel().getBaseUrl() != null) {
             aborter.setOllamaBaseUrl(s.getModel().getBaseUrl());
         }
+        ToolRegistry registry = ToolCallingConfig.buildToolRegistry(s);
+        String prompt = ToolCallingConfig.loadSystemPrompt(s);
+
         ChatService service = new ChatService(() -> client, botName, aborter, historySize, enableHistory, thinkingEnabled, thinkingMode, modelName);
         service.setSettings(s);
+        service.setToolRegistry(registry);
+        service.setSystemPrompt(prompt);
         return service;
     }
 
@@ -420,13 +456,29 @@ public class ChatService {
         return currentSettings;
     }
 
-    private ChatClient getActiveClient() {
+    public void setToolRegistry(ToolRegistry toolRegistry) {
+        this.toolRegistry = toolRegistry;
+    }
+
+    public ToolRegistry getToolRegistry() {
+        return toolRegistry;
+    }
+
+    public void setSystemPrompt(String systemPrompt) {
+        this.systemPrompt = systemPrompt;
+    }
+
+    public String getSystemPrompt() {
+        return systemPrompt;
+    }
+
+    private BorisLlmClient getActiveClient() {
         if (currentClient != null) {
             return currentClient;
         }
-        ChatClient client = chatClientSupplier.get();
+        BorisLlmClient client = llmClientSupplier.get();
         if (client == null) {
-            throw new IllegalStateException("Spring AI ChatClient is required");
+            throw new IllegalStateException("BorisLlmClient is required");
         }
         return client;
     }
@@ -441,9 +493,9 @@ public class ChatService {
         this.thinkingEnabled = thinkMode != null;
         this.thinkingMode = thinkMode != null ? thinkMode : "low";
         try {
-            this.currentClient = OllamaThinkSpringAiFactory.createChatClient(currentSettings, thinkingEnabled ? thinkingMode : null);
+            this.currentClient = OllamaThinkSpringAiFactory.createClient(currentSettings);
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to rebuild ChatClient for model " + newModelName + ": " + e.getMessage(), e);
+            throw new IllegalStateException("Failed to rebuild BorisLlmClient for model " + newModelName + ": " + e.getMessage(), e);
         }
     }
 
@@ -467,7 +519,6 @@ public class ChatService {
     private String buildPromptWithHistory(String currentMessage) {
         StringBuilder promptBuilder = new StringBuilder();
 
-        // Contexto del proyecto si está definido
         if (currentProjectPath != null && !currentProjectPath.isBlank()) {
             promptBuilder.append("===== PROJECT CONTEXT (READ CAREFULLY) =====\n");
             promptBuilder.append("WORKING DIRECTORY: ").append(currentProjectPath).append("\n");
@@ -531,18 +582,6 @@ public class ChatService {
         return false;
     }
 
-    // Opciones Spring AI por llamada: el nivel de think o "none" para
-    // apagarlo (Ollama lo auto-activa si reasoning_effort se omite).
-    private OpenAiChatOptions buildSpringAiOptions(String effectiveThink) {
-        OpenAiChatOptions.Builder builder = OpenAiChatOptions.builder().model(this.modelName);
-        if (effectiveThink != null && !effectiveThink.isBlank()) {
-            builder.reasoningEffort(effectiveThink);
-        } else {
-            builder.reasoningEffort("none");
-        }
-        return builder.build();
-    }
-
     private String resolveThinkMode() {
         if (thinkingMode != null && !thinkingMode.isBlank()) {
             return thinkingMode;
@@ -550,17 +589,9 @@ public class ChatService {
         return "low";
     }
 
-    /**
-     * Extrae la ruta del proyecto del mensaje.
-     * Soporta dos formatos:
-     * 1. Ruta al inicio: "/Users/x/proyecto haz algo" → path="/Users/x/proyecto"
-     * 2. Ruta inline: "crea archivo en /Users/x/proyecto" → path="/Users/x/proyecto"
-     * @return [0]=mensaje original (no se modifica), [1]=ruta del proyecto (o null si no hay)
-     */
     private String[] extractProjectPath(String message) {
         if (message == null) return new String[]{message, null};
 
-        // Primero intentar patrón de ruta al inicio
         Matcher m = PROJECT_PATH_PATTERN.matcher(message);
         if (m.matches()) {
             String path = resolveAndValidatePath(m.group(1));
@@ -569,10 +600,9 @@ public class ChatService {
             }
         }
 
-        // Si no, buscar ruta inline (en /path, to /path, dentro de /path, etc.)
-        Matcher inlineM = INLINE_PATH_PATTERN.matcher(message);
-        if (inlineM.find()) {
-            String path = resolveAndValidatePath(inlineM.group(1));
+        Matcher inlineMatcher = INLINE_PATH_PATTERN.matcher(message);
+        if (inlineMatcher.find()) {
+            String path = resolveAndValidatePath(inlineMatcher.group(1));
             if (path != null) {
                 return new String[]{message, path};
             }
@@ -581,39 +611,27 @@ public class ChatService {
         return new String[]{message, null};
     }
 
-    /**
-     * Resuelve ~ y valida que el path sea un directorio válido.
-     * Si es un archivo, retorna el directorio padre.
-     */
-    private String resolveAndValidatePath(String rawPath) {
-        if (rawPath == null) return null;
-
-        String path = rawPath;
-        // Expandir ~ a home
-        if (path.startsWith("~/")) {
-            path = System.getProperty("user.home") + path.substring(1);
+    private String resolveAndValidatePath(String path) {
+        if (path == null || path.isBlank()) return null;
+        String resolved = path.trim();
+        if (resolved.startsWith("~/")) {
+            resolved = System.getProperty("user.home") + resolved.substring(1);
+        } else if ("~".equals(resolved)) {
+            resolved = System.getProperty("user.home");
         }
-
-        java.nio.file.Path p = java.nio.file.Paths.get(path);
-
-        // Si es un directorio existente, usarlo directamente
-        if (java.nio.file.Files.isDirectory(p)) {
-            return path;
+        java.io.File f = new java.io.File(resolved);
+        if (f.exists() && f.isDirectory()) {
+            return f.getAbsolutePath();
         }
-
-        // Si parece un archivo o no existe, buscar el directorio padre válido
-        java.nio.file.Path parent = p.getParent();
-        while (parent != null && !java.nio.file.Files.exists(parent)) {
-            parent = parent.getParent();
-        }
-        if (parent != null && java.nio.file.Files.isDirectory(parent)) {
-            return parent.toString();
-        }
-
         return null;
     }
 
     public String getCurrentProjectPath() {
         return currentProjectPath;
+    }
+
+    public void setCurrentProjectPath(String path) {
+        this.currentProjectPath = path;
+        ProjectContext.setProjectPath(path);
     }
 }

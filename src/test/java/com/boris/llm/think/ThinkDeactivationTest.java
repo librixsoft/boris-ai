@@ -7,6 +7,8 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.boris.llm.client.BorisLlmClient;
+import com.boris.llm.client.ChatRequest;
 import com.boris.settings.ModelConfig;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
@@ -47,17 +49,32 @@ class ThinkDeactivationTest {
     }
 
     @Test
-    void createChatModel_setsReasoningEffortNone_whenThinkDisabled() {
-        var model = OllamaThinkSpringAiFactory.createChatModel(settingsWithOptions(null), null);
-        var options = (org.springframework.ai.openai.OpenAiChatOptions) model.getDefaultOptions();
-        assertEquals("none", options.getReasoningEffort());
+    void createClient_configuresBaseUrlCorrectly() {
+        BorisLlmClient client = OllamaThinkSpringAiFactory.createClient(settingsWithOptions(null));
+        assertNotNull(client);
+        assertEquals("http://localhost:11434", client.getBaseUrl());
     }
 
     @Test
-    void createChatModel_setsReasoningEffortLevel_whenThinkEnabled() {
-        var model = OllamaThinkSpringAiFactory.createChatModel(settingsWithOptions("low"), "low");
-        var options = (org.springframework.ai.openai.OpenAiChatOptions) model.getDefaultOptions();
-        assertEquals("low", options.getReasoningEffort());
+    void chatRequest_setsReasoningEffortNone_whenThinkDisabled() {
+        ChatRequest req = ChatRequest.builder()
+                .model("granite4.2:8b")
+                .reasoningEffort("none")
+                .think(false)
+                .build();
+        assertEquals("none", req.reasoningEffort());
+        assertEquals(Boolean.FALSE, req.think());
+    }
+
+    @Test
+    void chatRequest_setsReasoningEffortLevel_whenThinkEnabled() {
+        ChatRequest req = ChatRequest.builder()
+                .model("granite4.2:8b")
+                .reasoningEffort("low")
+                .think("low")
+                .build();
+        assertEquals("low", req.reasoningEffort());
+        assertEquals("low", req.think());
     }
 
     @Test
@@ -70,26 +87,6 @@ class ThinkDeactivationTest {
         assertNotNull(s);
         assertNull(s.getOptions());
         assertNull(OllamaThinkSpringAiFactory.resolveThinkMode(s));
-    }
-
-    @Test
-    void injectThink_sendsFalseBoolean_whenThinkDisabled() throws Exception {
-        byte[] body = "{\"model\": \"granite4.2:8b\", \"messages\": []}".getBytes();
-        var root = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(ThinkClientHttpInterceptor.injectThink(body, Boolean.FALSE));
-        assertTrue(root.get("think").isBoolean());
-        assertFalse(root.get("think").asBoolean());
-        assertTrue(root.get("options").get("think").isBoolean());
-        assertFalse(root.get("options").get("think").asBoolean());
-    }
-
-    @Test
-    void injectThink_sendsThinkString_whenThinkEnabled() throws Exception {
-        byte[] body = "{\"model\": \"granite4.2:8b\", \"messages\": []}".getBytes();
-        var root = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(ThinkClientHttpInterceptor.injectThink(body, "low"));
-        assertEquals("low", root.get("think").asText());
-        assertEquals("low", root.get("options").get("think").asText());
     }
 
     @Test

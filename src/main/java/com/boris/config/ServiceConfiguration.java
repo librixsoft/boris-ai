@@ -4,13 +4,13 @@ import java.nio.file.Path;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 
 import com.boris.chat.ChatService;
 import com.boris.chat.DecomposableChatService;
+import com.boris.llm.client.BorisLlmClient;
 import com.boris.llm.ollama.OllamaModelService;
 import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.settings.Settings;
@@ -20,6 +20,8 @@ import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
 import com.boris.task.decomposition.TaskDecompositionService;
 import com.boris.task.decomposition.TaskDecompositionService.DecompositionConfig;
+import com.boris.tooling.engine.ToolRegistry;
+import com.boris.tooling.integration.ToolCallingConfig;
 
 @Configuration
 public class ServiceConfiguration {
@@ -46,25 +48,23 @@ public class ServiceConfiguration {
 
     @Bean
     @Lazy
-    public ChatClient chatClient(Settings settings) {
+    public BorisLlmClient borisLlmClient(Settings settings) {
         try {
-            String thinkMode = OllamaThinkSpringAiFactory.resolveThinkMode(settings);
-            boolean thinkingEnabled = thinkMode != null;
-            return OllamaThinkSpringAiFactory.createChatClient(settings, thinkingEnabled ? thinkMode : null);
+            return OllamaThinkSpringAiFactory.createClient(settings);
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to create ChatClient: " + e.getMessage(), e);
+            throw new IllegalStateException("Failed to create BorisLlmClient: " + e.getMessage(), e);
         }
     }
 
     @Bean
     @Lazy
-    public Supplier<ChatClient> chatClientSupplier(ChatClient chatClient) {
-        return () -> chatClient;
+    public Supplier<BorisLlmClient> llmClientSupplier(BorisLlmClient borisLlmClient) {
+        return () -> borisLlmClient;
     }
 
     @Bean
     @Lazy
-    public ChatService chatService(Supplier<ChatClient> chatClientSupplier,
+    public ChatService chatService(Supplier<BorisLlmClient> llmClientSupplier,
                                    Settings settings,
                                    TaskAborter taskAborter) {
         String modelName = settings.getModel() != null ? settings.getModel().getName() : null;
@@ -74,13 +74,12 @@ public class ServiceConfiguration {
         int historySize = settings.getMaxHistorySize() != null ? settings.getMaxHistorySize() : 10;
         boolean enableHistory = settings.getEnableHistory() != null ? settings.getEnableHistory() : true;
 
-        // Configure Ollama URL for abort cancellation
         if (settings.getModel() != null && settings.getModel().getBaseUrl() != null) {
             taskAborter.setOllamaBaseUrl(settings.getModel().getBaseUrl());
         }
 
         ChatService service = new ChatService(
-                chatClientSupplier,
+                llmClientSupplier,
                 "boris",
                 taskAborter,
                 historySize,
@@ -90,6 +89,13 @@ public class ServiceConfiguration {
                 modelName
         );
         service.setSettings(settings);
+        try {
+            ToolRegistry registry = ToolCallingConfig.buildToolRegistry(settings);
+            String prompt = ToolCallingConfig.loadSystemPrompt(settings);
+            service.setToolRegistry(registry);
+            service.setSystemPrompt(prompt);
+        } catch (Exception ignored) {}
+
         return service;
     }
 
