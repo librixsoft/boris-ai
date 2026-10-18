@@ -196,7 +196,9 @@ public class SymbolQueryTool {
                     if (s.getRepo() != null && !s.getRepo().isBlank()) {
                         java.nio.file.Path projectRoot = com.boris.knowledge.KnowledgeStorageService.resolveProjectRoot(null);
                         if (com.boris.knowledge.KnowledgeStorageService.hasKnowledge(projectRoot, s.getRepo(), s.getName())) {
-                            sym.put("knowledge_card", ".boris/" + s.getRepo() + "/" + s.getName() + ".md");
+                            sym.put("knowledge_available", true);
+                            sym.put("knowledge_hint", "Usa query_framework_knowledge(framework=\"" + s.getRepo()
+                                + "\", class_name=\"" + s.getName() + "\") para leer la ficha técnica.");
                         }
                     }
                 }

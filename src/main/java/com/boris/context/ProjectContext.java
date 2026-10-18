@@ -48,4 +48,20 @@ public class ProjectContext {
         }
         return pathStr;
     }
+
+    public static boolean isInsideAgentWorkspace(java.nio.file.Path absolutePath) {
+        if (absolutePath == null) {
+            return false;
+        }
+        String projectPath = getProjectPath();
+        if (projectPath == null || projectPath.isBlank()) {
+            projectPath = System.getProperty("user.dir");
+        }
+        if (projectPath == null || projectPath.isBlank()) {
+            return false;
+        }
+        Path agentWorkspace = Paths.get(projectPath, ".boris").normalize();
+        Path target = absolutePath.toAbsolutePath().normalize();
+        return target.startsWith(agentWorkspace);
+    }
 }

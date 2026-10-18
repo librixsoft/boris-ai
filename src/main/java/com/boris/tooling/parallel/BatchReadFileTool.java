@@ -118,6 +118,11 @@ public class BatchReadFileTool {
         if (!Files.isRegularFile(path)) {
             return new FileResult(pathStr, false, null, "Not a file", 0);
         }
+        if (ProjectContext.isInsideAgentWorkspace(path.toAbsolutePath())) {
+            return new FileResult(pathStr, false, null,
+                "Access denied: .boris is agent internal workspace (index, dashboard, cached repos). "
+                    + "Use query_symbols for signatures and query_framework_knowledge(framework, class_name) for class summaries.", 0);
+        }
 
         try {
             List<String> lines = Files.readAllLines(path);

@@ -75,6 +75,13 @@ public class ListFilesTool {
             return formatOutput(false, "Path is not a directory: " + pathStr, null);
         }
 
+        if (ProjectContext.isInsideAgentWorkspace(basePath.toAbsolutePath())) {
+            return formatOutput(false,
+                "Access to .boris (agent internal workspace: index, dashboard, cached repos) is denied. "
+                + "Use query_symbols for class signatures and query_framework_knowledge(framework, class_name) for class summaries.",
+                null);
+        }
+
         boolean hasFilter = filter != null && !filter.isBlank();
         boolean walkRecursively = hasFilter || (recursive != null && recursive);
 
@@ -93,6 +100,7 @@ public class ListFilesTool {
             try (Stream<Path> stream = Files.walk(basePath, depth)) {
                 stream.filter(p -> !p.equals(basePath))
                       .filter(p -> !isIgnored(basePath, p, gitignoreRegexes))
+                      .filter(p -> !ProjectContext.isInsideAgentWorkspace(basePath.resolve(p).toAbsolutePath()))
                       .filter(p -> matchesPattern(p, pattern))
                       .filter(p -> !hasFilter || matchesFilter(basePath, p, filter))
                       .sorted()
