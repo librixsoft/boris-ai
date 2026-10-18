@@ -84,11 +84,7 @@ public class GitTool {
         cmdList.add(command);
 
         if (gitArgs != null && !gitArgs.isBlank()) {
-            for (String arg : gitArgs.split("\\s+")) {
-                if (!arg.isBlank()) {
-                    cmdList.add(arg);
-                }
-            }
+            cmdList.addAll(parseArguments(gitArgs));
         }
 
         try {
@@ -124,6 +120,33 @@ public class GitTool {
             }
             throw new BorisException("Error executing git command: " + String.join(" ", cmdList), e);
         }
+    }
+
+    private static List<String> parseArguments(String args) {
+        List<String> result = new ArrayList<>();
+        boolean inQuotes = false;
+        StringBuilder current = new StringBuilder();
+
+        for (int i = 0; i < args.length(); i++) {
+            char c = args.charAt(i);
+
+            if (c == '"' || c == '\'') {
+                inQuotes = !inQuotes;
+            } else if (Character.isWhitespace(c) && !inQuotes) {
+                if (current.length() > 0) {
+                    result.add(current.toString());
+                    current = new StringBuilder();
+                }
+            } else {
+                current.append(c);
+            }
+        }
+
+        if (current.length() > 0) {
+            result.add(current.toString());
+        }
+
+        return result;
     }
 
     private static boolean isGitRepository(File dir) {
