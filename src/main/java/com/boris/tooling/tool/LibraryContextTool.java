@@ -115,7 +115,10 @@ public class LibraryContextTool {
             ToolProgressNotifier.notify("create_library_context",
                 "Indexing with JavaParser...");
 
-            int count = CodeIndexerService.indexRepository(repo, repoDir);
+            int count = CodeIndexerService.indexRepository(repoName, repoDir);
+            if (!repoName.equals(repo)) {
+                CodeIndexerService.indexRepository(repo, repoDir);
+            }
 
             PROCESSED_REPOS.add(repoKey);
 

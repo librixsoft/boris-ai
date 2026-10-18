@@ -22,7 +22,7 @@ import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchEditTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
-import com.boris.tooling.parallel.BatchExecuteCommandTool;
+
 import com.boris.tooling.parallel.BatchListDirectoriesTool;
 import com.boris.tooling.parallel.BatchGitHubSearchTool;
 import com.boris.tooling.parallel.ParallelSearchTool;
@@ -129,11 +129,6 @@ public class TestConfiguration {
     @Bean
     public BatchWebFetchTool batchWebFetchTool() {
         return new BatchWebFetchTool();
-    }
-
-    @Bean
-    public BatchExecuteCommandTool batchExecuteCommandTool() {
-        return new BatchExecuteCommandTool();
     }
 
     @Bean

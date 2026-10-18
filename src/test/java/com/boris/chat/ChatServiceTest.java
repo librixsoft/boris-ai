@@ -76,7 +76,6 @@ class ChatServiceTest {
         assertTrue(registry.hasTool("maven_build"));
         assertTrue(registry.hasTool("read_file"));
         assertTrue(registry.hasTool("batch_read_files"));
-        assertTrue(registry.hasTool("execute_command"));
         assertTrue(registry.hasTool("write_file"));
         assertTrue(registry.hasTool("apply_edit"));
     }

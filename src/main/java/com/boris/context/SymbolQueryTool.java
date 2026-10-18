@@ -49,6 +49,7 @@ public class SymbolQueryTool {
         }
 
         List<CodeSymbol> results = SymbolRepository.search(query, symbolType, repo);
+        autoSaveKnowledgeFromResults(results, repo);
         String result = formatResults(query, results);
 
         // Guardar en cache
@@ -65,8 +66,42 @@ public class SymbolQueryTool {
         ToolProgressNotifier.notify("query_symbols", "Métodos de: " + className);
 
         List<CodeSymbol> results = SymbolRepository.findMethodsOfClass(className);
+        autoSaveKnowledgeFromResults(results, null);
 
         return formatResults("methods of " + className, results);
+    }
+
+    private static void autoSaveKnowledgeFromResults(List<CodeSymbol> results, String repo) {
+        if (results == null || results.isEmpty()) return;
+        try {
+            java.nio.file.Path projectRoot = com.boris.knowledge.KnowledgeStorageService.resolveProjectRoot(null);
+            for (CodeSymbol s : results) {
+                String className = null;
+                if (s.getType() == SymbolType.CLASS || s.getType() == SymbolType.INTERFACE || s.getType() == SymbolType.ENUM) {
+                    className = s.getName();
+                } else if (s.getType() == SymbolType.METHOD || s.getType() == SymbolType.CONSTRUCTOR) {
+                    className = s.getParent();
+                    if (className != null && className.contains(".")) {
+                        className = className.substring(className.lastIndexOf('.') + 1);
+                    }
+                }
+                if (className == null || className.isBlank()) continue;
+
+                String fw = s.getRepo() != null ? s.getRepo() : (repo != null ? repo : "framework");
+                fw = com.boris.knowledge.KnowledgeStorageService.cleanFrameworkName(fw);
+
+                if (!com.boris.knowledge.KnowledgeStorageService.hasKnowledge(projectRoot, fw, className)) {
+                    List<CodeSymbol> classSymbols = SymbolRepository.search(className, null, s.getRepo());
+                    if (!classSymbols.isEmpty()) {
+                        String card = com.boris.knowledge.KnowledgeExtractorService.extractFromSymbols(fw, className, classSymbols);
+                        if (card != null && !card.isBlank()) {
+                            com.boris.knowledge.KnowledgeStorageService.saveKnowledge(projectRoot, fw, className, card);
+                            ToolProgressNotifier.notify("knowledge_cache", "Ficha técnica guardada en .boris/" + fw + "/" + className + ".md");
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     private static final int MAX_RESULTS = 40;

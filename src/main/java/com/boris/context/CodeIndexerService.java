@@ -34,9 +34,16 @@ public class CodeIndexerService {
             ToolProgressNotifier.notify("index_code",
                 "Indexando " + javaFiles.size() + " archivos Java...");
 
+            Path projectRoot = com.boris.knowledge.KnowledgeStorageService.resolveProjectRoot(null);
+
             for (Path file : javaFiles) {
                 List<CodeSymbol> symbols = indexFile(repoName, file, repoDir);
                 batch.addAll(symbols);
+
+                // Ingesta automática a nivel código de fichas técnicas .md
+                try {
+                    com.boris.knowledge.KnowledgeStorageService.autoRecordJavaFile(file, projectRoot);
+                } catch (Exception ignored) {}
 
                 if (batch.size() >= BATCH_SIZE) {
                     SymbolRepository.saveBatch(batch);

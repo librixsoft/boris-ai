@@ -125,6 +125,12 @@ public class BatchReadFileTool {
             if (maxLines != null && maxLines > 0 && lines.size() > maxLines) {
                 lines = lines.subList(0, maxLines);
             }
+
+            // Ingesta automática a nivel código: registrar ficha técnica de lo aprendido
+            if (resolvedPath.endsWith(".java")) {
+                com.boris.knowledge.KnowledgeStorageService.autoRecordJavaFile(path, Paths.get(projectPath));
+            }
+
             return new FileResult(pathStr, true, String.join("\n", lines), null, count);
         } catch (Exception e) {
             return new FileResult(pathStr, false, null, e.getMessage(), 0);

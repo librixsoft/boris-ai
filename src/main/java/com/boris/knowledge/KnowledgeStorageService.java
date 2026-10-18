@@ -27,8 +27,8 @@ public class KnowledgeStorageService {
     }
 
     public static Path getFrameworkDir(Path projectRoot, String framework) {
-        String safeFramework = sanitizeName(framework);
-        return projectRoot.resolve(".boris").resolve(safeFramework);
+        String cleanFw = cleanFrameworkName(framework);
+        return projectRoot.resolve(".boris").resolve(cleanFw);
     }
 
     public static Path getKnowledgeFilePath(Path projectRoot, String framework, String className) {
@@ -37,17 +37,51 @@ public class KnowledgeStorageService {
         return frameworkDir.resolve(safeClass);
     }
 
-    public static boolean hasKnowledge(Path projectRoot, String framework, String className) {
-        if (framework == null || framework.isBlank() || className == null || className.isBlank()) {
-            return false;
+    public static Path findExistingKnowledgeFile(Path projectRoot, String framework, String className) {
+        if (framework == null || className == null || className.isBlank()) {
+            return null;
         }
-        Path file = getKnowledgeFilePath(projectRoot, framework, className);
-        return Files.isRegularFile(file);
+        String safeClass = sanitizeName(className) + ".md";
+
+        // 1. Direct path in .boris/<cleanFramework>/<Class>.md
+        Path direct = getKnowledgeFilePath(projectRoot, framework, className);
+        if (Files.isRegularFile(direct)) {
+            return direct;
+        }
+
+        // 2. Direct path with raw framework string
+        Path raw = projectRoot.resolve(".boris").resolve(sanitizeName(framework)).resolve(safeClass);
+        if (Files.isRegularFile(raw)) {
+            return raw;
+        }
+
+        // 3. Search directories in .boris/ matching the framework alias
+        Path borisDir = projectRoot.resolve(".boris");
+        if (Files.isDirectory(borisDir)) {
+            try (Stream<Path> stream = Files.list(borisDir)) {
+                List<Path> dirs = stream
+                    .filter(Files::isDirectory)
+                    .filter(p -> matchesFramework(p.getFileName().toString(), framework))
+                    .toList();
+
+                for (Path dir : dirs) {
+                    Path file = dir.resolve(safeClass);
+                    if (Files.isRegularFile(file)) {
+                        return file;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    public static boolean hasKnowledge(Path projectRoot, String framework, String className) {
+        return findExistingKnowledgeFile(projectRoot, framework, className) != null;
     }
 
     public static String readKnowledge(Path projectRoot, String framework, String className) {
-        Path file = getKnowledgeFilePath(projectRoot, framework, className);
-        if (!Files.exists(file)) {
+        Path file = findExistingKnowledgeFile(projectRoot, framework, className);
+        if (file == null || !Files.exists(file)) {
             return null;
         }
         try {
@@ -58,18 +92,90 @@ public class KnowledgeStorageService {
     }
 
     public static void saveKnowledge(Path projectRoot, String framework, String className, String content) throws IOException {
-        Path frameworkDir = getFrameworkDir(projectRoot, framework);
+        String cleanFw = cleanFrameworkName(framework);
+        Path frameworkDir = projectRoot.resolve(".boris").resolve(cleanFw);
         Files.createDirectories(frameworkDir);
         ensureGitignore(projectRoot);
 
-        Path file = getKnowledgeFilePath(projectRoot, framework, className);
+        Path file = frameworkDir.resolve(sanitizeName(className) + ".md");
         Files.writeString(file, content, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+
+        // Si el framework original tenía guiones (ej. tambo-tui vs tamboui), guardar también en el alias
+        String rawSanitized = sanitizeName(framework);
+        if (!rawSanitized.equals(cleanFw) && !rawSanitized.contains("/")) {
+            try {
+                Path aliasDir = projectRoot.resolve(".boris").resolve(rawSanitized);
+                Files.createDirectories(aliasDir);
+                Path aliasFile = aliasDir.resolve(sanitizeName(className) + ".md");
+                Files.writeString(aliasFile, content, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    /**
+     * Ingesta automática a nivel código: cuando se lee un archivo Java en el proyecto o un repo descargado,
+     * genera y persiste la ficha técnica en .boris/<framework>/<CLASE>.md directamente en disco.
+     */
+    public static void autoRecordJavaFile(Path javaFile, Path projectRoot) {
+        if (javaFile == null || !Files.isRegularFile(javaFile) || !javaFile.toString().endsWith(".java")) {
+            return;
+        }
+        try {
+            Path root = projectRoot != null ? projectRoot : resolveProjectRoot(null);
+            String framework = deduceFramework(javaFile, root);
+            String className = javaFile.getFileName().toString().replace(".java", "");
+
+            if (hasKnowledge(root, framework, className)) {
+                return;
+            }
+
+            String card = KnowledgeExtractorService.extractFromJavaFile(javaFile, framework);
+            if (card != null && !card.isBlank()) {
+                saveKnowledge(root, framework, className, card);
+                com.boris.tooling.ToolProgressNotifier.notify("knowledge_cache",
+                    "Ficha generada automáticamente: .boris/" + framework + "/" + className + ".md");
+            }
+        } catch (Exception ignored) {}
+    }
+
+    public static String deduceFramework(Path javaFile, Path projectRoot) {
+        String pathStr = javaFile.toAbsolutePath().normalize().toString();
+        if (pathStr.contains(".boris/repos/")) {
+            int idx = pathStr.indexOf(".boris/repos/");
+            String sub = pathStr.substring(idx + ".boris/repos/".length());
+            int nextSlash = sub.indexOf('/');
+            if (nextSlash != -1) {
+                return sub.substring(0, nextSlash);
+            }
+        }
+        // Deduce from package if possible
+        try {
+            var cu = com.github.javaparser.StaticJavaParser.parse(javaFile);
+            var pkg = cu.getPackageDeclaration().map(p -> p.getNameAsString()).orElse("");
+            if (!pkg.isBlank()) {
+                String[] parts = pkg.split("\\.");
+                if (parts.length >= 2) {
+                    return parts[1]; // e.g. dev.tamboui -> tamboui
+                }
+                return parts[0];
+            }
+        } catch (Exception ignored) {}
+
+        if (projectRoot != null && projectRoot.getFileName() != null) {
+            return projectRoot.getFileName().toString();
+        }
+        return "framework";
     }
 
     public static List<String> listClasses(Path projectRoot, String framework) {
-        Path frameworkDir = getFrameworkDir(projectRoot, framework);
+        String cleanFw = cleanFrameworkName(framework);
+        Path frameworkDir = projectRoot.resolve(".boris").resolve(cleanFw);
         if (!Files.isDirectory(frameworkDir)) {
-            return Collections.emptyList();
+            // Probar con el nombre sanitizado directo
+            frameworkDir = projectRoot.resolve(".boris").resolve(sanitizeName(framework));
+            if (!Files.isDirectory(frameworkDir)) {
+                return Collections.emptyList();
+            }
         }
         List<String> classes = new ArrayList<>();
         try (Stream<Path> stream = Files.list(frameworkDir)) {
@@ -112,6 +218,22 @@ public class KnowledgeStorageService {
                 Files.writeString(gitignore, "*\n!.gitignore\n", StandardCharsets.UTF_8);
             }
         } catch (Exception ignored) {}
+    }
+
+    public static String cleanFrameworkName(String name) {
+        if (name == null || name.isBlank()) return "common";
+        String clean = name.trim();
+        if (clean.contains("/")) {
+            clean = clean.substring(clean.lastIndexOf('/') + 1);
+        }
+        return sanitizeName(clean);
+    }
+
+    public static boolean matchesFramework(String dirName, String framework) {
+        if (dirName.equalsIgnoreCase(framework)) return true;
+        String c1 = dirName.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+        String c2 = framework.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+        return c1.contains(c2) || c2.contains(c1) || (c1.startsWith("tambo") && c2.startsWith("tambo"));
     }
 
     private static String sanitizeName(String name) {

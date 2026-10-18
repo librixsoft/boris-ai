@@ -34,7 +34,7 @@ import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchEditTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
-import com.boris.tooling.parallel.BatchExecuteCommandTool;
+
 // BatchGitHubSearchTool ELIMINADO - usar create_library_context
 // ParallelSearchTool ELIMINADO
 import com.boris.tooling.ToolProgressNotifier;
@@ -88,7 +88,7 @@ public class ToolCallingConfig {
     private final BatchReadFileTool batchReadFileTool;
     private final BatchEditTool batchEditTool;
     private final BatchWebFetchTool batchWebFetchTool;
-    private final BatchExecuteCommandTool batchExecuteCommandTool;
+    // batchExecuteCommandTool ELIMINADO
     // batchGitHubSearchTool ELIMINADO
     // parallelSearchTool ELIMINADO
     private final WebSearchTool webSearchTool;
@@ -113,7 +113,7 @@ public class ToolCallingConfig {
         this.batchReadFileTool = new BatchReadFileTool();
         this.batchEditTool = new BatchEditTool();
         this.batchWebFetchTool = new BatchWebFetchTool();
-        this.batchExecuteCommandTool = new BatchExecuteCommandTool();
+        // batchExecuteCommandTool ELIMINADO
         // batchGitHubSearchTool ELIMINADO
         // parallelSearchTool ELIMINADO
         this.webSearchTool = new WebSearchTool();
@@ -400,24 +400,6 @@ public class ToolCallingConfig {
         String urlsStr = specs.stream().map(BatchWebFetchTool.FetchSpec::url).toList().toString();
         notifyToolTokens("web_fetch", urlsStr, result);
         ToolResultNotifier.notifyQueryResult("web_fetch", urlsStr, result);
-        return result;
-    }
-
-    @Tool(
-            name = "execute_command",
-            description = "Execute a shell command (e.g. build, compile, scripts) in the project workspace.")
-    public String execute_command(@ToolParam(description = "Shell command to execute") String command) {
-        if (command == null || command.isBlank()) {
-            return "{\"success\": false, \"error\": \"Command is required\"}";
-        }
-        String dir = ProjectContext.getProjectPath();
-        if (dir == null || dir.isBlank()) {
-            dir = System.getProperty("user.dir");
-        }
-        ToolProgressNotifier.notify("execute_command", "Ejecutando: " + command);
-        String result = batchExecuteCommandTool.execute(List.of(new BatchExecuteCommandTool.CommandSpec(command, dir)));
-        notifyToolTokens("execute_command", command, result);
-        ToolResultNotifier.notifyQueryResult("execute_command", command, result);
         return result;
     }
 

@@ -47,7 +47,6 @@ Boris connects your local models with a rich set of developer tools to inspect c
 | `edit_file` | Surgically edits files using string replacements or line-targeted substitutions. |
 | `list_files` | Explores workspace directories, file sizes, and children counts. |
 | `delete_file` | Deletes files or directories safely. |
-| `execute_command` | Executes shell commands in the background or synchronously with abort support. |
 | `pdf_generation` | Generates formatted PDF documents from text/markdown. |
 | `office_document` | Reads and writes Office documents (`.docx`, `.xlsx`). |
 | `web_search` | Performs web queries and extracts relevant search results. |

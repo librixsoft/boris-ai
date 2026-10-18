@@ -289,7 +289,7 @@ public class AgenticExecutor {
 
         prompt.append("Instructions:\n");
         prompt.append("- Complete this specific task only\n");
-        prompt.append("- Use the appropriate tools (batch_read_files, apply_edit, execute_command, etc.)n");
+        prompt.append("- Use the appropriate tools (batch_read_files, apply_edit, etc.)\n");
         prompt.append("- Report what was done when finished\n");
 
         return prompt.toString();

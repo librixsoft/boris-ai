@@ -54,7 +54,19 @@ public class FrameworkKnowledgeTool {
             }
         }
 
-        // 3. Intentar generar desde SymbolRepository (si está indexado)
+        // 3. Intentar generar directamente desde fuentes de dependencias en ~/.m2/repository/
+        String m2Extracted = extractFromMavenSources(framework, className);
+        if (m2Extracted != null && !m2Extracted.isBlank()) {
+            try {
+                KnowledgeStorageService.saveKnowledge(projectRoot, framework, className, m2Extracted);
+                ToolProgressNotifier.notify("framework_knowledge", "Extraído de dependencia Maven y guardado en .boris/" + framework + "/" + className + ".md");
+                return success("Ficha extraída de dependencias y guardada en .boris/" + framework + "/" + className + ".md:\n\n" + m2Extracted);
+            } catch (IOException e) {
+                return success("Ficha extraída:\n\n" + m2Extracted);
+            }
+        }
+
+        // 4. Intentar generar desde SymbolRepository (si está indexado)
         if (SymbolRepository.totalCount() > 0) {
             List<CodeSymbol> symbols = SymbolRepository.search(className, null, framework);
             if (!symbols.isEmpty()) {
@@ -126,15 +138,69 @@ public class FrameworkKnowledgeTool {
     }
 
     private static Path findSourceFile(Path projectRoot, String framework, String className) {
-        // 1. Buscar en .boris/repos/<framework>
-        Path repoDir = projectRoot.resolve(".boris").resolve("repos").resolve(framework);
-        if (Files.isDirectory(repoDir)) {
-            Path file = searchFile(repoDir, className + ".java");
-            if (file != null) return file;
+        String searchName = className + ".java";
+
+        // 1. Buscar en .boris/repos/ con coincidencia flexible de framework
+        Path reposBase = projectRoot.resolve(".boris").resolve("repos");
+        if (Files.isDirectory(reposBase)) {
+            try (Stream<Path> stream = Files.list(reposBase)) {
+                List<Path> matchingDirs = stream
+                    .filter(Files::isDirectory)
+                    .filter(p -> matchesFramework(p.getFileName().toString(), framework))
+                    .toList();
+
+                for (Path repoDir : matchingDirs) {
+                    Path file = searchFile(repoDir, searchName);
+                    if (file != null) return file;
+                }
+            } catch (Exception ignored) {}
         }
 
         // 2. Buscar en el directorio actual del proyecto
-        return searchFile(projectRoot, className + ".java");
+        return searchFile(projectRoot, searchName);
+    }
+
+    private static String extractFromMavenSources(String framework, String className) {
+        Path m2 = java.nio.file.Paths.get(System.getProperty("user.home"), ".m2", "repository");
+        if (!Files.isDirectory(m2)) {
+            return null;
+        }
+
+        String searchName = className + ".java";
+        String cleanFw = framework.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+
+        try (Stream<Path> stream = Files.walk(m2, 8)) {
+            List<Path> sourceJars = stream
+                .filter(p -> p.getFileName().toString().endsWith("-sources.jar"))
+                .filter(p -> {
+                    String jarName = p.getFileName().toString().toLowerCase().replaceAll("[^a-zA-Z0-9]", "");
+                    return jarName.contains(cleanFw) || (cleanFw.contains("tambo") && jarName.contains("tambo"));
+                })
+                .toList();
+
+            for (Path jar : sourceJars) {
+                try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(jar.toFile())) {
+                    var entries = zip.entries();
+                    while (entries.hasMoreElements()) {
+                        var entry = entries.nextElement();
+                        if (entry.getName().endsWith("/" + searchName) || entry.getName().equals(searchName)) {
+                            try (java.io.InputStream is = zip.getInputStream(entry)) {
+                                String source = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                                return KnowledgeExtractorService.extractFromSourceCode(source, framework, entry.getName());
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private static boolean matchesFramework(String dirName, String framework) {
+        if (dirName.equalsIgnoreCase(framework)) return true;
+        String c1 = dirName.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+        String c2 = framework.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+        return c1.contains(c2) || c2.contains(c1) || (c1.startsWith("tambo") && c2.startsWith("tambo"));
     }
 
     private static Path searchFile(Path startDir, String fileName) {

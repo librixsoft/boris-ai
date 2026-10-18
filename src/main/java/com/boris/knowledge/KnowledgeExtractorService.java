@@ -24,7 +24,16 @@ public class KnowledgeExtractorService {
 
     public static String extractFromJavaFile(Path file, String framework) {
         try {
-            CompilationUnit cu = StaticJavaParser.parse(file);
+            String source = java.nio.file.Files.readString(file, java.nio.charset.StandardCharsets.UTF_8);
+            return extractFromSourceCode(source, framework, file.getFileName().toString());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public static String extractFromSourceCode(String sourceCode, String framework, String fileName) {
+        try {
+            CompilationUnit cu = StaticJavaParser.parse(sourceCode);
             String pkg = cu.getPackageDeclaration().map(p -> p.getNameAsString()).orElse("");
 
             Optional<TypeDeclaration<?>> primaryType = cu.getPrimaryType();
@@ -77,7 +86,7 @@ public class KnowledgeExtractorService {
                 framework,
                 className,
                 pkg,
-                file.getFileName().toString(),
+                fileName != null ? fileName : className + ".java",
                 kind,
                 javadoc,
                 constructors,
