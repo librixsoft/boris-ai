@@ -218,10 +218,15 @@ public class ToolCallingConfig {
     public String write_file(
             @ToolParam(description = "Absolute or relative file path") String path,
             @ToolParam(description = "Content to write to the file") String content) {
+        // Check if editing is allowed (must document first if there are compile errors)
+        if (!com.boris.tooling.LearningLimiter.allowEdit()) {
+            return "{\"success\":false,\"error\":\"Hay errores de compilación sin corregir. Antes de editar, usa query_framework_knowledge para documentarte sobre las clases involucradas.\"}";
+        }
+
         // Clear compile error flag and reset learning limits when agent starts writing
         com.boris.tooling.LearningLimiter.clearCompileErrors();
         com.boris.tooling.LearningLimiter.reset();
-        
+
         ToolProgressNotifier.notify("write_file", "Escribiendo: " + path);
         String result = WriteTool.execute(Map.of("path", path, "content", content != null ? content : ""));
         notifyToolTokens("write_file", path + "\n" + content, result);
@@ -263,10 +268,15 @@ public class ToolCallingConfig {
     public String apply_edit(@ToolParam(description = "Absolute or relative file path") String path,
                              @ToolParam(description = "Exact text to find and replace in the file") String old_text,
                              @ToolParam(description = "Replacement text") String new_text) {
+        // Check if editing is allowed (must document first if there are compile errors)
+        if (!com.boris.tooling.LearningLimiter.allowEdit()) {
+            return "{\"success\":false,\"error\":\"Hay errores de compilación sin corregir. Antes de editar, usa query_framework_knowledge para documentarte sobre las clases involucradas.\"}";
+        }
+
         // Clear compile error flag and reset learning limits when agent starts editing
         com.boris.tooling.LearningLimiter.clearCompileErrors();
         com.boris.tooling.LearningLimiter.reset();
-        
+
         ToolProgressNotifier.notify("apply_edit", "Editando archivo: " + path);
         String inputText = path + "\n" + old_text + "\n" + new_text;
         String result = EditTool.apply_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));

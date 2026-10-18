@@ -32,9 +32,12 @@ public class FrameworkKnowledgeTool {
         // Check learning limits (applies to ALL calls, including cache hits)
         String conceptKey = framework + ":" + className;
         if (!LearningLimiter.allowLearningCall(conceptKey)) {
-            return error("Límite de aprendizaje alcanzado. " + LearningLimiter.getStatus() + 
+            return error("Límite de aprendizaje alcanzado. " + LearningLimiter.getStatus() +
                 ". Corrige el código con la información que ya tienes y compila para ver errores específicos.");
         }
+
+        // Mark that agent has documented itself (unblocks edit tools)
+        LearningLimiter.markDocumented();
 
         Path projectRoot = KnowledgeStorageService.resolveProjectRoot(projectPath);
 
@@ -62,19 +65,7 @@ public class FrameworkKnowledgeTool {
             }
         }
 
-        // 3. Intentar generar directamente desde fuentes de dependencias en ~/.m2/repository/
-        String m2Extracted = extractFromMavenSources(framework, className);
-        if (m2Extracted != null && !m2Extracted.isBlank()) {
-            try {
-                KnowledgeStorageService.saveKnowledge(projectRoot, framework, className, m2Extracted);
-                ToolProgressNotifier.notify("framework_knowledge", "Extraído de dependencia Maven y guardado en .boris/" + framework + "/" + className + ".md");
-                return success("Ficha extraída de dependencias y guardada en .boris/" + framework + "/" + className + ".md:\n\n" + m2Extracted);
-            } catch (IOException e) {
-                return success("Ficha extraída:\n\n" + m2Extracted);
-            }
-        }
-
-        // 4. Intentar generar desde SymbolRepository (si está indexado)
+        // 3. Intentar generar desde SymbolRepository (si está indexado)
         if (SymbolRepository.totalCount() > 0) {
             List<CodeSymbol> symbols = SymbolRepository.search(className, null, framework);
             if (!symbols.isEmpty()) {
@@ -166,42 +157,6 @@ public class FrameworkKnowledgeTool {
 
         // 2. Buscar en el directorio actual del proyecto
         return searchFile(projectRoot, searchName);
-    }
-
-    private static String extractFromMavenSources(String framework, String className) {
-        Path m2 = java.nio.file.Paths.get(System.getProperty("user.home"), ".m2", "repository");
-        if (!Files.isDirectory(m2)) {
-            return null;
-        }
-
-        String searchName = className + ".java";
-        String cleanFw = framework.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
-
-        try (Stream<Path> stream = Files.walk(m2, 8)) {
-            List<Path> sourceJars = stream
-                .filter(p -> p.getFileName().toString().endsWith("-sources.jar"))
-                .filter(p -> {
-                    String jarName = p.getFileName().toString().toLowerCase().replaceAll("[^a-zA-Z0-9]", "");
-                    return jarName.contains(cleanFw) || (cleanFw.contains("tambo") && jarName.contains("tambo"));
-                })
-                .toList();
-
-            for (Path jar : sourceJars) {
-                try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(jar.toFile())) {
-                    var entries = zip.entries();
-                    while (entries.hasMoreElements()) {
-                        var entry = entries.nextElement();
-                        if (entry.getName().endsWith("/" + searchName) || entry.getName().equals(searchName)) {
-                            try (java.io.InputStream is = zip.getInputStream(entry)) {
-                                String source = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                                return KnowledgeExtractorService.extractFromSourceCode(source, framework, entry.getName());
-                            }
-                        }
-                    }
-                } catch (Exception ignored) {}
-            }
-        } catch (Exception ignored) {}
-        return null;
     }
 
     private static boolean matchesFramework(String dirName, String framework) {
