@@ -712,6 +712,28 @@ public class ToolCallingConfig {
     // ========== Code Symbol Query Tools ==========
 
     @Tool(
+            name = "create_library_context",
+            description = "Downloads GitHub repo and indexes it into SQLite for symbol queries. After indexing, use query_symbols() to search classes/methods. Use force=true to re-download.")
+    public String create_library_context(
+            @ToolParam(description = "GitHub repo in format owner/repo (e.g., mabe02/lanterna)") String repo,
+            @ToolParam(description = "Version, tag or branch (default: main)") String version,
+            @ToolParam(description = "Project path where repo will be cached in .boris/repos/") String project_path,
+            @ToolParam(description = "Force re-download and re-index (default: false)") Boolean force) {
+
+        ToolProgressNotifier.notify("create_library_context", "Indexando: " + repo);
+
+        Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("repo", repo);
+        if (version != null) args.put("version", version);
+        args.put("project_path", project_path != null ? project_path : ".");
+        if (force != null) args.put("force", force);
+
+        String result = LibraryContextTool.execute(args);
+        notifyToolTokens("create_library_context", repo, result);
+        return result;
+    }
+
+    @Tool(
             name = "query_symbols",
             description = "Search for classes, methods, constructors or fields in indexed code. " +
                          "ALWAYS use this BEFORE writing code to verify what actually exists. " +
