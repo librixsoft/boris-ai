@@ -64,6 +64,34 @@ class StreamingFileWriterTest {
     }
 
     @Test
+    void testWritesHtmlFileWithClosingTags() throws IOException {
+        Path targetFile = tempDir.resolve("public/index.html");
+
+        String input = "```html:" + targetFile + "\n" +
+                      "<!DOCTYPE html>\n" +
+                      "<html lang=\"es\">\n" +
+                      "<head>\n" +
+                      "    <meta charset=\"UTF-8\">\n" +
+                      "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+                      "    <title>Hola Mundo</title>\n" +
+                      "</head>\n" +
+                      "<body>\n" +
+                      "    <h1>Hola Mundo</h1>\n" +
+                      "</body>\n" +
+                      "</html>\n" +
+                      "```\n";
+
+        String nonCode = writer.processChunk(input);
+        writer.finish();
+
+        assertTrue(Files.exists(targetFile));
+        String content = Files.readString(targetFile);
+        assertTrue(content.contains("</body>"), "El archivo HTML debería contener </body> pero era:\n" + content);
+        assertTrue(content.contains("</html>"), "El archivo HTML debería contener </html> pero era:\n" + content);
+        assertEquals("", nonCode.trim(), "No debería haber texto no-código filtrado al chat");
+    }
+
+    @Test
     void testReturnsNonCodeText() {
         Path targetFile = tempDir.resolve("test.java");
 
@@ -79,6 +107,24 @@ class StreamingFileWriterTest {
         assertTrue(result.contains("Esto es texto normal"));
         assertTrue(result.contains("Más texto normal"));
         assertFalse(result.contains("codigo"));
+    }
+
+    @Test
+    void testFiltersToolXmlNoise() {
+        String input = "<function_calls>\n" +
+                      "<invoke name=\"write_file\">\n" +
+                      "Texto normal\n" +
+                      "</invoke>\n" +
+                      "</function_calls>\n";
+
+        String result = writer.processChunk(input);
+        writer.finish();
+
+        assertTrue(result.contains("Texto normal"));
+        assertFalse(result.contains("<function_calls>"));
+        assertFalse(result.contains("<invoke"));
+        assertFalse(result.contains("</invoke>"));
+        assertFalse(result.contains("</function_calls>"));
     }
 
     @Test

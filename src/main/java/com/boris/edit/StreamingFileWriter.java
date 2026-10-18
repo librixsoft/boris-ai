@@ -52,7 +52,7 @@ public class StreamingFileWriter {
 
     // Patrones para detectar XML de herramientas (el modelo a veces mezcla formatos)
     private static final Pattern TOOL_XML_PATTERN = Pattern.compile(
-        "^\\s*</(parameter|function|tool_call|invoke|antml).*>|^\\s*<(parameter|function|tool_call|invoke|antml).*>|^\\s*</.*>\\s*$"
+        "^\\s*</?(invoke|tool_call|tool_calls|function_calls|function_call|antml:[a-zA-Z0-9_-]+)\\b.*>\\s*$"
     );
 
     private StringBuilder buffer = new StringBuilder();
@@ -143,6 +143,11 @@ public class StreamingFileWriter {
         // Dentro de bloque CREATE
         if (inCodeBlock && !isEditMode) {
             accumulateCreateLine(line);
+            return null;
+        }
+
+        // XML de herramientas fuera de bloque: filtrar para no mostrar ruido en el chat
+        if (TOOL_XML_PATTERN.matcher(trimmed).matches()) {
             return null;
         }
 
