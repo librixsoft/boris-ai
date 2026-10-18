@@ -37,7 +37,7 @@ import com.boris.tooling.parallel.BatchEditTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
 import com.boris.tooling.parallel.BatchExecuteCommandTool;
 // BatchGitHubSearchTool ELIMINADO - usar create_library_context
-import com.boris.tooling.parallel.ParallelSearchTool;
+// ParallelSearchTool ELIMINADO
 import com.boris.tooling.ToolProgressNotifier;
 import com.boris.context.ProjectContext;
 import com.boris.tooling.ToolResultNotifier;
@@ -92,7 +92,7 @@ public class ToolCallingConfig {
     private final BatchWebFetchTool batchWebFetchTool;
     private final BatchExecuteCommandTool batchExecuteCommandTool;
     // batchGitHubSearchTool ELIMINADO
-    private final ParallelSearchTool parallelSearchTool;
+    // parallelSearchTool ELIMINADO
     private final WebSearchTool webSearchTool;
 
     public ToolCallingConfig(
@@ -117,7 +117,7 @@ public class ToolCallingConfig {
         this.batchWebFetchTool = new BatchWebFetchTool();
         this.batchExecuteCommandTool = new BatchExecuteCommandTool();
         // batchGitHubSearchTool ELIMINADO
-        this.parallelSearchTool = new ParallelSearchTool();
+        // parallelSearchTool ELIMINADO
         this.webSearchTool = new WebSearchTool();
     }
 
@@ -480,83 +480,7 @@ public class ToolCallingConfig {
     }
     */
 
-    @Tool(
-            name = "parallel_search",
-            description = "Text search in files. NOT for classes/methods - use query_symbols instead.")
-    public String parallel_search(
-            @ToolParam(description = "Search query or pattern to find") String query,
-            @ToolParam(description = "File extension filter (e.g., '*.java', '*.ts'). Default: all files") String file_pattern,
-            @ToolParam(description = "Maximum results to return (default: 100)") Integer max_results,
-            @ToolParam(description = "Base directory to search in (default: current directory)") String base_path) {
-
-        // Bloquear búsquedas de clases, métodos y comandos
-        if (query != null && isClassSearch(query)) {
-            String q = query.trim().toLowerCase();
-            if (q.equals("mvn") || q.equals("maven") || q.startsWith("mvn ")) {
-                return "{\"error\": \"BLOQUEADO: Para compilar usa maven_build(\\\"compile\\\") en vez de parallel_search\"}";
-            }
-            String term = extractClassName(query);
-            // Si parece método (camelCase), sugerir query_methods
-            if (query.trim().matches("^[a-z][a-zA-Z0-9]*$")) {
-                return "{\"error\": \"BLOQUEADO: Para buscar métodos usa query_methods(\\\"NombreClase\\\") en vez de parallel_search\"}";
-            }
-            return "{\"error\": \"BLOQUEADO: Para buscar clases/métodos usa query_symbols(\\\"" + term + "\\\") en vez de parallel_search\"}";
-        }
-
-        ToolProgressNotifier.notify("parallel_search", "Buscando: " + query);
-        String result = parallelSearchTool.execute(query, file_pattern, max_results, base_path);
-        notifyToolTokens("parallel_search", query, result);
-        ToolResultNotifier.notifyQueryResult("parallel_search", query, result);
-        return result;
-    }
-
-    private boolean isClassSearch(String query) {
-        String q = query.trim().toLowerCase();
-
-        // Bloquear búsquedas de comandos - usar maven_build
-        if (q.equals("mvn") || q.equals("maven") || q.startsWith("mvn ")) {
-            return true;
-        }
-
-        // Detectar patrones de búsqueda de clases
-        if (q.startsWith("class ") || q.startsWith("interface ") ||
-            q.startsWith("enum ") || q.startsWith("abstract class ")) {
-            return true;
-        }
-        // Detectar nombre de clase solo (PascalCase)
-        if (query.trim().matches("^[A-Z][a-zA-Z0-9]*$")) {
-            return true;
-        }
-        // Detectar nombre de método (camelCase) - probablemente busca API
-        if (query.trim().matches("^[a-z][a-zA-Z0-9]*$") && query.trim().length() > 3) {
-            return true;
-        }
-        // Detectar "class X implements" o similar
-        if (q.matches("(?i).*\\b(class|interface|enum|extends|implements)\\s+[A-Z].*")) {
-            return true;
-        }
-        return false;
-    }
-
-    private String extractClassName(String query) {
-        String q = query.trim();
-        // Extraer nombre de clase del query
-        if (q.matches("^[A-Z][a-zA-Z0-9]*$")) {
-            return q;
-        }
-        java.util.regex.Matcher m = java.util.regex.Pattern
-            .compile("(?:class|interface|enum)\\s+([A-Z][a-zA-Z0-9]*)")
-            .matcher(q);
-        if (m.find()) {
-            return m.group(1);
-        }
-        // Buscar cualquier palabra PascalCase
-        m = java.util.regex.Pattern.compile("([A-Z][a-zA-Z0-9]*)").matcher(q);
-        if (m.find()) {
-            return m.group(1);
-        }
-        return q;
-    }
+    // parallel_search ELIMINADO
 
     // ========== Maven Build Tool ==========
 
