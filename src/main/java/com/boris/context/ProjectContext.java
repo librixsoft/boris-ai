@@ -53,15 +53,35 @@ public class ProjectContext {
         if (absolutePath == null) {
             return false;
         }
+        Path projectRoot = projectRootOrCurrent();
+        if (projectRoot == null) {
+            return false;
+        }
+        Path agentWorkspace = projectRoot.resolve(".boris").normalize();
+        Path target = absolutePath.toAbsolutePath().normalize();
+        return target.startsWith(agentWorkspace);
+    }
+
+    public static Path projectRootOrCurrent() {
         String projectPath = getProjectPath();
         if (projectPath == null || projectPath.isBlank()) {
             projectPath = System.getProperty("user.dir");
         }
         if (projectPath == null || projectPath.isBlank()) {
+            return null;
+        }
+        return Paths.get(projectPath).toAbsolutePath().normalize();
+    }
+
+    public static boolean isInsideProject(java.nio.file.Path absolutePath) {
+        if (absolutePath == null) {
             return false;
         }
-        Path agentWorkspace = Paths.get(projectPath, ".boris").normalize();
+        Path projectRoot = projectRootOrCurrent();
+        if (projectRoot == null) {
+            return false;
+        }
         Path target = absolutePath.toAbsolutePath().normalize();
-        return target.startsWith(agentWorkspace);
+        return target.equals(projectRoot) || target.startsWith(projectRoot);
     }
 }

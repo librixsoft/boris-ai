@@ -48,6 +48,9 @@ public class ListFilesTool {
 
     private static final int DEFAULT_MAX_DEPTH = 5;
     private static final int LISTING_LIMIT = 500;
+    private static final Set<String> DEFAULT_IGNORED_NAMES = Set.of(
+            ".git", ".DS_Store", ".idea", ".gradle", "node_modules", "target", "build",
+            "out", "dist", ".next", ".turbo", ".gradle", "venv", "__pycache__");
 
     public static String execute(Map<String, Object> args) {
         String pathStr = (String) args.getOrDefault("path", ".");
@@ -75,7 +78,17 @@ public class ListFilesTool {
             return formatOutput(false, "Path is not a directory: " + pathStr, null);
         }
 
-        if (ProjectContext.isInsideAgentWorkspace(basePath.toAbsolutePath())) {
+        Path absoluteBase = basePath.toAbsolutePath().normalize();
+        if (!ProjectContext.isInsideProject(absoluteBase)) {
+            return formatOutput(false,
+                "Access denied: " + pathStr + " is outside the project directory (" + projectPath + "). "
+                + "list_files can only explore directories inside the current project. "
+                + "Do not walk the filesystem, user home, caches (e.g. ~/.m2) or hidden folders. "
+                + "For library symbols or signatures use create_library_context, query_symbols or query_methods.",
+                null);
+        }
+
+        if (ProjectContext.isInsideAgentWorkspace(absoluteBase)) {
             return formatOutput(false,
                 "Access to .boris (agent internal workspace: index, dashboard, cached repos) is denied. "
                 + "Use query_symbols for class signatures and query_framework_knowledge(framework, class_name) for class summaries.",
@@ -94,7 +107,7 @@ public class ListFilesTool {
 
             int depth = walkRecursively ? maxDepth : 1;
 
-            Set<String> gitignoreRegexes = hasFilter ? loadGitignorePatterns(basePath) : Set.of();
+            Set<String> gitignoreRegexes = loadGitignorePatterns(basePath);
 
             List<Path> collected = new ArrayList<>();
             try (Stream<Path> stream = Files.walk(basePath, depth)) {
@@ -184,7 +197,16 @@ public class ListFilesTool {
     }
 
     private static Set<String> loadGitignorePatterns(Path basePath) {
-        Path gitignore = basePath.resolve(".gitignore");
+        Set<String> regexes = new java.util.HashSet<>(loadGitignoreFile(basePath));
+        Path projectRoot = ProjectContext.projectRootOrCurrent();
+        if (projectRoot != null && !projectRoot.equals(basePath.toAbsolutePath().normalize())) {
+            regexes.addAll(loadGitignoreFile(projectRoot));
+        }
+        return regexes;
+    }
+
+    private static Set<String> loadGitignoreFile(Path dir) {
+        Path gitignore = dir.resolve(".gitignore");
         if (!Files.isRegularFile(gitignore)) {
             return Set.of();
         }
@@ -206,10 +228,12 @@ public class ListFilesTool {
     }
 
     private static boolean isIgnored(Path basePath, Path path, Set<String> gitignoreRegexes) {
-        if (gitignoreRegexes.isEmpty()) {
-            return false;
-        }
         Path relative = basePath.relativize(path);
+        for (int i = 0; i < relative.getNameCount(); i++) {
+            if (DEFAULT_IGNORED_NAMES.contains(relative.getName(i).toString())) {
+                return true;
+            }
+        }
         for (String regex : gitignoreRegexes) {
             for (int i = 0; i < relative.getNameCount(); i++) {
                 if (relative.getName(i).toString().matches(regex)) {

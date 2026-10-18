@@ -118,6 +118,14 @@ public class BatchReadFileTool {
         if (!Files.isRegularFile(path)) {
             return new FileResult(pathStr, false, null, "Not a file", 0);
         }
+        if (!ProjectContext.isInsideProject(path.toAbsolutePath())) {
+            return new FileResult(pathStr, false, null,
+                "Access denied: file is outside the project directory (" + projectPath + "). "
+                    + "batch_read_files can only read files inside the current project. "
+                    + "Do not read user home, caches (e.g. ~/.m2) or hidden folders; "
+                    + "use create_library_context, query_symbols or query_methods for library code.", 0);
+        }
+
         if (ProjectContext.isInsideAgentWorkspace(path.toAbsolutePath())) {
             return new FileResult(pathStr, false, null,
                 "Access denied: .boris is agent internal workspace (index, dashboard, cached repos). "

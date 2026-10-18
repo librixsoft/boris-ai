@@ -20,11 +20,13 @@ class BatchReadFileToolTest {
     @BeforeEach
     void setUp() {
         tool = new BatchReadFileTool();
+        com.boris.context.ProjectContext.setProjectPath(tempDir.toAbsolutePath().toString());
     }
 
     @AfterEach
     void tearDown() {
         tool.shutdown();
+        com.boris.context.ProjectContext.clear();
     }
 
     @Test

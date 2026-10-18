@@ -15,6 +15,9 @@ import com.boris.context.ProjectContext;
 public class BatchListDirectoriesTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final java.util.Set<String> DEFAULT_IGNORED_NAMES = java.util.Set.of(
+            ".git", ".DS_Store", ".idea", ".gradle", "node_modules", "target", "build",
+            "out", "dist", ".next", ".turbo", "venv", "__pycache__");
 
     public String execute(String pathStr) {
         if (pathStr == null || pathStr.isBlank()) {
@@ -42,11 +45,21 @@ public class BatchListDirectoriesTool {
         if (!Files.isDirectory(dirPath)) {
             return formatError("Not a directory: " + pathStr);
         }
+        if (!ProjectContext.isInsideProject(dirPath.toAbsolutePath())) {
+            return formatError("Access denied: " + pathStr + " is outside the project directory (" + projectPath
+                + "). Directory listing is restricted to the current project. Do not walk the filesystem, user home, caches (e.g. ~/.m2) or hidden folders.");
+        }
+        if (ProjectContext.isInsideAgentWorkspace(dirPath.toAbsolutePath())) {
+            return formatError("Access denied: .boris is agent internal workspace. Use query_framework_knowledge(framework, class_name) for cached class summaries.");
+        }
 
         try (var stream = Files.list(dirPath)) {
             StringBuilder sb = new StringBuilder();
             stream.sorted().forEach(entry -> {
                 try {
+                    if (DEFAULT_IGNORED_NAMES.contains(entry.getFileName().toString())) {
+                        return;
+                    }
                     String type = Files.isDirectory(entry) ? "D" : "F";
                     long size = Files.size(entry);
                     String name = entry.getFileName().toString();
