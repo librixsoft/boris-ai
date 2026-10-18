@@ -236,7 +236,63 @@ public class BorisLlmClient {
                 reqBuilder.think(false);
             }
 
-            ChatResponse response = chat(reqBuilder.build());
+            ChatResponse response;
+            try {
+                response = chat(reqBuilder.build());
+            } catch (ChatException e) {
+                if (e.getMessage() != null && e.getMessage().contains("No user query found in messages")) {
+                    // El template Jinja del modelo no encontró un mensaje 'user'.
+                    // Reconstruir la conversación con solo system + último user y reintentar una vez.
+                    ChatMessage lastUserMsg = null;
+                    for (int i = fullMessages.size() - 1; i >= 0; i--) {
+                        if ("user".equals(fullMessages.get(i).role())) {
+                            lastUserMsg = fullMessages.get(i);
+                            break;
+                        }
+                    }
+                    if (lastUserMsg == null) {
+                        throw new ChatException(
+                                "El modelo requiere un mensaje de usuario pero no se encontró ninguno en la conversación. "
+                                + "Esto puede ocurrir si el historial se perdió o la conversación está corrupta.",
+                                e, ErrorType.UNKNOWN);
+                    }
+
+                    List<ChatMessage> retryMessages = new ArrayList<>();
+                    for (ChatMessage msg : fullMessages) {
+                        if ("system".equals(msg.role())) {
+                            retryMessages.add(msg);
+                        }
+                    }
+                    retryMessages.add(lastUserMsg);
+
+                    ChatRequest retryRequest = ChatRequest.builder()
+                            .model(model)
+                            .messages(retryMessages)
+                            .temperature(temperature)
+                            .tools(toolsSchema)
+                            .parallelToolCalls(false)
+                            .reasoningEffort(thinkMode != null && !thinkMode.isBlank() ? thinkMode : "none")
+                            .think(thinkMode != null && !thinkMode.isBlank() ? thinkMode : (Object) false)
+                            .build();
+
+                    try {
+                        response = chat(retryRequest);
+                    } catch (ChatException retryEx) {
+                        throw new ChatException(
+                                "El modelo (" + model + ") no soporta el formato de conversación actual. "
+                                + "Posiblemente su chat template no maneja mensajes con rol 'tool'. "
+                                + "Considere usar un modelo con soporte nativo de tool calling.",
+                                retryEx, ErrorType.UNKNOWN);
+                    }
+
+                    // El retry funcionó: reemplazar fullMessages con la versión reducida para continuar el bucle
+                    fullMessages.clear();
+                    fullMessages.addAll(retryMessages);
+                } else {
+                    throw e;
+                }
+            }
+
             ChatMessage assistantMsg = response.getFirstMessage();
 
             if (assistantMsg == null) {
