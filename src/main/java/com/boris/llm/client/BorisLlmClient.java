@@ -17,6 +17,9 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.boris.exceptions.ChatException;
 import com.boris.exceptions.ChatException.ErrorType;
+import com.boris.task.TaskExecutionState;
+import com.boris.task.TaskStateNotifier;
+import com.boris.tooling.ToolProgressNotifier;
 import com.boris.tooling.engine.ToolRegistry;
 
 /**
@@ -170,6 +173,27 @@ public class BorisLlmClient {
             java.util.regex.Pattern.compile("```(?:bash:compile|bash|sh|cmd)\\s*\\n\\s*(mvn\\s+[^`\\n]+)", java.util.regex.Pattern.CASE_INSENSITIVE);
     private static final java.util.regex.Pattern FALLBACK_TOOL_JSON_BLOCK =
             java.util.regex.Pattern.compile("```(?:tool:)?([a-zA-Z0-9_-]+)\\s*\\n\\s*(\\{[^`]+\\})\\s*```", java.util.regex.Pattern.DOTALL);
+    private static final java.util.regex.Pattern STREAMING_EDIT_PATTERN =
+            java.util.regex.Pattern.compile("```(?:edit:|\\w+:[^\\n]+)");
+
+    private boolean isModificationResult(String toolName, String toolResult) {
+        if (toolResult == null || toolResult.isBlank()) {
+            return false;
+        }
+        if (toolResult.contains("\"diff\"")) {
+            return true;
+        }
+        if (toolResult.contains("\"success\":true") || toolResult.contains("\"deleted\":true")) {
+            String lowerName = toolName != null ? toolName.toLowerCase() : "";
+            return lowerName.contains("edit") || lowerName.contains("write") || lowerName.contains("delete")
+                    || lowerName.contains("create") || lowerName.contains("revert");
+        }
+        return false;
+    }
+
+    public TaskExecutionState getTaskState() {
+        return TaskStateNotifier.getCurrentState();
+    }
 
     /**
      * Bucle del agente: gestiona peticiones con llamadas a tools automáticas.
@@ -214,9 +238,16 @@ public class BorisLlmClient {
         StringBuilder totalThinking = new StringBuilder();
         int maxTurns = 15;
         int currentTurn = 0;
+        int nudgeCount = 0;
+        final int MAX_NUDGES = 3;
+
+        boolean taskPending = false;
+        boolean hasModified = false;
+        TaskStateNotifier.setState(TaskExecutionState.IDLE);
 
         while (currentTurn < maxTurns) {
             if (isAborted != null && Boolean.TRUE.equals(isAborted.get())) {
+                TaskStateNotifier.setState(TaskExecutionState.IDLE);
                 return new ChatTurn("", null);
             }
             currentTurn++;
@@ -313,6 +344,10 @@ public class BorisLlmClient {
             String cleanContent = THINK_BLOCK_PATTERN.matcher(rawContent).replaceAll("").trim();
             cleanContent = ORPHAN_THINK_TAGS.matcher(cleanContent).replaceAll("").trim();
 
+            if (STREAMING_EDIT_PATTERN.matcher(cleanContent).find()) {
+                hasModified = true;
+            }
+
             List<ToolCall> toolCalls = assistantMsg.toolCalls();
 
             // Fallback de tool calling: Si el modelo no emitió tool_calls nativos pero simuló bloques bash o tool en texto
@@ -321,12 +356,47 @@ public class BorisLlmClient {
             }
 
             if (toolCalls == null || toolCalls.isEmpty() || toolRegistry == null) {
-                // El modelo respondió con texto final (sin llamadas a herramientas)
-                if (onChunk != null && !cleanContent.isEmpty()) {
-                    emitText(cleanContent, onChunk);
+                // Caso A: Chat normal (nunca se activó ninguna herramienta) o sin registry
+                if (!taskPending || toolRegistry == null) {
+                    if (onChunk != null && !cleanContent.isEmpty()) {
+                        emitText(cleanContent, onChunk);
+                    }
+                    String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
+                    return new ChatTurn(cleanContent, thinkingResult);
                 }
-                String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
-                return new ChatTurn(cleanContent, thinkingResult);
+
+                // Caso B: ¡Tarea completada! Se ejecutaron tools y ya se aplicó al menos una modificación real en los archivos.
+                if (hasModified) {
+                    taskPending = false;
+                    TaskStateNotifier.setState(TaskExecutionState.COMPLETED);
+                    if (onChunk != null && !cleanContent.isEmpty()) {
+                        emitText(cleanContent, onChunk);
+                    }
+                    String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
+                    return new ChatTurn(cleanContent, thinkingResult);
+                }
+
+                // Caso C: El agente intentó parar antes de tiempo (usó tools pero hasModified == false)
+                if (nudgeCount < MAX_NUDGES) {
+                    nudgeCount++;
+                    if (onChunk != null && !cleanContent.isEmpty()) {
+                        emitText(cleanContent + "\n\n", onChunk);
+                    }
+                    ToolProgressNotifier.notify("agent_loop", "Tarea pendiente (intento " + nudgeCount + "/" + MAX_NUDGES + "): solicitando aplicación de cambios...");
+                    fullMessages.add(ChatMessage.assistant(cleanContent));
+                    fullMessages.add(ChatMessage.user("Has analizado o investigado el problema pero no has aplicado los cambios. Aplica las modificaciones en el código ahora usando las herramientas de edición."));
+                    continue;
+                } else {
+                    // Al 4to intento sin modificar nada, salimos y avisamos al usuario
+                    taskPending = false;
+                    TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                    String warningMsg = "\n\n⚠️ Tarea no completada: Boris se detuvo tras " + MAX_NUDGES + " intentos porque no se aplicó ninguna modificación en los archivos.";
+                    if (onChunk != null) {
+                        emitText(cleanContent + warningMsg, onChunk);
+                    }
+                    String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
+                    return new ChatTurn(cleanContent + warningMsg, thinkingResult);
+                }
             }
 
             // El modelo solicitó invocar herramientas
@@ -345,6 +415,7 @@ public class BorisLlmClient {
 
             for (ToolCall call : toolCalls) {
                 if (isAborted != null && Boolean.TRUE.equals(isAborted.get())) {
+                    TaskStateNotifier.setState(TaskExecutionState.IDLE);
                     return new ChatTurn("", null);
                 }
 
@@ -358,10 +429,20 @@ public class BorisLlmClient {
                     toolResult = "Error ejecutando " + toolName + ": " + e.getMessage();
                 }
 
+                // En cuanto se invoca CUALQUIER herramienta, se activa taskPending
+                taskPending = true;
+                TaskStateNotifier.setState(TaskExecutionState.TASK_IN_PROGRESS);
+
+                // Verificamos si esta herramienta aplicó una modificación real
+                if (isModificationResult(toolName, toolResult)) {
+                    hasModified = true;
+                }
+
                 fullMessages.add(ChatMessage.tool(call.id(), toolResult));
             }
         }
 
+        TaskStateNotifier.setState(hasModified ? TaskExecutionState.COMPLETED : (taskPending ? TaskExecutionState.INCOMPLETE : TaskExecutionState.IDLE));
         return new ChatTurn("", totalThinking.length() > 0 ? totalThinking.toString().trim() : null);
     }
 
