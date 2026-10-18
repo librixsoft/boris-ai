@@ -1,15 +1,13 @@
 package com.boris.tooling.tool;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.tooling.ToolDefinition;
+import com.boris.edit.StreamingFileWriter;
 import com.boris.context.ProjectContext;
 public class WriteTool {
 
@@ -47,49 +45,13 @@ public class WriteTool {
             content = "";
         }
 
-        Path path = Paths.get(pathStr);
-
-        // Sugerir usar streaming_edit para archivos de código
-        if (isCodeFile(pathStr)) {
-            long lineCount = content.lines().count();
-            if (lineCount > 15) {
-                return formatOutput(false,
-                    "Para archivos de código grandes, usa streaming_edit_start/line/finish.\n" +
-                    "write_file es solo para archivos de configuración (json, xml, properties).");
-            }
-        }
-
         try {
-            Files.createDirectories(path.getParent());
-            Files.writeString(path, content);
-            long size = Files.size(path);
-            return formatOutput(true, "File written successfully: " + pathStr + " (" + size + " bytes)");
+            // Wrapper: delega a StreamingFileWriter
+            StreamingFileWriter.writeFileWithPreview(pathStr, content);
+            return formatOutput(true, "File written: " + pathStr);
         } catch (IOException e) {
-            throw new com.boris.exceptions.BorisException("Error writing file: " + pathStr, e);
+            return formatOutput(false, "Error writing file: " + e.getMessage());
         }
-    }
-
-    private static boolean isCodeFile(String path) {
-        String lower = path.toLowerCase();
-        return lower.endsWith(".java") ||
-               lower.endsWith(".kt") ||
-               lower.endsWith(".scala") ||
-               lower.endsWith(".groovy") ||
-               lower.endsWith(".py") ||
-               lower.endsWith(".js") ||
-               lower.endsWith(".ts") ||
-               lower.endsWith(".tsx") ||
-               lower.endsWith(".jsx") ||
-               lower.endsWith(".go") ||
-               lower.endsWith(".rs") ||
-               lower.endsWith(".c") ||
-               lower.endsWith(".cpp") ||
-               lower.endsWith(".h") ||
-               lower.endsWith(".cs") ||
-               lower.endsWith(".rb") ||
-               lower.endsWith(".php") ||
-               lower.endsWith(".swift") ||
-               lower.endsWith(".m");
     }
 
     private static String formatOutput(boolean success, String message) {

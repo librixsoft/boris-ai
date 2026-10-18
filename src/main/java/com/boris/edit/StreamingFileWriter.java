@@ -343,4 +343,22 @@ public class StreamingFileWriter {
     public String getCurrentFilePath() {
         return currentFilePath;
     }
+
+    /**
+     * Escribe un archivo mostrando cada línea en el chat (wrapper para tools).
+     * Simula el comportamiento de streaming con contenido completo.
+     */
+    public static void writeFileWithPreview(String pathStr, String content) throws IOException {
+        Path filePath = Paths.get(pathStr);
+
+        DiffLineNotifier.notify("@@@ " + filePath.getFileName() + " (crear) @@@");
+        String[] lines = content.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            DiffLineNotifier.notify(String.format("%3d │+ %s", i + 1, lines[i]));
+        }
+
+        Files.createDirectories(filePath.getParent());
+        Files.writeString(filePath, content);
+        DiffLineNotifier.notify(String.format("─── +%d ✓ %s guardado ───", lines.length, pathStr));
+    }
 }
