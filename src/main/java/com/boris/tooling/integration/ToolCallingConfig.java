@@ -258,8 +258,31 @@ public class ToolCallingConfig {
         if (max_depth != null) args.put("max_depth", max_depth);
         if (pattern != null) args.put("pattern", pattern);
         String result = ListFilesTool.execute(args);
+        notifyListing("list_files", result);
         notifyToolTokens("list_files", path != null ? path : ".", result);
         return result;
+    }
+
+    private static void notifyListing(String toolName, String result) {
+        try {
+            var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(result);
+            if (node.has("success") && node.get("success").asBoolean() && node.has("listing")) {
+                String listing = node.get("listing").asText().trim();
+                if (!listing.isBlank()) {
+                    String[] lines = listing.split("\n");
+                    int maxLines = 60;
+                    if (lines.length > maxLines) {
+                        StringBuilder visible = new StringBuilder();
+                        for (int i = 0; i < maxLines; i++) {
+                            visible.append(lines[i]).append("\n");
+                        }
+                        visible.append("+ ").append(lines.length - maxLines).append(" entradas restantes");
+                        listing = visible.toString();
+                    }
+                    ToolProgressNotifier.notify(toolName, listing);
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     @Tool(

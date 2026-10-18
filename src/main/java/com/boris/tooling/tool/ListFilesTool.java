@@ -53,8 +53,12 @@ public class ListFilesTool {
         pathStr = ProjectContext.resolveRelativePath(pathStr);
         Path basePath = Paths.get(pathStr);
 
+        String projectPath = ProjectContext.getProjectPath();
         if (!Files.exists(basePath)) {
-            return formatOutput(false, "Directory not found: " + pathStr, null);
+            return formatOutput(false,
+                    "Directory not found: " + pathStr + ". The current project path is: " + projectPath
+                    + ". Call list_files with the exact project path or a relative path inside it. Do not invent sibling directories.",
+                    null);
         }
 
         if (!Files.isDirectory(basePath)) {
@@ -70,15 +74,21 @@ public class ListFilesTool {
 
             int depth = (recursive != null && recursive) ? maxDepth : 1;
 
+            int limit = 500;
+            StringBuilder listing = new StringBuilder();
+
             try (Stream<Path> stream = Files.walk(basePath, depth)) {
                 stream.filter(p -> !p.equals(basePath))
                       .filter(p -> matchesPattern(p, pattern))
                       .sorted()
-                      .limit(500)
+                      .limit(limit)
                       .forEach(p -> {
+                          String relative = basePath.relativize(p).toString();
+                          boolean isDir = Files.isDirectory(p);
+                          listing.append(isDir ? "[DIR]  " : "[FILE] ").append(relative).append("\n");
                           ObjectNode entry = filesArray.addObject();
-                          entry.put("name", basePath.relativize(p).toString());
-                          entry.put("type", Files.isDirectory(p) ? "directory" : "file");
+                          entry.put("name", relative);
+                          entry.put("type", isDir ? "directory" : "file");
                           try {
                               if (Files.isRegularFile(p)) {
                                   entry.put("size", Files.size(p));
@@ -88,6 +98,10 @@ public class ListFilesTool {
             }
 
             result.put("count", filesArray.size());
+            result.put("listing", listing.toString());
+            if (filesArray.size() >= limit) {
+                result.put("truncated", "Listing limited to " + limit + " entries. Use a subdirectory or a pattern to reduce it.");
+            }
             return MAPPER.writeValueAsString(result);
 
         } catch (IOException e) {

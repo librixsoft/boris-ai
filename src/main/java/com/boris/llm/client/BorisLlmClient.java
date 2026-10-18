@@ -236,13 +236,8 @@ public class BorisLlmClient {
         }
 
         StringBuilder totalThinking = new StringBuilder();
-        int maxTurns = 15;
-        int currentTurn = 0;
         int nudgeCount = 0;
-        int continuationCount = 0;
         final int MAX_NUDGES = 3;
-        final int MAX_CONTINUATIONS = 2;
-        final int CONTINUATION_EXTRA_TURNS = 5;
 
         boolean taskPending = false;
         boolean hasModified = false;
@@ -253,18 +248,6 @@ public class BorisLlmClient {
                 TaskStateNotifier.setState(TaskExecutionState.IDLE);
                 return new ChatTurn("", null);
             }
-            if (currentTurn >= maxTurns) {
-                if (taskPending && continuationCount < MAX_CONTINUATIONS) {
-                    continuationCount++;
-                    currentTurn = maxTurns;
-                    maxTurns += CONTINUATION_EXTRA_TURNS;
-                    ToolProgressNotifier.notify("agent_loop", "Limite de turnos alcanzado (extension " + continuationCount + "/" + MAX_CONTINUATIONS + "): solicitando continuar la tarea al LLM...");
-                    fullMessages.add(ChatMessage.user("Has alcanzado el limite de turnos de ejecucion pero la tarea sigue pendiente y no ha finalizado. Continua exactamente desde donde lo dejaste y aplica los cambios necesarios usando las herramientas de edicion hasta completar la tarea."));
-                    continue;
-                }
-                break;
-            }
-            currentTurn++;
 
             ChatRequest.Builder reqBuilder = ChatRequest.builder()
                     .model(model)
@@ -286,29 +269,15 @@ public class BorisLlmClient {
                 response = chat(reqBuilder.build());
             } catch (ChatException e) {
                 if (e.getMessage() != null && e.getMessage().contains("No user query found in messages")) {
-                    // El template Jinja del modelo no encontró un mensaje 'user'.
-                    // Reconstruir la conversación con solo system + último user y reintentar una vez.
-                    ChatMessage lastUserMsg = null;
-                    for (int i = fullMessages.size() - 1; i >= 0; i--) {
-                        if ("user".equals(fullMessages.get(i).role())) {
-                            lastUserMsg = fullMessages.get(i);
-                            break;
-                        }
-                    }
-                    if (lastUserMsg == null) {
+                    if (fullMessages.stream().noneMatch(m -> "user".equals(m.role()))) {
                         throw new ChatException(
                                 "El modelo requiere un mensaje de usuario pero no se encontró ninguno en la conversación. "
                                 + "Esto puede ocurrir si el historial se perdió o la conversación está corrupta.",
                                 e, ErrorType.UNKNOWN);
                     }
 
-                    List<ChatMessage> retryMessages = new ArrayList<>();
-                    for (ChatMessage msg : fullMessages) {
-                        if ("system".equals(msg.role())) {
-                            retryMessages.add(msg);
-                        }
-                    }
-                    retryMessages.add(lastUserMsg);
+                    List<ChatMessage> retryMessages = new ArrayList<>(fullMessages);
+                    retryMessages.add(ChatMessage.user("Continúa exactamente donde lo dejaste usando los resultados de las herramientas anteriores."));
 
                     ChatRequest retryRequest = ChatRequest.builder()
                             .model(model)
@@ -330,7 +299,7 @@ public class BorisLlmClient {
                                 retryEx, ErrorType.UNKNOWN);
                     }
 
-                    // El retry funcionó: reemplazar fullMessages con la versión reducida para continuar el bucle
+                    // El retry funcionó: conservar la conversación completa con los resultados de las herramientas
                     fullMessages.clear();
                     fullMessages.addAll(retryMessages);
                 } else {
@@ -346,7 +315,6 @@ public class BorisLlmClient {
                 //  en ejecucion real; puede seguir fallando la detencion en plena tarea.
                 if (taskPending && nudgeCount < MAX_NUDGES) {
                     nudgeCount++;
-                    ToolProgressNotifier.notify("agent_loop", "Respuesta vacia del modelo (intento " + nudgeCount + "/" + MAX_NUDGES + "): solicitando continuar la tarea...");
                     fullMessages.add(ChatMessage.user("Tu respuesta anterior llego vacia. Continua con la tarea pendiente y aplica los cambios usando las herramientas de edicion."));
                     continue;
                 }
@@ -415,7 +383,6 @@ public class BorisLlmClient {
                     if (onChunk != null && !cleanContent.isEmpty()) {
                         emitText(cleanContent + "\n\n", onChunk);
                     }
-                    ToolProgressNotifier.notify("agent_loop", "Tarea pendiente (intento " + nudgeCount + "/" + MAX_NUDGES + "): solicitando aplicación de cambios...");
                     fullMessages.add(ChatMessage.assistant(cleanContent));
                     fullMessages.add(ChatMessage.user("Has analizado o investigado el problema pero no has aplicado los cambios. Aplica las modificaciones en el código ahora usando las herramientas de edición."));
                     continue;
@@ -473,28 +440,6 @@ public class BorisLlmClient {
 
                 fullMessages.add(ChatMessage.tool(call.id(), toolResult));
             }
-        }
-
-        // TODO: FIX PENDIENTE DE VALIDAR - Al agotar maxTurns con tarea pendiente se envian hasta
-        //  MAX_CONTINUATIONS mensajes de continuacion al LLM (ver cabecera del bucle); este bloque
-        //  es el fallback final cuando tambien se agotan las continuaciones. Validado parcialmente:
-        //  la deteccion dispara, falto validar el flujo de continuacion.
-        if (taskPending) {
-            TaskStateNotifier.setState(hasModified ? TaskExecutionState.COMPLETED : TaskExecutionState.INCOMPLETE);
-            if (hasModified) {
-                String warningMsg = "\n\n⚠️ El agente se detuvo tras alcanzar el maximo de " + maxTurns + " turnos de ejecucion. Se aplicaron cambios en los archivos pero la tarea pudo quedar a medias.";
-                if (onChunk != null) {
-                    emitText(warningMsg, onChunk);
-                }
-                String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
-                return new ChatTurn(warningMsg.trim(), thinkingResult);
-            }
-            String warningMsg = "\n\n⚠️ Tarea no completada: se alcanzo el maximo de " + maxTurns + " turnos de ejecucion sin aplicar modificaciones en los archivos.";
-            if (onChunk != null) {
-                emitText(warningMsg, onChunk);
-            }
-            String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
-            return new ChatTurn(warningMsg.trim(), thinkingResult);
         }
 
         TaskStateNotifier.setState(hasModified ? TaskExecutionState.COMPLETED : TaskExecutionState.IDLE);
