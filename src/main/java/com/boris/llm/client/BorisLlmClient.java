@@ -239,16 +239,30 @@ public class BorisLlmClient {
         int maxTurns = 15;
         int currentTurn = 0;
         int nudgeCount = 0;
+        int continuationCount = 0;
         final int MAX_NUDGES = 3;
+        final int MAX_CONTINUATIONS = 2;
+        final int CONTINUATION_EXTRA_TURNS = 5;
 
         boolean taskPending = false;
         boolean hasModified = false;
         TaskStateNotifier.setState(TaskExecutionState.IDLE);
 
-        while (currentTurn < maxTurns) {
+        while (true) {
             if (isAborted != null && Boolean.TRUE.equals(isAborted.get())) {
                 TaskStateNotifier.setState(TaskExecutionState.IDLE);
                 return new ChatTurn("", null);
+            }
+            if (currentTurn >= maxTurns) {
+                if (taskPending && continuationCount < MAX_CONTINUATIONS) {
+                    continuationCount++;
+                    currentTurn = maxTurns;
+                    maxTurns += CONTINUATION_EXTRA_TURNS;
+                    ToolProgressNotifier.notify("agent_loop", "Limite de turnos alcanzado (extension " + continuationCount + "/" + MAX_CONTINUATIONS + "): solicitando continuar la tarea al LLM...");
+                    fullMessages.add(ChatMessage.user("Has alcanzado el limite de turnos de ejecucion pero la tarea sigue pendiente y no ha finalizado. Continua exactamente desde donde lo dejaste y aplica los cambios necesarios usando las herramientas de edicion hasta completar la tarea."));
+                    continue;
+                }
+                break;
             }
             currentTurn++;
 
@@ -461,9 +475,10 @@ public class BorisLlmClient {
             }
         }
 
-        // TODO: FIX PENDIENTE DE VALIDAR - Deteccion de agotamiento de maxTurns con tarea pendiente
-        //  (estado COMPLETED/INCOMPLETE + aviso visible via onChunk). Aun no se ha validado
-        //  en ejecucion real; puede seguir fallando la detencion en plena tarea.
+        // TODO: FIX PENDIENTE DE VALIDAR - Al agotar maxTurns con tarea pendiente se envian hasta
+        //  MAX_CONTINUATIONS mensajes de continuacion al LLM (ver cabecera del bucle); este bloque
+        //  es el fallback final cuando tambien se agotan las continuaciones. Validado parcialmente:
+        //  la deteccion dispara, falto validar el flujo de continuacion.
         if (taskPending) {
             TaskStateNotifier.setState(hasModified ? TaskExecutionState.COMPLETED : TaskExecutionState.INCOMPLETE);
             if (hasModified) {
