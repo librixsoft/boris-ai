@@ -5,7 +5,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -113,95 +112,6 @@ class EditToolTest {
         assertEquals("hello replaced text", Files.readString(file));
     }
 
-    // --- multi_edit ---
-
-    @Test
-    void multi_edit_appliesMultipleEdits() throws Exception {
-        Path file = tempDir.resolve("multi-edit.txt");
-        Files.writeString(file, "alpha beta gamma delta");
-
-        String result = EditTool.multi_edit(Map.of(
-                "path", file.toString(),
-                "edits", List.of(
-                        Map.of("old_text", "beta", "new_text", "BETA"),
-                        Map.of("old_text", "delta", "new_text", "DELTA")
-                )
-        ));
-
-        assertTrue(result.contains("\"success\":true"));
-        assertEquals("alpha BETA gamma DELTA", Files.readString(file));
-    }
-
-    @Test
-    void multi_edit_returnsError_whenEditsIsNull() throws Exception {
-        Path file = tempDir.resolve("null-edits.txt");
-        Files.writeString(file, "hello");
-
-        Map<String, Object> params = new java.util.HashMap<>();
-        params.put("path", file.toString());
-        params.put("edits", (List<Map<String, Object>>) null);
-
-        String result = EditTool.multi_edit(params);
-
-        assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("edits array is required"));
-    }
-
-    @Test
-    void multi_edit_returnsError_whenEditsIsEmpty() throws Exception {
-        Path file = tempDir.resolve("empty-edits.txt");
-        Files.writeString(file, "hello");
-
-        String result = EditTool.multi_edit(Map.of(
-                "path", file.toString(),
-                "edits", List.of()
-        ));
-
-        assertTrue(result.contains("\"success\":false"));
-    }
-
-    @Test
-    void multi_edit_returnsError_whenOldTextNotFoundAtIndex() throws Exception {
-        Path file = tempDir.resolve("fail-index.txt");
-        Files.writeString(file, "hello world");
-
-        String result = EditTool.multi_edit(Map.of(
-                "path", file.toString(),
-                "edits", List.of(
-                        Map.of("old_text", "hello", "new_text", "hi"),
-                        Map.of("old_text", "nonexistent", "new_text", "x")
-                )
-        ));
-
-        assertTrue(result.contains("\"success\":false"));
-    }
-
-    @Test
-    void multi_edit_returnsError_whenEditHasEmptyOldText() throws Exception {
-        Path file = tempDir.resolve("empty-old.txt");
-        Files.writeString(file, "hello world");
-
-        String result = EditTool.multi_edit(Map.of(
-                "path", file.toString(),
-                "edits", List.of(
-                        Map.of("old_text", "", "new_text", "x")
-                )
-        ));
-
-        assertTrue(result.contains("\"success\":false"));
-    }
-
-    @Test
-    void multi_edit_returnsError_whenPathBlank() {
-        String result = EditTool.multi_edit(Map.of(
-                "path", "",
-                "edits", List.of(Map.of("old_text", "x", "new_text", "y"))
-        ));
-
-        assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("path is required"));
-    }
-
     // --- revert_edit ---
 
     @Test
@@ -287,22 +197,6 @@ class EditToolTest {
         assertTrue(props.containsKey("path"));
         assertTrue(props.containsKey("old_text"));
         assertTrue(props.containsKey("new_text"));
-    }
-
-    @Test
-    void multi_edit_definition_hasCorrectNameAndDescription() {
-        var def = EditTool.multi_edit();
-        assertEquals("multi_edit", def.name());
-        assertFalse(def.description().isBlank());
-    }
-
-    @Test
-    void multi_edit_definition_hasParametersSchema() {
-        var def = EditTool.multi_edit();
-        Map<String, Object> props = (Map<String, Object>) def.parameters().get("properties");
-        assertNotNull(props);
-        assertTrue(props.containsKey("path"));
-        assertTrue(props.containsKey("edits"));
     }
 
     @Test

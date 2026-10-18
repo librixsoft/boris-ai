@@ -74,7 +74,6 @@ class ChatServiceTest {
     void testToolRegistryHasExpectedTools() {
         var registry = com.boris.tooling.integration.ToolCallingConfig.buildToolRegistry();
         assertTrue(registry.hasTool("maven_build"));
-        assertTrue(registry.hasTool("read_file"));
         assertTrue(registry.hasTool("batch_read_files"));
         assertTrue(registry.hasTool("write_file"));
         assertTrue(registry.hasTool("apply_edit"));

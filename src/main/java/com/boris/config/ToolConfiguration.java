@@ -14,7 +14,6 @@ import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
 import com.boris.tooling.tool.LibraryContextTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
-import com.boris.tooling.parallel.BatchEditTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
 
 import com.boris.tooling.parallel.BatchListDirectoriesTool;
@@ -79,11 +78,6 @@ public class ToolConfiguration {
     @Bean
     public BatchReadFileTool batchReadFileTool() {
         return new BatchReadFileTool();
-    }
-
-    @Bean
-    public BatchEditTool batchEditTool() {
-        return new BatchEditTool();
     }
 
     @Bean

@@ -34,7 +34,6 @@ import com.boris.tooling.tool.WriteTool;
 import com.boris.tooling.tool.LibraryContextTool;
 import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
-import com.boris.tooling.parallel.BatchEditTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
 
 // BatchGitHubSearchTool ELIMINADO - usar create_library_context
@@ -88,7 +87,6 @@ public class ToolCallingConfig {
 
     // PARALLEL tools (replace sequential versions)
     private final BatchReadFileTool batchReadFileTool;
-    private final BatchEditTool batchEditTool;
     private final BatchWebFetchTool batchWebFetchTool;
     // batchExecuteCommandTool ELIMINADO
     // batchGitHubSearchTool ELIMINADO
@@ -113,7 +111,6 @@ public class ToolCallingConfig {
 
         // Initialize tools
         this.batchReadFileTool = new BatchReadFileTool();
-        this.batchEditTool = new BatchEditTool();
         this.batchWebFetchTool = new BatchWebFetchTool();
         // batchExecuteCommandTool ELIMINADO
         // batchGitHubSearchTool ELIMINADO
@@ -216,7 +213,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "write_file",
-            description = "Create a new file or overwrite an existing one with the given content. Returns success status and message.")
+            description = "Create a NEW file or fully overwrite the content of an existing one. Each line is shown in the chat while it writes and the file is saved at the end. Do NOT use it for partial changes to an existing file; use apply_edit for those.")
     public String write_file(
             @ToolParam(description = "Absolute or relative file path") String path,
             @ToolParam(description = "Content to write to the file") String content) {
@@ -321,10 +318,10 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "apply_edit",
-            description = "Apply a surgical edit to an existing file by finding old_text and replacing it with new_text. Returns success status, message, and a diff showing changes. IMPORTANT: Always display the diff to the user with lines starting with '- ' for removed and '+ ' for added content.")
+            description = "Surgical edit of an EXISTING file: replaces the FIRST exact occurrence of old_text with new_text. old_text MUST be copied VERBATIM from real file content read with batch_read_files (byte-for-byte: same indentation, spacing and newlines). Text written from memory, paraphrased, or too short/ambiguous will fail with 'old_text not found'. For multiple distinct changes make several apply_edit calls. The UI renders the diff automatically; do not repeat the diff in your response.")
     public String apply_edit(@ToolParam(description = "Absolute or relative file path") String path,
-                             @ToolParam(description = "Exact text to find and replace in the file") String old_text,
-                             @ToolParam(description = "Replacement text") String new_text) {
+                             @ToolParam(description = "Exact text copied VERBATIM from the file content, including a few surrounding lines to make it unique. Same indentation, spaces and newlines. Never paraphrased and never written from memory.") String old_text,
+                             @ToolParam(description = "Replacement text, keeping the same indentation level as the replaced block") String new_text) {
         String applyGateError = com.boris.tooling.EditGateService.checkEditAllowed(
             path, (old_text != null ? old_text : "") + "\n" + (new_text != null ? new_text : ""));
         if (applyGateError != null) {
@@ -339,41 +336,15 @@ public class ToolCallingConfig {
         String inputText = path + "\n" + old_text + "\n" + new_text;
         String result = EditTool.apply_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
         notifyToolTokens("apply_edit", inputText, result);
-        try {
-            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            var node = mapper.readTree(result);
-            boolean success = node.has("success") && node.get("success").asBoolean();
-            String diff = node.has("diff") ? node.get("diff").asText() : null;
-            if (diff != null && !diff.isEmpty()) {
-                ToolResultNotifier.notifyEdit(path, diff, success);
-            }
-        } catch (Exception ignored) {}
-        return result;
-    }
-
-    @Tool(
-            name = "multi_edit",
-            description = "Apply multiple sequential edits to a file. Each edit replaces old_text with new_text. Returns success status and message.")
-    public String multi_edit(@ToolParam(description = "Absolute or relative file path") String path,
-                             @ToolParam(description = "Array of edit objects, each with old_text and new_text fields") java.util.List<java.util.Map<String, Object>> edits) {
-        StringBuilder inputBuilder = new StringBuilder(path);
-        for (var edit : edits) {
-            inputBuilder.append("\n").append(edit.get("old_text")).append("\n").append(edit.get("new_text"));
-        }
-        java.util.Map<String, Object> multiEditParams = new java.util.LinkedHashMap<>();
-        multiEditParams.put("path", path);
-        multiEditParams.put("edits", edits);
-        String result = EditTool.multi_edit(multiEditParams);
-        notifyToolTokens("multi_edit", inputBuilder.toString(), result);
         return result;
     }
 
     @Tool(
             name = "revert_edit",
-            description = "Revert a previous edit by finding the edited text and replacing it with its original value. Returns success status and message.")
+            description = "Revert a previous apply_edit that went wrong: old_text is the CURRENT (wrong) text now in the file, new_text is the ORIGINAL text to restore. In this tool old and new are the inverse of apply_edit.")
     public String revert_edit(@ToolParam(description = "Absolute or relative file path") String path,
-                              @ToolParam(description = "Exact text to find and replace with new_text (the original content)") String old_text,
-                              @ToolParam(description = "Replacement text (original value to restore)") String new_text) {
+                              @ToolParam(description = "Exact text currently in the file that you want to remove (the result of your previous edit)") String old_text,
+                              @ToolParam(description = "Original text to restore in its place") String new_text) {
         String inputText = path + "\n" + old_text + "\n" + new_text;
         String result = EditTool.revert_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
         notifyToolTokens("revert_edit", inputText, result);
@@ -430,7 +401,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "web_search",
-            description = "Search the web using DuckDuckGo. Returns titles, URLs, and snippets.")
+            description = "Search the web using DuckDuckGo and return titles, URLs, and snippets. Use ONLY when the user asks for internet information or when needed data is not available in the project (documentation, recent versions, rare errors). At most one call per question.")
     public String web_search(@ToolParam(description = "Search query string") String query,
                              @ToolParam(description = "Number of results to return (1-10, default 5)") Integer count) {
         Map<String, Object> args = new java.util.LinkedHashMap<>();
@@ -483,7 +454,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "git",
-            description = "Execute git commands for version control. Supports: status, diff, log, add, commit, push, pull, branch, checkout, reset, stash, fetch, merge, rebase. Use for all git operations.")
+            description = "Execute a real git command for version control. Read-only commands (status, diff, log, branch) are safe to use freely to verify changes after edits. NEVER commit, push, pull --rebase, reset or modify history unless the user explicitly asks for it.")
     public String git(
             @ToolParam(description = "Git command: status, diff, log, add, commit, push, pull, branch, checkout, reset, stash, fetch, merge, rebase") String command,
             @ToolParam(description = "Additional arguments (file paths, branch names, commit messages, etc.)", required = false) String args,
@@ -510,21 +481,8 @@ public class ToolCallingConfig {
     // ========== Existing Batch Tools ==========
 
     @Tool(
-            name = "read_file",
-            description = "Read a single file from disk. Returns file content.")
-    public String read_file(
-            @ToolParam(description = "Absolute or relative file path to read") String path,
-            @ToolParam(description = "Optional maximum lines to read (default: all)", required = false) Integer max_lines_per_file) {
-        String resolvedPath = ProjectContext.resolveRelativePath(path != null ? path : "");
-        String result = batchReadFileTool.execute(List.of(resolvedPath), max_lines_per_file);
-        notifyToolTokens("read_file", path != null ? path : "", result);
-        ToolResultNotifier.notifyQueryResult("read_file", path != null ? path : "", result);
-        return result;
-    }
-
-    @Tool(
             name = "batch_read_files",
-            description = "Read files from disk. Use this when inspecting files, dependencies, or tests.")
+            description = "Read ONE or MULTIPLE files from disk in a single call; this is the ONLY file-reading tool. ALWAYS read a file with this tool before editing it (apply_edit requires old_text copied from the real content). Group all needed files into one call; use max_lines_per_file to limit huge files.")
     public String batch_read_files(
             @ToolParam(description = "List of absolute or relative file paths to read") java.util.List<String> paths,
             @ToolParam(description = "Optional maximum lines to read per file (default: all)", required = false) Integer max_lines_per_file) {
@@ -545,9 +503,9 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "maven_build",
-            description = "Execute Maven commands (compile, test, package, clean). Use to compile and check for errors.")
+            description = "Compile the project with Maven and get exact compiler errors ([ERROR] lines with file, symbol and line number). Use goal=compile after each batch of code changes to validate, fix reported errors with apply_edit, and re-run. Allowed goals: compile, test, package, clean, verify, install, 'clean compile', 'clean test', 'clean package', 'test-compile'. It cannot run the application.")
     public String maven_build(
-            @ToolParam(description = "Maven goal: compile, test, package, clean, verify, install", required = false) String goal,
+            @ToolParam(description = "Maven goal: compile, test, package, clean, verify, install, 'clean compile', 'clean test', 'clean package', 'test-compile' (default: compile)", required = false) String goal,
             @ToolParam(description = "Project directory (optional, default: current workspace)", required = false) String project_path) {
 
         // Solo permitir goals seguros
