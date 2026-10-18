@@ -655,7 +655,8 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "create_library_context",
-            description = "Downloads GitHub repo and indexes it into SQLite for symbol queries. After indexing, use query_symbols() to search classes/methods. Use force=true to re-download.")
+            description = "Downloads GitHub repo and indexes it into SQLite for on-demand symbol queries. " +
+                         "NOTE: Do NOT browse or explore all classes after indexing; use only for specific symbols when strictly needed.")
     public String create_library_context(
             @ToolParam(description = "GitHub repo in format owner/repo (e.g., mabe02/lanterna)") String repo,
             @ToolParam(description = "Version, tag or branch (default: main)") String version,
@@ -677,9 +678,9 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "query_symbols",
-            description = "Search for classes, methods, constructors or fields in indexed code. " +
-                         "ALWAYS use this BEFORE writing code to verify what actually exists. " +
-                         "Returns real signatures from the source code.")
+            description = "Search for a specific class or method symbol on-demand. " +
+                         "Use ONLY when looking for an unknown symbol or signature. " +
+                         "Do NOT query exhaustively or inspect unneeded classes.")
     public String query_symbols(
             @ToolParam(description = "Name to search (class, method, etc)") String query,
             @ToolParam(description = "Filter by type: CLASS, METHOD, CONSTRUCTOR, FIELD, INTERFACE, ENUM (optional)") String type,
@@ -691,7 +692,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "query_methods",
-            description = "Get all public methods of a class. Use when you need to see what methods are available.")
+            description = "Get public methods of a specific class when needed for an exact call. Do not call recursively across multiple classes.")
     public String query_methods(
             @ToolParam(description = "Class name to get methods from") String className) {
         String result = com.boris.context.SymbolQueryTool.findMethods(className);
@@ -701,7 +702,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "list_classes",
-            description = "List all indexed classes and interfaces. Use to see what's available in a library.")
+            description = "List indexed classes. Do NOT call this during bug fixes, file editing, or file creation tasks. Use targeted lookups instead.")
     public String list_classes(
             @ToolParam(description = "Filter by repo name (optional)") String repo) {
         String result = com.boris.context.SymbolQueryTool.listClasses(repo);
@@ -719,13 +720,41 @@ public class ToolCallingConfig {
     }
 
     @Tool(
-            name = "index_project",
-            description = "Index a local project to enable symbol queries. Use for projects not auto-indexed at startup.")
-    public String index_project(
-            @ToolParam(description = "Path to project root (default: current directory)") String path) {
-        String result = com.boris.context.SymbolQueryTool.indexProject(path);
-        notifyToolTokens("index_project", path != null ? path : ".", result);
+            name = "query_framework_knowledge",
+            description = "Query persistent markdown knowledge card for a class in a framework/library (.boris/<framework>/<CLASE>.md). " +
+                         "ALWAYS use this BEFORE reading full raw source files or symbols when working with unfamiliar frameworks.")
+    public String query_framework_knowledge(
+            @ToolParam(description = "Framework, library or repo name (e.g., tambo-tui, lanterna)") String framework,
+            @ToolParam(description = "Class name to query (e.g., Color, Buffer, Frame, Widget)") String class_name,
+            @ToolParam(description = "Optional project root path (default: current project)") String project_path) {
+        String result = com.boris.knowledge.FrameworkKnowledgeTool.queryKnowledge(framework, class_name, project_path);
+        notifyToolTokens("query_framework_knowledge", framework + "/" + class_name, result);
+        return result;
+    }
+
+    @Tool(
+            name = "save_framework_knowledge",
+            description = "Save or update a markdown knowledge summary for a class in .boris/<framework>/<CLASE>.md so it can be reused in future tasks.")
+    public String save_framework_knowledge(
+            @ToolParam(description = "Framework, library or repo name (e.g., tambo-tui)") String framework,
+            @ToolParam(description = "Class name (e.g., Style, BarChart)") String class_name,
+            @ToolParam(description = "Concise markdown summary with purpose, key methods, and usage example") String content,
+            @ToolParam(description = "Optional project root path (default: current project)") String project_path) {
+        String result = com.boris.knowledge.FrameworkKnowledgeTool.saveKnowledge(framework, class_name, content, project_path);
+        notifyToolTokens("save_framework_knowledge", framework + "/" + class_name, result);
+        return result;
+    }
+
+    @Tool(
+            name = "list_framework_knowledge",
+            description = "List all classes cached in .boris/<framework>/ or list all known frameworks.")
+    public String list_framework_knowledge(
+            @ToolParam(description = "Optional framework name to filter classes (e.g., tambo-tui)") String framework,
+            @ToolParam(description = "Optional project root path (default: current project)") String project_path) {
+        String result = com.boris.knowledge.FrameworkKnowledgeTool.listKnowledge(framework, project_path);
+        notifyToolTokens("list_framework_knowledge", framework != null ? framework : "", result);
         return result;
     }
 
 }
+

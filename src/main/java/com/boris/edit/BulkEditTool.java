@@ -5,6 +5,7 @@ import com.boris.context.ProjectContext;
 import com.boris.context.SymbolRepository;
 import com.boris.tooling.DiffLineNotifier;
 import com.boris.tooling.ToolDefinition;
+import com.boris.tooling.ToolProgressNotifier;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -72,12 +73,11 @@ public class BulkEditTool {
         // Resolver ruta relativa usando el proyecto actual
         pathStr = ProjectContext.resolveRelativePath(pathStr);
 
-        // Validar contra índice SQLite si hay símbolos indexados y es archivo Java
+        // Validar contra índice SQLite si hay símbolos indexados y es archivo Java (modo aviso suave)
         if (pathStr.endsWith(".java") && SymbolRepository.totalCount() > 0) {
             String validationError = validateAgainstIndex(content);
             if (validationError != null) {
-                return formatError("BLOQUEADO - Clases no encontradas en índice:\n" + validationError +
-                    "\n\nUsa query_symbols() para verificar qué clases existen.");
+                ToolProgressNotifier.notify("bulk_edit", "Aviso de símbolos: " + validationError);
             }
         }
 

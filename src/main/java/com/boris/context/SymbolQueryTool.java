@@ -69,12 +69,17 @@ public class SymbolQueryTool {
         return formatResults("methods of " + className, results);
     }
 
+    private static final int MAX_RESULTS = 40;
+
     public static String listClasses(String repo) {
         ToolProgressNotifier.notify("query_symbols", "Listando clases" + (repo != null ? " de " + repo : ""));
 
         List<CodeSymbol> results = SymbolRepository.findAllClasses(repo);
+        if (results.size() > MAX_RESULTS) {
+            results = results.subList(0, MAX_RESULTS);
+        }
 
-        return formatResults("all classes", results);
+        return formatResults("classes (primeras " + results.size() + ")", results);
     }
 
     public static String indexStatus() {
@@ -136,7 +141,9 @@ public class SymbolQueryTool {
             } else {
                 ArrayNode symbolsArray = root.putArray("symbols");
 
-                for (CodeSymbol s : results) {
+                int limit = Math.min(results.size(), MAX_RESULTS);
+                for (int i = 0; i < limit; i++) {
+                    CodeSymbol s = results.get(i);
                     ObjectNode sym = symbolsArray.addObject();
                     sym.put("name", s.getName());
                     sym.put("type", s.getType().name());
@@ -144,9 +151,19 @@ public class SymbolQueryTool {
                     sym.put("in", s.getParent());
                     sym.put("file", s.getFile());
                     sym.put("line", s.getLine());
+                    if (s.getRepo() != null && !s.getRepo().isBlank()) {
+                        java.nio.file.Path projectRoot = com.boris.knowledge.KnowledgeStorageService.resolveProjectRoot(null);
+                        if (com.boris.knowledge.KnowledgeStorageService.hasKnowledge(projectRoot, s.getRepo(), s.getName())) {
+                            sym.put("knowledge_card", ".boris/" + s.getRepo() + "/" + s.getName() + ".md");
+                        }
+                    }
                 }
 
-                root.put("hint", "USA SOLO las clases/métodos listados. NO inventes otros.");
+                if (results.size() > MAX_RESULTS) {
+                    root.put("truncated", "Mostrando " + MAX_RESULTS + " de " + results.size() + " resultados. Filtra tu búsqueda con un término más específico.");
+                }
+
+                root.put("hint", "Usa las signaturas requeridas para tu cambio puntual. No es necesario consultar todas las clases secundarias.");
             }
 
             return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root);

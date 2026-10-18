@@ -49,7 +49,7 @@ public class BatchEditTool {
             return "{\"success\":false,\"error\":\"edits list is empty\"}";
         }
 
-        // === VALIDACIÓN: Verificar código contra índice SQLite ===
+        // === VALIDACIÓN SUAVE: Notificar clases no indexadas sin bloquear la edición ===
         if (SymbolRepository.totalCount() > 0) {
             for (FileEditSpec edit : edits) {
                 if (edit.path() != null && isCodeFile(edit.path())) {
@@ -57,9 +57,8 @@ public class BatchEditTool {
                     if (codeToValidate != null) {
                         String validationError = validateCodeAgainstIndex(codeToValidate);
                         if (validationError != null) {
-                            return "{\"success\":false,\"error\":\"BLOQUEADO - POSIBLE ALUCINACIÓN en " +
-                                   edit.path() + ":\\n" + validationError +
-                                   "\\n\\nUSA query_symbols() para verificar qué clases/métodos existen.\"}";
+                            ToolProgressNotifier.notify("batch_apply_edits",
+                                "Aviso de símbolos en " + edit.path() + ": " + validationError);
                         }
                     }
                 }
