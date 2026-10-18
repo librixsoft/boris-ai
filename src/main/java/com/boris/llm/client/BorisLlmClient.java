@@ -327,6 +327,25 @@ public class BorisLlmClient {
             ChatMessage assistantMsg = response.getFirstMessage();
 
             if (assistantMsg == null) {
+                // TODO: FIX PENDIENTE DE VALIDAR - Deteccion de parada del agente con respuesta vacia del modelo
+                //  (nudge hasta MAX_NUDGES, luego estado INCOMPLETE + aviso al usuario). Aun no se ha validado
+                //  en ejecucion real; puede seguir fallando la detencion en plena tarea.
+                if (taskPending && nudgeCount < MAX_NUDGES) {
+                    nudgeCount++;
+                    ToolProgressNotifier.notify("agent_loop", "Respuesta vacia del modelo (intento " + nudgeCount + "/" + MAX_NUDGES + "): solicitando continuar la tarea...");
+                    fullMessages.add(ChatMessage.user("Tu respuesta anterior llego vacia. Continua con la tarea pendiente y aplica los cambios usando las herramientas de edicion."));
+                    continue;
+                }
+                if (taskPending) {
+                    taskPending = false;
+                    TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                    String warningMsg = "\n\n⚠️ Tarea no completada: el agente se detuvo tras " + MAX_NUDGES + " respuestas vacias sin aplicar modificaciones en los archivos.";
+                    if (onChunk != null) {
+                        emitText(warningMsg, onChunk);
+                    }
+                    String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
+                    return new ChatTurn(warningMsg.trim(), thinkingResult);
+                }
                 break;
             }
 
@@ -442,7 +461,28 @@ public class BorisLlmClient {
             }
         }
 
-        TaskStateNotifier.setState(hasModified ? TaskExecutionState.COMPLETED : (taskPending ? TaskExecutionState.INCOMPLETE : TaskExecutionState.IDLE));
+        // TODO: FIX PENDIENTE DE VALIDAR - Deteccion de agotamiento de maxTurns con tarea pendiente
+        //  (estado COMPLETED/INCOMPLETE + aviso visible via onChunk). Aun no se ha validado
+        //  en ejecucion real; puede seguir fallando la detencion en plena tarea.
+        if (taskPending) {
+            TaskStateNotifier.setState(hasModified ? TaskExecutionState.COMPLETED : TaskExecutionState.INCOMPLETE);
+            if (hasModified) {
+                String warningMsg = "\n\n⚠️ El agente se detuvo tras alcanzar el maximo de " + maxTurns + " turnos de ejecucion. Se aplicaron cambios en los archivos pero la tarea pudo quedar a medias.";
+                if (onChunk != null) {
+                    emitText(warningMsg, onChunk);
+                }
+                String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
+                return new ChatTurn(warningMsg.trim(), thinkingResult);
+            }
+            String warningMsg = "\n\n⚠️ Tarea no completada: se alcanzo el maximo de " + maxTurns + " turnos de ejecucion sin aplicar modificaciones en los archivos.";
+            if (onChunk != null) {
+                emitText(warningMsg, onChunk);
+            }
+            String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
+            return new ChatTurn(warningMsg.trim(), thinkingResult);
+        }
+
+        TaskStateNotifier.setState(hasModified ? TaskExecutionState.COMPLETED : TaskExecutionState.IDLE);
         return new ChatTurn("", totalThinking.length() > 0 ? totalThinking.toString().trim() : null);
     }
 
