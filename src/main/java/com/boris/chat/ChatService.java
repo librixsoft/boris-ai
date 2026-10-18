@@ -521,10 +521,9 @@ public class ChatService {
         if (currentProjectPath != null && !currentProjectPath.isBlank()) {
             promptBuilder.append("===== PROJECT CONTEXT (READ CAREFULLY) =====\n");
             promptBuilder.append("WORKING DIRECTORY: ").append(currentProjectPath).append("\n");
-            promptBuilder.append("CRITICAL: You MUST use this path for ALL file operations:\n");
-            promptBuilder.append("- list_files(\"").append(currentProjectPath).append("\") NOT list_files(\".\")\n");
-            promptBuilder.append("- batch_read_files([\"").append(currentProjectPath).append("/pom.xml\"]) NOT batch_read_files([\"pom.xml\"])\n");
-            promptBuilder.append("- parallel_search uses this as base path automatically\n");
+            promptBuilder.append("CRITICAL: Use these absolute paths for ALL file tool arguments (write_file, apply_edit, read_file, batch_read_files, list_files):\n");
+            promptBuilder.append("BASE PATH: \"").append(currentProjectPath).append("\"\n");
+            promptBuilder.append("Create or edit files DIRECTLY without exploring the repository first. Only use list_files/read tools when the task explicitly requires locating an unknown file.\n");
             promptBuilder.append("===== END PROJECT CONTEXT =====\n\n");
         }
 

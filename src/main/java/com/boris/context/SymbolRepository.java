@@ -139,6 +139,20 @@ public class SymbolRepository {
         return executeQuery(sql, List.of("%" + className));
     }
 
+    public static List<CodeSymbol> findExact(String name) {
+        if (name == null || name.isBlank()) {
+            return new ArrayList<>();
+        }
+        String sql = """
+            SELECT id, name, type, parent, signature, return_type, file, line, repo
+            FROM symbols
+            WHERE LOWER(name) = LOWER(?) OR parent = ? OR parent LIKE ?
+            ORDER BY type, name
+            LIMIT 30
+            """;
+        return executeQuery(sql, List.of(name, name, "%." + name));
+    }
+
     public static List<CodeSymbol> findAllClasses(String repo) {
         String sql = """
             SELECT id, name, type, parent, signature, return_type, file, line, repo

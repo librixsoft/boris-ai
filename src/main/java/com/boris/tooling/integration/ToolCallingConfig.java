@@ -220,9 +220,9 @@ public class ToolCallingConfig {
     public String write_file(
             @ToolParam(description = "Absolute or relative file path") String path,
             @ToolParam(description = "Content to write to the file") String content) {
-        // Check if editing is allowed (must document first if there are compile errors)
-        if (!com.boris.tooling.LearningLimiter.allowEdit()) {
-            return "{\"success\":false,\"error\":\"Hay errores de compilación sin corregir. Antes de editar, usa query_framework_knowledge para documentarte sobre las clases involucradas.\"}";
+        String writeGateError = com.boris.tooling.EditGateService.checkEditAllowed(path, content != null ? content : "");
+        if (writeGateError != null) {
+            return "{\"success\":false,\"error\":\"" + writeGateError + "\"}";
         }
 
         // Clear compile error flag and reset learning limits when agent starts writing
@@ -325,9 +325,10 @@ public class ToolCallingConfig {
     public String apply_edit(@ToolParam(description = "Absolute or relative file path") String path,
                              @ToolParam(description = "Exact text to find and replace in the file") String old_text,
                              @ToolParam(description = "Replacement text") String new_text) {
-        // Check if editing is allowed (must document first if there are compile errors)
-        if (!com.boris.tooling.LearningLimiter.allowEdit()) {
-            return "{\"success\":false,\"error\":\"Hay errores de compilación sin corregir. Antes de editar, usa query_framework_knowledge para documentarte sobre las clases involucradas.\"}";
+        String applyGateError = com.boris.tooling.EditGateService.checkEditAllowed(
+            path, (old_text != null ? old_text : "") + "\n" + (new_text != null ? new_text : ""));
+        if (applyGateError != null) {
+            return "{\"success\":false,\"error\":\"" + applyGateError + "\"}";
         }
 
         // Clear compile error flag and reset learning limits when agent starts editing

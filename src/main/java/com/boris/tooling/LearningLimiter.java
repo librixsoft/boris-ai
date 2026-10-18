@@ -18,6 +18,7 @@ public class LearningLimiter {
     private static boolean hasCompileErrors = false;
     private static boolean hasDocumentedSinceError = false;
     private static int learningCallsDuringErrorFix = 0;
+    private static boolean hasIssuedUnknownLibraryRedirect = false;
     private static final java.util.Set<String> reviewedClassesDuringErrorFix = new java.util.HashSet<>();
     
     /**
@@ -35,6 +36,7 @@ public class LearningLimiter {
     public static synchronized void clearCompileErrors() {
         hasCompileErrors = false;
         hasDocumentedSinceError = false;
+        hasIssuedUnknownLibraryRedirect = false;
         learningCallsDuringErrorFix = 0;
         reviewedClassesDuringErrorFix.clear();
     }
@@ -122,6 +124,7 @@ public class LearningLimiter {
         conceptCallCounts.clear();
         hasCompileErrors = false;
         hasDocumentedSinceError = false;
+        hasIssuedUnknownLibraryRedirect = false;
     }
 
     /**
@@ -138,6 +141,14 @@ public class LearningLimiter {
 
         // If there are compile errors, only allow editing if documented
         return hasDocumentedSinceError;
+    }
+
+    public static synchronized boolean wasUnknownLibraryRedirectIssued() {
+        return hasIssuedUnknownLibraryRedirect;
+    }
+
+    public static synchronized void markUnknownLibraryRedirectIssued() {
+        hasIssuedUnknownLibraryRedirect = true;
     }
     
     /**
