@@ -30,6 +30,7 @@ import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.LibraryContextTool;
+import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchEditTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
@@ -235,6 +236,25 @@ public class ToolCallingConfig {
         ToolProgressNotifier.notify("delete_file", "Eliminando: " + path);
         String result = deleteTool.execute(Map.of("path", path));
         notifyToolTokens("delete_file", path, result);
+        return result;
+    }
+
+    @Tool(
+            name = "list_files",
+            description = "List files and directories in a given path. Returns file names, types, and sizes.")
+    public String list_files(
+            @ToolParam(description = "Directory path to list (absolute or relative)") String path,
+            @ToolParam(description = "If true, list files recursively (default: false)") Boolean recursive,
+            @ToolParam(description = "Maximum depth for recursive listing (default: 3)") Integer max_depth,
+            @ToolParam(description = "Optional glob pattern to filter files (e.g., *.java, *.ts)") String pattern) {
+        ToolProgressNotifier.notify("list_files", "Listando: " + path);
+        Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("path", path != null ? path : ".");
+        if (recursive != null) args.put("recursive", recursive);
+        if (max_depth != null) args.put("max_depth", max_depth);
+        if (pattern != null) args.put("pattern", pattern);
+        String result = ListFilesTool.execute(args);
+        notifyToolTokens("list_files", path != null ? path : ".", result);
         return result;
     }
 
