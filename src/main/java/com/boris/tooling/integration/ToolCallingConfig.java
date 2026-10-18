@@ -29,6 +29,7 @@ import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
+import com.boris.tooling.tool.WriteTool;
 import com.boris.tooling.tool.LibraryContextTool;
 import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
@@ -228,6 +229,18 @@ public class ToolCallingConfig {
         return result;
     }
     */
+
+    @Tool(
+            name = "write_file",
+            description = "Create a new file or overwrite an existing one with the given content. Returns success status and message.")
+    public String write_file(
+            @ToolParam(description = "Absolute or relative file path") String path,
+            @ToolParam(description = "Content to write to the file") String content) {
+        ToolProgressNotifier.notify("write_file", "Escribiendo: " + path);
+        String result = WriteTool.execute(Map.of("path", path, "content", content != null ? content : ""));
+        notifyToolTokens("write_file", path + "\n" + content, result);
+        return result;
+    }
 
     @Tool(
             name = "delete_file",
