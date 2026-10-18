@@ -3,6 +3,7 @@ package com.boris.config;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -13,6 +14,9 @@ import com.boris.settings.SettingsManager;
 @Configuration
 @ComponentScan(basePackages = "com.boris")
 public class BorisConfiguration {
+
+    @Value("${workspace.default.path:${user.home}/.boris}")
+    private String workspacePath;
 
     private static final String DEFAULT_SETTINGS_PATH = System.getProperty("user.home") + "/.boris/settings.json";
 
@@ -45,8 +49,7 @@ public class BorisConfiguration {
 
     @Bean
     public Path workspaceDirectory() {
-        String home = System.getProperty("user.home");
-        return Paths.get(home, ".boris", "workspace");
+        return Paths.get(workspacePath);
     }
 
     @Bean

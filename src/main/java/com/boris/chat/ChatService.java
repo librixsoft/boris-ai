@@ -45,6 +45,7 @@ public class ChatService {
     private final StreamingFileWriter fileWriter;
     private static final Pattern THINKING_PATTERN = Pattern.compile("(?i)(?:<think>|<thinking>|<thought>|<reasoning>|```)(.*?)(?:</think>|</thinking>|</thought>|</reasoning>|```)", Pattern.DOTALL);
     private static final Pattern PROJECT_PATH_PATTERN = Pattern.compile("^\\s*(/[^\\s]+|~/[^\\s]+)\\s+(.+)$", Pattern.DOTALL);
+    private static final Pattern INLINE_PATH_PATTERN = Pattern.compile("(?:en|in|to|at|dentro de|path|ruta|directorio|carpeta|folder)\\s+(/[^\\s\"']+|~/[^\\s\"']+)", Pattern.CASE_INSENSITIVE);
     private volatile String currentProjectPath;
 
     public ChatService(Supplier<ChatClient> chatClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory) {
@@ -547,38 +548,66 @@ public class ChatService {
     }
 
     /**
-     * Extrae la ruta del proyecto si el mensaje comienza con una ruta absoluta.
-     * Ejemplo: "/Users/x/proyecto haz algo" → path="/Users/x/proyecto", mensaje="haz algo"
-     * Ejemplo: "/Users/x/proyecto/file.html haz algo" → path="/Users/x/proyecto", mensaje="haz algo"
-     * @return [0]=mensaje limpio, [1]=ruta del proyecto (o null si no hay)
+     * Extrae la ruta del proyecto del mensaje.
+     * Soporta dos formatos:
+     * 1. Ruta al inicio: "/Users/x/proyecto haz algo" → path="/Users/x/proyecto"
+     * 2. Ruta inline: "crea archivo en /Users/x/proyecto" → path="/Users/x/proyecto"
+     * @return [0]=mensaje original (no se modifica), [1]=ruta del proyecto (o null si no hay)
      */
     private String[] extractProjectPath(String message) {
         if (message == null) return new String[]{message, null};
+
+        // Primero intentar patrón de ruta al inicio
         Matcher m = PROJECT_PATH_PATTERN.matcher(message);
         if (m.matches()) {
-            String path = m.group(1);
-            // Expandir ~ a home
-            if (path.startsWith("~/")) {
-                path = System.getProperty("user.home") + path.substring(1);
-            }
-            java.nio.file.Path p = java.nio.file.Paths.get(path);
-            // Si es un directorio existente, usarlo directamente
-            if (java.nio.file.Files.isDirectory(p)) {
+            String path = resolveAndValidatePath(m.group(1));
+            if (path != null) {
                 return new String[]{m.group(2).trim(), path};
             }
-            // Si parece un archivo (tiene extensión) o no existe, usar el directorio padre
-            java.nio.file.Path parent = p.getParent();
-            if (parent != null) {
-                // Usar el padre si existe, o el padre del padre si el padre tampoco existe
-                while (parent != null && !java.nio.file.Files.exists(parent)) {
-                    parent = parent.getParent();
-                }
-                if (parent != null && java.nio.file.Files.isDirectory(parent)) {
-                    return new String[]{m.group(2).trim(), parent.toString()};
-                }
+        }
+
+        // Si no, buscar ruta inline (en /path, to /path, dentro de /path, etc.)
+        Matcher inlineM = INLINE_PATH_PATTERN.matcher(message);
+        if (inlineM.find()) {
+            String path = resolveAndValidatePath(inlineM.group(1));
+            if (path != null) {
+                return new String[]{message, path};
             }
         }
+
         return new String[]{message, null};
+    }
+
+    /**
+     * Resuelve ~ y valida que el path sea un directorio válido.
+     * Si es un archivo, retorna el directorio padre.
+     */
+    private String resolveAndValidatePath(String rawPath) {
+        if (rawPath == null) return null;
+
+        String path = rawPath;
+        // Expandir ~ a home
+        if (path.startsWith("~/")) {
+            path = System.getProperty("user.home") + path.substring(1);
+        }
+
+        java.nio.file.Path p = java.nio.file.Paths.get(path);
+
+        // Si es un directorio existente, usarlo directamente
+        if (java.nio.file.Files.isDirectory(p)) {
+            return path;
+        }
+
+        // Si parece un archivo o no existe, buscar el directorio padre válido
+        java.nio.file.Path parent = p.getParent();
+        while (parent != null && !java.nio.file.Files.exists(parent)) {
+            parent = parent.getParent();
+        }
+        if (parent != null && java.nio.file.Files.isDirectory(parent)) {
+            return parent.toString();
+        }
+
+        return null;
     }
 
     public String getCurrentProjectPath() {
