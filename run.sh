@@ -3,7 +3,7 @@
 set -e
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-JAR="$DIR/target/boris-cli-2.2.0.jar"
+JAR="$DIR/target/boris-cli-2.3.1.jar"
 
 # Skip tests flag (default true)
 SKIP_TESTS=true
