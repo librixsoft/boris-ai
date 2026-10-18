@@ -23,6 +23,7 @@ import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 import com.boris.task.TaskAborter;
 import com.boris.context.ProjectContext;
+import com.boris.tooling.tool.WebSearchTool;
 
 public class ChatService {
 
@@ -98,6 +99,7 @@ public class ChatService {
         if ("q".equals(lower) || "exit".equals(lower)) {
             return EXIT_COMMAND;
         }
+        WebSearchTool.resetCallCount();
         // Extraer ruta del proyecto si el mensaje comienza con una ruta absoluta
         String[] extracted = extractProjectPath(userMessage);
         String cleanMessage = extracted[0];
@@ -144,6 +146,7 @@ public class ChatService {
         if ("q".equals(lower) || "exit".equals(lower)) {
             return;
         }
+        WebSearchTool.resetCallCount();
         // Extraer ruta del proyecto si el mensaje comienza con una ruta absoluta
         String[] extracted = extractProjectPath(userMessage);
         String cleanMessage = extracted[0];

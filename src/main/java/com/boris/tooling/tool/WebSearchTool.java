@@ -13,6 +13,7 @@ import java.util.Properties;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.microsoft.playwright.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import com.boris.tooling.ToolDefinition;
 import com.boris.tooling.ToolProgressNotifier;
 
@@ -35,17 +36,36 @@ public class WebSearchTool {
     private static final int MAX_COUNT = Integer.parseInt(PROPERTIES.getProperty("web.search.max.count", "10"));
     private static final int TIMEOUT_MS = Integer.parseInt(PROPERTIES.getProperty("web.search.timeout.ms", "20000"));
     private static final int WAIT_TIMEOUT_MS = Integer.parseInt(PROPERTIES.getProperty("web.search.wait.timeout.ms", "3000"));
+    private static final int MAX_CALLS = Integer.parseInt(PROPERTIES.getProperty("web.search.max.calls", "1"));
+    private static final AtomicInteger CALL_COUNT = new AtomicInteger(0);
 
     private static Properties loadProperties() {
         Properties props = new Properties();
-        try (InputStream input = WebSearchTool.class.getClassLoader().getResourceAsStream("test.properties")) {
-            if (input != null) {
-                props.load(input);
+        for (String resource : List.of("application.properties", "test.properties")) {
+            try (InputStream input = WebSearchTool.class.getClassLoader().getResourceAsStream(resource)) {
+                if (input != null) {
+                    props.load(input);
+                }
+            } catch (IOException ignored) {
             }
-        } catch (IOException e) {
-            // Use defaults
         }
         return props;
+    }
+
+    public static void resetCallCount() {
+        CALL_COUNT.set(0);
+    }
+
+    public static int getCallCount() {
+        return CALL_COUNT.get();
+    }
+
+    public static int incrementCallCount() {
+        return CALL_COUNT.incrementAndGet();
+    }
+
+    public static int getMaxCalls() {
+        return MAX_CALLS;
     }
 
     public static ToolDefinition web_search() {
@@ -73,6 +93,15 @@ public class WebSearchTool {
 
         if (query == null || query.isBlank()) {
             return formatError("query is required");
+        }
+
+        int currentCount = CALL_COUNT.incrementAndGet();
+        if (currentCount > MAX_CALLS) {
+            String msg = "Límite de búsquedas web alcanzado (máximo " + MAX_CALLS + " llamada por consulta). "
+                    + "No intentes más búsquedas web con queries diferentes. "
+                    + "Utiliza las herramientas locales del proyecto como create_library_context, query_symbols, list_files, read_file o responde con la información disponible.";
+            ToolProgressNotifier.notify("web_search", "Límite alcanzado (máx " + MAX_CALLS + " llamada por consulta)");
+            return formatError(msg);
         }
 
         int count = resolveCount(args);

@@ -9,6 +9,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class WebSearchToolTest {
 
+    @BeforeEach
+    void setUp() {
+        WebSearchTool.resetCallCount();
+    }
+
     // -- ToolDefinition tests --
 
     @Test
@@ -63,6 +68,30 @@ class WebSearchToolTest {
         String result = WebSearchTool.execute(Map.ofEntries(Map.entry("query", "   ")));
         assertTrue(result.contains("\"success\":false"));
         assertTrue(result.toLowerCase().contains("query"));
+    }
+
+    // -- Call counter tests --
+
+    @Test
+    void execute_blocksWhenMaxCallsExceeded() {
+        // Simular que ya se realizó el número máximo de llamadas permitidas (1)
+        WebSearchTool.incrementCallCount();
+        assertEquals(1, WebSearchTool.getCallCount());
+
+        // La siguiente llamada debe ser bloqueada inmediatamente sin ejecutar Playwright
+        String result = WebSearchTool.execute(Map.ofEntries(Map.entry("query", "cualquier busqueda")));
+        assertTrue(result.contains("\"success\":false"));
+        assertTrue(result.toLowerCase().contains("límite"));
+        assertTrue(result.contains("máximo 1 llamada"));
+    }
+
+    @Test
+    void resetCallCount_resetsCounterToZero() {
+        WebSearchTool.incrementCallCount();
+        assertEquals(1, WebSearchTool.getCallCount());
+
+        WebSearchTool.resetCallCount();
+        assertEquals(0, WebSearchTool.getCallCount());
     }
 
     // Note: Real web search tests are in PlaywrightSearchE2ETest.java

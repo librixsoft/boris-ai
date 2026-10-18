@@ -375,7 +375,6 @@ public class ToolCallingConfig {
             description = "Search the web using DuckDuckGo. Returns titles, URLs, and snippets.")
     public String web_search(@ToolParam(description = "Search query string") String query,
                              @ToolParam(description = "Number of results to return (1-10, default 5)") Integer count) {
-        ToolProgressNotifier.notify("web_search", "Buscando: " + query);
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("query", query);
         if (count != null) args.put("count", count);

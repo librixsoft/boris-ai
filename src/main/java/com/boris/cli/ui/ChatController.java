@@ -358,6 +358,7 @@ public class ChatController implements InputArea.InputListener {
         transcript.clear();
         chatPanel.clear();
         statusBar.clear();
+        com.boris.tooling.tool.WebSearchTool.resetCallCount();
 
         // Phase 5: Reset flags AFTER a delay to ensure pending responses are ignored
         Thread resetThread = new Thread(() -> {
