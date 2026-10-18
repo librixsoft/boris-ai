@@ -39,6 +39,7 @@ import com.boris.tooling.parallel.BatchListDirectoriesTool;
 import com.boris.tooling.parallel.ParallelSearchTool;
 import com.boris.tooling.ToolCallLimiter;
 import com.boris.tooling.ToolProgressNotifier;
+import com.boris.context.ProjectContext;
 import com.boris.tooling.ToolResultNotifier;
 import com.boris.tooling.quality.QualityIteratorHolder;
 import com.boris.task.decomposition.TaskPlannerTool;
@@ -344,16 +345,7 @@ public class ToolCallingConfig {
             name = "list_files",
             description = "List files and directories. Accepts one or multiple paths - multiple paths are listed IN PARALLEL for faster results. MAX 3 calls with same path.")
     public String list_files(@ToolParam(description = "Single path or array of directory paths to list") Object paths) {
-        // Anti-loop protection: detect if same tool+args called too many times (max 3)
-        if (!ToolCallLimiter.checkSameCallLoop("list_files", paths)) {
-            String msg = "LOOP DETECTADO: list_files con mismos argumentos llamado mas de 3 veces. DETENTE y usa la informacion que ya tienes.";
-            ToolProgressNotifier.notify("list_files", "⛔ " + msg);
-            return "{\"success\":false,\"error\":\"" + msg + "\",\"action\":\"STOP_AND_PROCEED\"}";
-        }
-        if (!ToolCallLimiter.incrementAndCheck()) {
-            return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLimitMessage() + "\"}";
-        }
-
+        // First, normalize and resolve paths
         List<String> pathList = new ArrayList<>();
         if (paths instanceof String s) {
             pathList.add(s);
@@ -368,8 +360,25 @@ public class ToolCallingConfig {
             pathList.add(".");
         }
 
-        String result = batchListDirectoriesTool.execute(pathList);
-        String pathsStr = String.join(", ", pathList);
+        // Resolve relative paths using ProjectContext BEFORE loop check
+        // This ensures ".", "", null all resolve to the same absolute path
+        List<String> resolvedPaths = pathList.stream()
+            .map(ProjectContext::resolveRelativePath)
+            .toList();
+
+        // Anti-loop protection using RESOLVED paths (not original args)
+        // This catches ".", "", null as the same call
+        if (!ToolCallLimiter.checkSameCallLoop("list_files", resolvedPaths)) {
+            String msg = "LOOP DETECTADO: list_files con mismos argumentos llamado mas de 3 veces. DETENTE y usa la informacion que ya tienes.";
+            ToolProgressNotifier.notify("list_files", "⛔ " + msg);
+            return "{\"success\":false,\"error\":\"" + msg + "\",\"action\":\"STOP_AND_PROCEED\"}";
+        }
+        if (!ToolCallLimiter.incrementAndCheck()) {
+            return "{\"success\":false,\"error\":\"" + ToolCallLimiter.getLimitMessage() + "\"}";
+        }
+
+        String result = batchListDirectoriesTool.execute(resolvedPaths);
+        String pathsStr = String.join(", ", resolvedPaths);
         notifyToolTokens("list_files", pathsStr, result);
         ToolResultNotifier.notifyQueryResult("list_files", pathsStr, result);
         return result;

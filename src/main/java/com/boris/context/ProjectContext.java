@@ -32,15 +32,19 @@ public class ProjectContext {
 
     public static String resolveRelativePath(String pathStr) {
         if (pathStr == null || pathStr.isBlank()) {
-            return pathStr;
+            pathStr = ".";
         }
         Path path = Paths.get(pathStr);
         if (path.isAbsolute()) {
             return pathStr;
         }
+        // Try project path first, fallback to current working directory
         String projectPath = getProjectPath();
+        if (projectPath == null || projectPath.isBlank()) {
+            projectPath = System.getProperty("user.dir");
+        }
         if (projectPath != null && !projectPath.isBlank()) {
-            return Paths.get(projectPath, pathStr).toString();
+            return Paths.get(projectPath, pathStr).normalize().toString();
         }
         return pathStr;
     }

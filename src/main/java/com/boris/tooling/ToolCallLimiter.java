@@ -1,30 +1,31 @@
 package com.boris.tooling;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Limits the number of tool calls per user message to prevent infinite loops.
  * Reset this at the start of each user message processing.
+ *
+ * Uses static synchronized state instead of ThreadLocal to work correctly
+ * with Spring AI's virtual threads and reactive execution.
  */
 public class ToolCallLimiter {
 
     private static final int DEFAULT_MAX_CALLS = 1000;
     private static final int MAX_SAME_CALL_TOTAL = 3;
-    private static final ThreadLocal<String> lastToolCall = ThreadLocal.withInitial(() -> "");
-    private static final ThreadLocal<AtomicInteger> sameCallCount = ThreadLocal.withInitial(() -> new AtomicInteger(0));
-    private static final ThreadLocal<AtomicInteger> callCount = ThreadLocal.withInitial(() -> new AtomicInteger(0));
-    private static final ThreadLocal<Map<String, Integer>> callHistory = ThreadLocal.withInitial(HashMap::new);
+
+    // Static state shared across all threads (synchronized via ConcurrentHashMap/AtomicInteger)
+    private static final AtomicInteger callCount = new AtomicInteger(0);
+    private static final Map<String, AtomicInteger> callHistory = new ConcurrentHashMap<>();
     private static volatile int maxCalls = DEFAULT_MAX_CALLS;
 
     private ToolCallLimiter() {}
 
     public static void reset() {
-        callCount.get().set(0);
-        lastToolCall.set("");
-        sameCallCount.get().set(0);
-        callHistory.get().clear();
+        callCount.set(0);
+        callHistory.clear();
     }
 
     public static void setMaxCalls(int max) {
@@ -36,7 +37,7 @@ public class ToolCallLimiter {
     }
 
     public static int getCurrentCount() {
-        return callCount.get().get();
+        return callCount.get();
     }
 
     /**
@@ -44,7 +45,7 @@ public class ToolCallLimiter {
      * @return true if within limit, false if limit exceeded
      */
     public static boolean incrementAndCheck() {
-        int current = callCount.get().incrementAndGet();
+        int current = callCount.incrementAndGet();
         return current <= maxCalls;
     }
 
@@ -53,7 +54,7 @@ public class ToolCallLimiter {
      * @return true if limit reached
      */
     public static boolean isLimitReached() {
-        return callCount.get().get() >= maxCalls;
+        return callCount.get() >= maxCalls;
     }
 
     public static String getLimitMessage() {
@@ -71,9 +72,8 @@ public class ToolCallLimiter {
         String normalizedArgs = normalizeArgs(args);
         String callSignature = toolName + ":" + normalizedArgs;
 
-        Map<String, Integer> history = callHistory.get();
-        int count = history.getOrDefault(callSignature, 0) + 1;
-        history.put(callSignature, count);
+        AtomicInteger counter = callHistory.computeIfAbsent(callSignature, k -> new AtomicInteger(0));
+        int count = counter.incrementAndGet();
 
         return count <= MAX_SAME_CALL_TOTAL;
     }
