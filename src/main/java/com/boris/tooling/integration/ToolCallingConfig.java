@@ -21,6 +21,8 @@ import com.boris.exceptions.BorisException;
 import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
+import com.boris.tooling.tool.CreateDirectoryTool;
+import com.boris.tooling.tool.DeleteDirectoryTool;
 import com.boris.tooling.tool.DeleteTool;
 import com.boris.tooling.tool.EditTool;
 import com.boris.tooling.tool.GitTool;
@@ -240,6 +242,32 @@ public class ToolCallingConfig {
         ToolProgressNotifier.notify("delete_file", "Eliminando: " + path);
         String result = deleteTool.execute(Map.of("path", path));
         notifyToolTokens("delete_file", path, result);
+        return result;
+    }
+
+    @Tool(
+            name = "create_directory",
+            description = "Create a directory, including missing parent directories. Returns success status and message.")
+    public String create_directory(@ToolParam(description = "Absolute or relative directory path to create") String path) {
+        ToolProgressNotifier.notify("create_directory", "Creando directorio: " + path);
+        String result = CreateDirectoryTool.execute(Map.of("path", path != null ? path : ""));
+        notifyToolTokens("create_directory", path != null ? path : "", result);
+        return result;
+    }
+
+    @Tool(
+            name = "delete_directory",
+            description = "Delete a directory. Fails if the directory is not empty unless recursive=true. Use recursive with caution.")
+    public String delete_directory(
+            @ToolParam(description = "Absolute or relative directory path to delete") String path,
+            @ToolParam(description = "If true, delete the directory with all its contents (default: false). Use with caution.", required = false) Boolean recursive) {
+        boolean deleteRecursively = recursive != null && recursive;
+        ToolProgressNotifier.notify("delete_directory", (deleteRecursively ? "Eliminando recursivamente: " : "Eliminando: ") + path);
+        Map<String, Object> args = new java.util.LinkedHashMap<>();
+        args.put("path", path != null ? path : "");
+        args.put("recursive", deleteRecursively);
+        String result = DeleteDirectoryTool.execute(args);
+        notifyToolTokens("delete_directory", path != null ? path : "", result);
         return result;
     }
 
