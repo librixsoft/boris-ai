@@ -552,6 +552,7 @@ public class ChatService {
     /**
      * Extrae la ruta del proyecto si el mensaje comienza con una ruta absoluta.
      * Ejemplo: "/Users/x/proyecto haz algo" → path="/Users/x/proyecto", mensaje="haz algo"
+     * Ejemplo: "/Users/x/proyecto/file.html haz algo" → path="/Users/x/proyecto", mensaje="haz algo"
      * @return [0]=mensaje limpio, [1]=ruta del proyecto (o null si no hay)
      */
     private String[] extractProjectPath(String message) {
@@ -563,9 +564,21 @@ public class ChatService {
             if (path.startsWith("~/")) {
                 path = System.getProperty("user.home") + path.substring(1);
             }
-            // Verificar que sea un directorio existente
-            if (java.nio.file.Files.isDirectory(java.nio.file.Paths.get(path))) {
+            java.nio.file.Path p = java.nio.file.Paths.get(path);
+            // Si es un directorio existente, usarlo directamente
+            if (java.nio.file.Files.isDirectory(p)) {
                 return new String[]{m.group(2).trim(), path};
+            }
+            // Si parece un archivo (tiene extensión) o no existe, usar el directorio padre
+            java.nio.file.Path parent = p.getParent();
+            if (parent != null) {
+                // Usar el padre si existe, o el padre del padre si el padre tampoco existe
+                while (parent != null && !java.nio.file.Files.exists(parent)) {
+                    parent = parent.getParent();
+                }
+                if (parent != null && java.nio.file.Files.isDirectory(parent)) {
+                    return new String[]{m.group(2).trim(), parent.toString()};
+                }
             }
         }
         return new String[]{message, null};
