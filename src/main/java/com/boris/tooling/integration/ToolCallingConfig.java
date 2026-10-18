@@ -245,15 +245,17 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "list_files",
-            description = "List files and directories in a given path. Returns file names, types, and sizes.")
+            description = "List files and directories in a given path. Lists recursively by default (depth 5) and returns a compact tree. To locate files by name in one call, pass a glob in 'filter' (e.g., filter: \"*Dashboard*\").")
     public String list_files(
             @ToolParam(description = "Directory path to list (absolute or relative)") String path,
-            @ToolParam(description = "If true, list files recursively (default: false)") Boolean recursive,
-            @ToolParam(description = "Maximum depth for recursive listing (default: 3)") Integer max_depth,
-            @ToolParam(description = "Optional glob pattern to filter files (e.g., *.java, *.ts)") String pattern) {
+            @ToolParam(description = "Preferred glob filter matched against the whole relative path (e.g., *Dashboard*, pom.xml, src/**/*Test.java). Avoids exploring directories level by level.", required = false) String filter,
+            @ToolParam(description = "If true, list files recursively (default: true). Use false only for a flat single-directory listing.", required = false) Boolean recursive,
+            @ToolParam(description = "Maximum depth for recursive listing (default: 5)", required = false) Integer max_depth,
+            @ToolParam(description = "Optional glob pattern matched against file names only (e.g., *.java, *.ts)", required = false) String pattern) {
         ToolProgressNotifier.notify("list_files", "Listando: " + path);
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("path", path != null ? path : ".");
+        if (filter != null) args.put("filter", filter);
         if (recursive != null) args.put("recursive", recursive);
         if (max_depth != null) args.put("max_depth", max_depth);
         if (pattern != null) args.put("pattern", pattern);
@@ -266,20 +268,24 @@ public class ToolCallingConfig {
     private static void notifyListing(String toolName, String result) {
         try {
             var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(result);
-            if (node.has("success") && node.get("success").asBoolean() && node.has("listing")) {
-                String listing = node.get("listing").asText().trim();
-                if (!listing.isBlank()) {
-                    String[] lines = listing.split("\n");
-                    int maxLines = 60;
-                    if (lines.length > maxLines) {
-                        StringBuilder visible = new StringBuilder();
-                        for (int i = 0; i < maxLines; i++) {
-                            visible.append(lines[i]).append("\n");
-                        }
-                        visible.append("+ ").append(lines.length - maxLines).append(" entradas restantes");
-                        listing = visible.toString();
+            if (node.has("success") && node.get("success").asBoolean() && node.has("entries")) {
+                var entriesNode = node.get("entries");
+                int maxLines = 60;
+                StringBuilder visible = new StringBuilder();
+                int total = 0;
+                for (var entry : entriesNode) {
+                    total++;
+                    if (total <= maxLines) {
+                        String name = entry.get("name").asText();
+                        String type = entry.get("type").asText();
+                        visible.append(type.equals("directory") ? name + "/" : name).append("\n");
                     }
-                    ToolProgressNotifier.notify(toolName, listing);
+                }
+                if (visible.length() > 0) {
+                    if (total > maxLines) {
+                        visible.append("+ ").append(total - maxLines).append(" entradas restantes");
+                    }
+                    ToolProgressNotifier.notify(toolName, visible.toString());
                 }
             }
         } catch (Exception ignored) {}

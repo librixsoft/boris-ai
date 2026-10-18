@@ -4,8 +4,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,12 +24,14 @@ public class ListFilesTool {
 
     public static ToolDefinition list_files() {
         var pathProp = Map.of("type", "string", "description", "Directory path to list (absolute or relative)");
-        var recursiveProp = Map.of("type", "boolean", "description", "If true, list files recursively (default: false)");
-        var maxDepthProp = Map.of("type", "integer", "description", "Maximum depth for recursive listing (default: 3)");
-        var patternProp = Map.of("type", "string", "description", "Optional glob pattern to filter files (e.g., *.java, *.ts)");
+        var recursiveProp = Map.of("type", "boolean", "description", "If true, list files recursively (default: true). Use false only for a flat single-directory listing.");
+        var maxDepthProp = Map.of("type", "integer", "description", "Maximum depth for recursive listing (default: 5)");
+        var patternProp = Map.of("type", "string", "description", "Optional glob pattern matched against file names only (e.g., *.java, *.ts)");
+        var filterProp = Map.of("type", "string", "description", "Preferred glob filter matched against the whole relative path (e.g., *Dashboard*, pom.xml, src/**/*Test.java). Enables a single recursive call instead of exploring directory by directory.");
 
         var properties = new LinkedHashMap<String, Object>();
         properties.put("path", pathProp);
+        properties.put("filter", filterProp);
         properties.put("recursive", recursiveProp);
         properties.put("max_depth", maxDepthProp);
         properties.put("pattern", patternProp);
@@ -36,15 +42,19 @@ public class ListFilesTool {
 
         return ToolDefinition.of(
                 "list_files",
-                "List files and directories in a given path. Returns file names, types (file/directory), and sizes.",
+                "List files and directories in a given path. Lists recursively by default (depth 5) and returns a compact tree plus file names, types and sizes. To locate files by name in one call, pass a glob in 'filter' (e.g., filter: \"*Dashboard*\") instead of walking directories level by level.",
                 schema);
     }
 
+    private static final int DEFAULT_MAX_DEPTH = 5;
+    private static final int LISTING_LIMIT = 500;
+
     public static String execute(Map<String, Object> args) {
         String pathStr = (String) args.getOrDefault("path", ".");
-        Boolean recursive = (Boolean) args.getOrDefault("recursive", false);
-        Integer maxDepth = args.get("max_depth") != null ? ((Number) args.get("max_depth")).intValue() : 3;
+        Boolean recursive = (Boolean) args.getOrDefault("recursive", true);
+        Integer maxDepth = args.get("max_depth") != null ? ((Number) args.get("max_depth")).intValue() : DEFAULT_MAX_DEPTH;
         String pattern = (String) args.get("pattern");
+        String filter = (String) args.get("filter");
 
         if (pathStr == null || pathStr.isBlank()) {
             pathStr = ".";
@@ -65,6 +75,9 @@ public class ListFilesTool {
             return formatOutput(false, "Path is not a directory: " + pathStr, null);
         }
 
+        boolean hasFilter = filter != null && !filter.isBlank();
+        boolean walkRecursively = hasFilter || (recursive != null && recursive);
+
         try {
             ObjectNode result = MAPPER.createObjectNode();
             result.put("success", true);
@@ -72,35 +85,41 @@ public class ListFilesTool {
 
             ArrayNode filesArray = result.putArray("entries");
 
-            int depth = (recursive != null && recursive) ? maxDepth : 1;
+            int depth = walkRecursively ? maxDepth : 1;
 
-            int limit = 500;
-            StringBuilder listing = new StringBuilder();
+            Set<String> gitignoreRegexes = hasFilter ? loadGitignorePatterns(basePath) : Set.of();
 
+            List<Path> collected = new ArrayList<>();
             try (Stream<Path> stream = Files.walk(basePath, depth)) {
                 stream.filter(p -> !p.equals(basePath))
+                      .filter(p -> !isIgnored(basePath, p, gitignoreRegexes))
                       .filter(p -> matchesPattern(p, pattern))
+                      .filter(p -> !hasFilter || matchesFilter(basePath, p, filter))
                       .sorted()
-                      .limit(limit)
-                      .forEach(p -> {
-                          String relative = basePath.relativize(p).toString();
-                          boolean isDir = Files.isDirectory(p);
-                          listing.append(isDir ? "[DIR]  " : "[FILE] ").append(relative).append("\n");
-                          ObjectNode entry = filesArray.addObject();
-                          entry.put("name", relative);
-                          entry.put("type", isDir ? "directory" : "file");
-                          try {
-                              if (Files.isRegularFile(p)) {
-                                  entry.put("size", Files.size(p));
-                              }
-                          } catch (IOException ignored) {}
-                      });
+                      .limit(LISTING_LIMIT)
+                      .collect(Collectors.toList())
+                      .forEach(collected::add);
             }
 
+            for (Path p : collected) {
+                String relative = basePath.relativize(p).toString();
+                boolean isDir = Files.isDirectory(p);
+                ObjectNode entry = filesArray.addObject();
+                entry.put("name", relative);
+                entry.put("type", isDir ? "directory" : "file");
+                try {
+                    if (Files.isRegularFile(p)) {
+                        entry.put("size", Files.size(p));
+                    }
+                } catch (IOException ignored) {}
+            }
+
+            String listing = compactTree(collected, basePath);
+
             result.put("count", filesArray.size());
-            result.put("listing", listing.toString());
-            if (filesArray.size() >= limit) {
-                result.put("truncated", "Listing limited to " + limit + " entries. Use a subdirectory or a pattern to reduce it.");
+            result.put("listing", listing);
+            if (filesArray.size() >= LISTING_LIMIT) {
+                result.put("truncated", "Listing limited to " + LISTING_LIMIT + " entries. Use a subdirectory, a filter or a pattern to reduce it.");
             }
             return MAPPER.writeValueAsString(result);
 
@@ -116,6 +135,139 @@ public class ListFilesTool {
         String fileName = path.getFileName().toString();
         String regex = pattern.replace(".", "\\.").replace("*", ".*").replace("?", ".");
         return fileName.matches(regex);
+    }
+
+    private static boolean matchesFilter(Path basePath, Path path, String filter) {
+        String relative = toUnixString(basePath.relativize(path));
+        String regex = globToPathRegex(filter);
+        if (relative.matches(regex)) {
+            return true;
+        }
+        for (int i = 0; i < path.getNameCount(); i++) {
+            if (path.getName(i).toString().matches(regex)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String globToPathRegex(String glob) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < glob.length(); i++) {
+            char c = glob.charAt(i);
+            if (c == '*') {
+                if (i + 1 < glob.length() && glob.charAt(i + 1) == '*') {
+                    sb.append(".*");
+                    i++;
+                } else {
+                    sb.append("[^/]*");
+                }
+            } else if (c == '?') {
+                sb.append("[^/]");
+            } else {
+                sb.append(String.valueOf(c).replace("[", "\\[").replace("]", "\\]"));
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String toUnixString(Path path) {
+        return path.toString().replace('\\', '/');
+    }
+
+    private static Set<String> loadGitignorePatterns(Path basePath) {
+        Path gitignore = basePath.resolve(".gitignore");
+        if (!Files.isRegularFile(gitignore)) {
+            return Set.of();
+        }
+        try {
+            List<String> lines = Files.readAllLines(gitignore);
+            Set<String> regexes = new java.util.HashSet<>();
+            for (String raw : lines) {
+                String line = raw.trim();
+                if (line.isEmpty() || line.startsWith("#") || line.startsWith("!")) {
+                    continue;
+                }
+                String pattern = line.endsWith("/") ? line.substring(0, line.length() - 1) : line;
+                regexes.add(globToPathRegex(pattern));
+            }
+            return regexes;
+        } catch (IOException e) {
+            return Set.of();
+        }
+    }
+
+    private static boolean isIgnored(Path basePath, Path path, Set<String> gitignoreRegexes) {
+        if (gitignoreRegexes.isEmpty()) {
+            return false;
+        }
+        Path relative = basePath.relativize(path);
+        for (String regex : gitignoreRegexes) {
+            for (int i = 0; i < relative.getNameCount(); i++) {
+                if (relative.getName(i).toString().matches(regex)) {
+                    return true;
+                }
+            }
+            if (toUnixString(relative).matches(regex)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String compactTree(List<Path> entries, Path basePath) {
+        Node root = new Node("", true);
+        for (Path p : entries) {
+            Path relative = basePath.relativize(p);
+            Node current = root;
+            for (int i = 0; i < relative.getNameCount(); i++) {
+                String segment = relative.getName(i).toString();
+                boolean isDir = i < relative.getNameCount() - 1 || Files.isDirectory(p);
+                current = current.child(segment, isDir);
+            }
+        }
+        List<String> lines = new ArrayList<>();
+        for (Node child : root.children.values()) {
+            lines.add(render(child));
+        }
+        return String.join("\n", lines) + (lines.isEmpty() ? "" : "\n");
+    }
+
+    private static String render(Node node) {
+        if (!node.dir) {
+            return node.name;
+        }
+        if (node.children.isEmpty()) {
+            return node.name + "/";
+        }
+        if (node.children.size() == 1 && node.children.values().iterator().next().dir) {
+            return node.name + "/" + render(node.children.values().iterator().next());
+        }
+        String childNames = node.children.values().stream()
+                .map(ListFilesTool::render)
+                .collect(Collectors.joining(", "));
+        return node.name + "[" + childNames + "]";
+    }
+
+    private static final class Node {
+        private final String name;
+        private final boolean dir;
+        private final Map<String, Node> children = new LinkedHashMap<>();
+
+        private Node(String name, boolean dir) {
+            this.name = name;
+            this.dir = dir;
+        }
+
+        private Node child(String segment, boolean isDir) {
+            Node existing = children.get(segment);
+            if (existing != null) {
+                return existing;
+            }
+            Node created = new Node(segment, isDir);
+            children.put(segment, created);
+            return created;
+        }
     }
 
     private static String formatOutput(boolean success, String message, Object data) {
