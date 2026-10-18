@@ -8,6 +8,8 @@
 
 **70% of this project has been developed using local AI models** running on consumer hardware. This demonstrates what's possible with open-source LLMs and local inference.
 
+**Self-improving through code context**: Boris employs an iterative learning approach designed for small models with limited context windows. Instead of loading entire repositories upfront, it generates an initial version and progressively learns from local GitHub repositories during corrections. This "learn-as-you-fail" pattern maximizes the effectiveness of constrained memory, allowing the agent to internalize project-specific patterns only when needed. More importantly, Boris can learn from modern frameworks and libraries released after its training cutoff by referencing their source code directly — making its learning capacity essentially unlimited and always up-to-date.
+
 We are grateful to **AWS** and **NVIDIA** for their support and credits, which will allow us to continue developing Boris with enhanced capabilities, faster iteration, and a more professional infrastructure. This sponsorship enables us to move beyond the hardware limitations we faced during initial development.
 
 ---
