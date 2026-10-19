@@ -561,23 +561,10 @@ public class ChatService {
         StringBuilder promptBuilder = new StringBuilder();
 
         if (currentProjectPath != null && !currentProjectPath.isBlank()) {
-            promptBuilder.append("===== PROJECT CONTEXT (READ CAREFULLY) =====\n");
+            promptBuilder.append("===== PROJECT CONTEXT =====\n");
             promptBuilder.append("WORKING DIRECTORY: ").append(currentProjectPath).append("\n");
-            promptBuilder.append("CRITICAL: Use these absolute paths for ALL file tool arguments (write_file, apply_edit, batch_read_files, list_files):\n");
             promptBuilder.append("BASE PATH: \"").append(currentProjectPath).append("\"\n");
-            promptBuilder.append("Create or edit files DIRECTLY without exploring the repository first. Only use list_files/read tools when the task explicitly requires locating an unknown file.\n");
             promptBuilder.append("===== END PROJECT CONTEXT =====\n\n");
-        }
-
-        synchronized (queryResultsCache) {
-            if (!queryResultsCache.isEmpty()) {
-                promptBuilder.append("===== CACHED TOOL RESULTS (from this session) =====\n");
-                for (ToolResultNotifier.ToolQueryResult qr : queryResultsCache) {
-                    promptBuilder.append("[").append(qr.toolName()).append("] Query: ").append(qr.query()).append("\n");
-                    promptBuilder.append(qr.truncatedResult()).append("\n\n");
-                }
-                promptBuilder.append("===== END CACHED RESULTS =====\n\n");
-            }
         }
 
         if (enableHistory && !conversationHistory.isEmpty()) {

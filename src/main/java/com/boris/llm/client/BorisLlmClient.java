@@ -170,10 +170,6 @@ public class BorisLlmClient {
             java.util.regex.Pattern.compile("(?is)<(think|thinking|thought|reasoning)>(.*?)</\\1>");
     private static final java.util.regex.Pattern ORPHAN_THINK_TAGS =
             java.util.regex.Pattern.compile("(?i)</?(?:think|thinking|thought|reasoning)>");
-    private static final java.util.regex.Pattern FALLBACK_MAVEN_BLOCK =
-            java.util.regex.Pattern.compile("```(?:bash:compile|bash|sh|cmd)\\s*\\n\\s*(mvn\\s+[^`\\n]+)", java.util.regex.Pattern.CASE_INSENSITIVE);
-    private static final java.util.regex.Pattern FALLBACK_TOOL_JSON_BLOCK =
-            java.util.regex.Pattern.compile("```(?:tool:)?([a-zA-Z0-9_-]+)\\s*\\n\\s*(\\{[^`]+\\})\\s*```", java.util.regex.Pattern.DOTALL);
     private static final java.util.regex.Pattern STREAMING_EDIT_PATTERN =
             java.util.regex.Pattern.compile("```(?:edit:|\\w+:[^\\n]+)");
 
@@ -328,8 +324,8 @@ public class BorisLlmClient {
         }
 
         StringBuilder totalThinking = new StringBuilder();
-        int nudgeCount = 0;
-        final int MAX_NUDGES = 3;
+        int iterationCount = 0;
+        final int MAX_TOOL_ITERATIONS = 50;
 
         boolean taskPending = false;
         boolean hasModified = false;
@@ -340,6 +336,17 @@ public class BorisLlmClient {
                 TaskStateNotifier.setState(TaskExecutionState.IDLE);
                 return new ChatTurn("", null);
             }
+
+            if (iterationCount >= MAX_TOOL_ITERATIONS) {
+                TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                String capWarning = "\n\n⚠️ Límite de " + MAX_TOOL_ITERATIONS + " iteraciones de herramientas alcanzado. Deteniendo el agente para evitar un bucle infinito.";
+                if (onChunk != null) {
+                    emitText(capWarning, onChunk);
+                }
+                String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
+                return new ChatTurn(capWarning.trim(), thinkingResult);
+            }
+            iterationCount++;
 
             ChatRequest.Builder reqBuilder = ChatRequest.builder()
                     .model(model)
@@ -362,49 +369,7 @@ public class BorisLlmClient {
                 streamedMessage = streamAssistantMessage(reqBuilder.build(), onChunk, isAborted);
                 assistantMsg = streamedMessage.message();
             } else {
-                ChatResponse response;
-                try {
-                    response = chat(reqBuilder.build());
-                } catch (ChatException e) {
-                    if (e.getMessage() != null && e.getMessage().contains("No user query found in messages")) {
-                        if (fullMessages.stream().noneMatch(m -> "user".equals(m.role()))) {
-                            throw new ChatException(
-                                    "El modelo requiere un mensaje de usuario pero no se encontró ninguno en la conversación. "
-                                    + "Esto puede ocurrir si el historial se perdió o la conversación está corrupta.",
-                                    e, ErrorType.UNKNOWN);
-                        }
-
-                        List<ChatMessage> retryMessages = new ArrayList<>(fullMessages);
-                        retryMessages.add(ChatMessage.user("Continúa exactamente donde lo dejaste usando los resultados de las herramientas anteriores."));
-
-                        ChatRequest retryRequest = ChatRequest.builder()
-                                .model(model)
-                                .messages(retryMessages)
-                                .temperature(temperature)
-                                .tools(toolsSchema)
-                                .parallelToolCalls(false)
-                                .reasoningEffort(thinkMode != null && !thinkMode.isBlank() ? thinkMode : "none")
-                                .think(thinkMode != null && !thinkMode.isBlank() ? thinkMode : (Object) false)
-                                .build();
-
-                        try {
-                            response = chat(retryRequest);
-                        } catch (ChatException retryEx) {
-                            throw new ChatException(
-                                    "El modelo (" + model + ") no soporta el formato de conversación actual. "
-                                    + "Posiblemente su chat template no maneja mensajes con rol 'tool'. "
-                                    + "Considere usar un modelo con soporte nativo de tool calling.",
-                                    retryEx, ErrorType.UNKNOWN);
-                        }
-
-                        // El retry funcionó: conservar la conversación completa con los resultados de las herramientas
-                        fullMessages.clear();
-                        fullMessages.addAll(retryMessages);
-                    } else {
-                        throw e;
-                    }
-                }
-
+                ChatResponse response = chat(reqBuilder.build());
                 assistantMsg = response.getFirstMessage();
             }
 
@@ -415,18 +380,11 @@ public class BorisLlmClient {
                             && (assistantMsg.reasoningContent() == null || assistantMsg.reasoningContent().isBlank()));
 
             if (emptyAssistantTurn) {
-                // TODO: FIX PENDIENTE DE VALIDAR - Deteccion de parada del agente con respuesta vacia del modelo
-                //  (nudge hasta MAX_NUDGES, luego estado INCOMPLETE + aviso al usuario). Aun no se ha validado
-                //  en ejecucion real; puede seguir fallando la detencion en plena tarea.
-                if (taskPending && nudgeCount < MAX_NUDGES) {
-                    nudgeCount++;
-                    fullMessages.add(ChatMessage.user("Tu respuesta anterior llego vacia. Continua con la tarea pendiente y aplica los cambios usando las herramientas de edicion."));
-                    continue;
-                }
+                // TODO: FIX PENDIENTE DE VALIDAR - Deteccion de parada del agente con respuesta vacia del modelo.
                 if (taskPending) {
                     taskPending = false;
                     TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
-                    String warningMsg = "\n\n⚠️ Tarea no completada: el agente se detuvo tras " + MAX_NUDGES + " respuestas vacias sin aplicar modificaciones en los archivos.";
+                    String warningMsg = "\n\n⚠️ Tarea no completada: el agente se detuvo con una respuesta vacia del modelo.";
                     if (onChunk != null) {
                         emitText(warningMsg, onChunk);
                     }
@@ -456,11 +414,6 @@ public class BorisLlmClient {
 
             List<ToolCall> toolCalls = assistantMsg.toolCalls();
 
-            // Fallback de tool calling: Si el modelo no emitió tool_calls nativos pero simuló bloques bash o tool en texto
-            if ((toolCalls == null || toolCalls.isEmpty()) && toolRegistry != null && !cleanContent.isBlank()) {
-                toolCalls = extractFallbackToolCalls(cleanContent, toolRegistry);
-            }
-
             if (toolCalls == null || toolCalls.isEmpty() || toolRegistry == null) {
                 // Caso A: Chat normal (nunca se activó ninguna herramienta) o sin registry
                 if (!taskPending || toolRegistry == null) {
@@ -471,52 +424,20 @@ public class BorisLlmClient {
                     return new ChatTurn(cleanContent, thinkingResult);
                 }
 
-                // Caso B: ¡Tarea completada! Se ejecutaron tools y ya se aplicó al menos una modificación real en los archivos.
-                if (hasModified) {
-                    taskPending = false;
-                    TaskStateNotifier.setState(TaskExecutionState.COMPLETED);
-                    if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
-                        emitText(cleanContent, onChunk);
-                    }
-                    String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
-                    return new ChatTurn(cleanContent, thinkingResult);
+                // Caso B: Se ejecutaron tools y el modelo decide finalizar su turno. Se entrega la respuesta tal cual,
+                // sin reintentos ni exigencia de modificaciones.
+                taskPending = false;
+                TaskStateNotifier.setState(hasModified ? TaskExecutionState.COMPLETED : TaskExecutionState.IDLE);
+                if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
+                    emitText(cleanContent, onChunk);
                 }
-
-                // Caso C: El agente intentó parar antes de tiempo (usó tools pero hasModified == false)
-                if (nudgeCount < MAX_NUDGES) {
-                    nudgeCount++;
-                    if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
-                        emitText(cleanContent + "\n\n", onChunk);
-                    }
-                    fullMessages.add(ChatMessage.assistant(cleanContent));
-                    fullMessages.add(ChatMessage.user("Has analizado o investigado el problema pero no has aplicado los cambios. Aplica las modificaciones en el código ahora usando las herramientas de edición."));
-                    continue;
-                } else {
-                    // Al 4to intento sin modificar nada, salimos y avisamos al usuario
-                    taskPending = false;
-                    TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
-                    String warningMsg = "\n\n⚠️ Tarea no completada: Boris se detuvo tras " + MAX_NUDGES + " intentos porque no se aplicó ninguna modificación en los archivos.";
-                    if (onChunk != null) {
-                        if (streamedMessage == null && !cleanContent.isEmpty()) {
-                            emitText(cleanContent, onChunk);
-                        }
-                        emitText(warningMsg, onChunk);
-                    }
-                    String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
-                    return new ChatTurn(cleanContent + warningMsg, thinkingResult);
-                }
+                String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
+                return new ChatTurn(cleanContent, thinkingResult);
             }
 
             // El modelo solicitó invocar herramientas
             if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
-                // Emitir texto previo a la invocación de la herramienta (ej. "Voy a compilar...")
-                String displayContent = cleanContent;
-                if (FALLBACK_MAVEN_BLOCK.matcher(displayContent).find()) {
-                    displayContent = FALLBACK_MAVEN_BLOCK.matcher(displayContent).replaceAll("").trim();
-                }
-                if (!displayContent.isEmpty()) {
-                    emitText(displayContent + "\n", onChunk);
-                }
+                emitText(cleanContent + "\n", onChunk);
             }
 
             fullMessages.add(ChatMessage.assistant(cleanContent, toolCalls, assistantMsg.reasoningContent()));
@@ -563,31 +484,6 @@ public class BorisLlmClient {
 
         TaskStateNotifier.setState(hasModified ? TaskExecutionState.COMPLETED : TaskExecutionState.IDLE);
         return new ChatTurn("", totalThinking.length() > 0 ? totalThinking.toString().trim() : null);
-    }
-
-    private List<ToolCall> extractFallbackToolCalls(String content, ToolRegistry registry) {
-        List<ToolCall> list = new ArrayList<>();
-        var mavenMatcher = FALLBACK_MAVEN_BLOCK.matcher(content);
-        if (mavenMatcher.find() && registry.hasTool("maven_build")) {
-            String mvnCmd = mavenMatcher.group(1).trim();
-            String goal = mvnCmd.substring(3).trim();
-            if (goal.isBlank()) goal = "compile";
-            String jsonArgs = "{\"goal\":\"" + goal + "\"}";
-            list.add(new ToolCall("call_fallback_maven", "function", new ToolCallFunction("maven_build", jsonArgs)));
-            return list;
-        }
-
-        var jsonMatcher = FALLBACK_TOOL_JSON_BLOCK.matcher(content);
-        if (jsonMatcher.find()) {
-            String toolName = jsonMatcher.group(1).trim();
-            String jsonArgs = jsonMatcher.group(2).trim();
-            if (registry.hasTool(toolName)) {
-                list.add(new ToolCall("call_fallback_" + toolName, "function", new ToolCallFunction(toolName, jsonArgs)));
-                return list;
-            }
-        }
-
-        return list;
     }
 
     private void emitText(String text, Consumer<String> onChunk) {

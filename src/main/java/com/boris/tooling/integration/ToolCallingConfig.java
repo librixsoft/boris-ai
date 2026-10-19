@@ -145,23 +145,8 @@ public class ToolCallingConfig {
             prompt.append("\n\n").append(settings.getSystemPrompt().trim());
         }
 
-        prompt.append("\n\n").append(STREAMING_FILE_DIRECTIVE.trim());
-
         return prompt.toString();
     }
-
-    private static final String STREAMING_FILE_DIRECTIVE = """
-
-            ===== FILE CREATION - STREAMING MODE (OBLIGATORIO) =====
-            Para CREAR UN ARCHIVO NUEVO o REEMPLAZAR COMPLETO el contenido de uno existente, NO llames a la tool write_file.
-            En su lugar genera el archivo asi:
-            1. Una frase corta indicando que vas a crear el archivo y la ruta.
-            2. UN bloque de codigo que abre con tres backticks seguido del lenguaje, dos puntos y la ruta del archivo (ej: ```java:src/main/java/MiClase.java) y cierra con tres backticks.
-            3. El contenido COMPLETO del archivo dentro de ese bloque, sin truncar, sin omitir nada.
-            El sistema muestra esas lineas en el chat en tiempo real y guarda el archivo automaticamente con write_file cuando cerras el bloque. Nunca llames a write_file para estas creaciones.
-            Para EDICIONES PARCIALES o quirurgicas de archivos existentes segui usando apply_edit como siempre (eso no cambia).
-            ===== END FILE CREATION STREAMING MODE =====
-            """;
 
     private static String loadDefaultSystemPrompt() {
         try {

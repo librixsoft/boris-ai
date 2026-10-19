@@ -127,18 +127,12 @@ class BorisLlmClientPendingTest {
     }
 
     @Test
-    void prematureStopAfterRead_nudged3TimesThenExitsAsIncomplete() throws Exception {
+    void prematureStopAfterRead_exitsImmediatelyWithoutNudges() throws Exception {
         MockBorisLlmClient client = new MockBorisLlmClient();
         // Turno 1: el modelo llama a read_file
         client.enqueueResponse(createToolResponse("Inspeccionando archivo...", "read_file", "{\"path\":\"Foo.java\"}"));
-        // Turno 2 (Intento 1 prematuro): responde solo texto
+        // Turno 2: el modelo responde solo texto y decide finalizar
         client.enqueueResponse(createTextResponse("Ya vi el archivo. El bug está en la línea 15."));
-        // Turno 3 (Intento 2 prematuro): responde solo texto
-        client.enqueueResponse(createTextResponse("Sigo pensando que está en la línea 15."));
-        // Turno 4 (Intento 3 prematuro): responde solo texto
-        client.enqueueResponse(createTextResponse("No sé qué más hacer."));
-        // Turno 5 (4to intento - salida forzada): responde texto
-        client.enqueueResponse(createTextResponse("Ya terminé."));
 
         List<ChatMessage> conv = List.of(ChatMessage.user("Arregla el bug"));
         BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
@@ -146,21 +140,18 @@ class BorisLlmClientPendingTest {
         );
 
         assertNotNull(turn);
-        assertTrue(turn.response().contains("⚠️ Tarea no completada"));
-        assertEquals(TaskExecutionState.INCOMPLETE, client.getTaskState());
+        assertEquals("Ya vi el archivo. El bug está en la línea 15.", turn.response());
+        assertEquals(TaskExecutionState.IDLE, client.getTaskState());
+        assertEquals(2, client.getRecordedRequests().size());
     }
 
     @Test
-    void taskRescuedByNudge_completesWhenEditApplied() throws Exception {
+    void prematureStopAfterRead_doesNotInjectNudgeMessages() throws Exception {
         MockBorisLlmClient client = new MockBorisLlmClient();
         // Turno 1: read_file
         client.enqueueResponse(createToolResponse("Revisando...", "read_file", "{\"path\":\"Foo.java\"}"));
-        // Turno 2 (Intento 1 prematuro): el modelo dice "ya encontré el bug" y para
+        // Turno 2: el modelo dice "ya encontré el bug" y para
         client.enqueueResponse(createTextResponse("Ya encontré el bug en la línea 10."));
-        // Turno 3 (tras el nudge): el modelo ejecuta el apply_edit
-        client.enqueueResponse(createToolResponse("Aplicando solución...", "apply_edit", "{\"path\":\"Foo.java\",\"old_text\":\"x\",\"new_text\":\"y\"}"));
-        // Turno 4: el modelo confirma
-        client.enqueueResponse(createTextResponse("Cambio aplicado con éxito."));
 
         List<ChatMessage> conv = List.of(ChatMessage.user("Arregla el bug"));
         BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
@@ -168,15 +159,14 @@ class BorisLlmClientPendingTest {
         );
 
         assertNotNull(turn);
-        assertEquals("Cambio aplicado con éxito.", turn.response());
-        assertEquals(TaskExecutionState.COMPLETED, client.getTaskState());
+        assertEquals("Ya encontré el bug en la línea 10.", turn.response());
 
-        // Verificar que se le envió el mensaje de nudge
         boolean foundNudge = client.getRecordedRequests().stream().anyMatch(req ->
                 req.messages().stream().anyMatch(m ->
                         m.content() != null && m.content().contains("Has analizado o investigado el problema pero no has aplicado los cambios")
                 )
         );
-        assertTrue(foundNudge);
+        assertFalse(foundNudge);
+        assertEquals(2, client.getRecordedRequests().size());
     }
 }
