@@ -119,8 +119,15 @@ public class SymbolRepository {
         }
 
         if (repo != null && !repo.isBlank()) {
-            sql.append(" AND repo = ?");
-            params.add(repo);
+            int slash = repo.indexOf('/');
+            if (slash > 0 && slash < repo.length() - 1) {
+                sql.append(" AND (LOWER(repo) = LOWER(?) OR LOWER(repo) = LOWER(?))");
+                params.add(repo);
+                params.add(repo.substring(slash + 1));
+            } else {
+                sql.append(" AND LOWER(repo) = LOWER(?)");
+                params.add(repo);
+            }
         }
 
         sql.append(" ORDER BY type, name LIMIT 30");
@@ -151,6 +158,20 @@ public class SymbolRepository {
             LIMIT 30
             """;
         return executeQuery(sql, List.of(name, name, "%." + name));
+    }
+
+    public static List<CodeSymbol> findSymbolsByFile(String file) {
+        if (file == null || file.isBlank()) {
+            return new ArrayList<>();
+        }
+        String sql = """
+            SELECT id, name, type, parent, signature, return_type, file, line, repo
+            FROM symbols
+            WHERE file = ?
+            ORDER BY type, name
+            LIMIT 60
+            """;
+        return executeQuery(sql, List.of(file));
     }
 
     public static List<CodeSymbol> findAllClasses(String repo) {

@@ -699,9 +699,10 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "query_repo_content",
-            description = "Search and read indexed content from GitHub repos learned with github_repo. " +
-                         "Indexes markdown, HTML, CSS, JS/TS and other text files (landing pages, books, docs, " +
-                         "frontends, backends). Pass 'query' to search records, or 'path' to read a full file.")
+            description = "UNIFIED search for anything learned with github_repo: 'symbols' section brings " +
+                         "Java classes/methods and 'records' section brings indexed content (markdown, HTML, " +
+                         "CSS, JS/TS, books, docs). Works for repos of any kind; no need to classify the repo " +
+                         "first. Pass 'query' to search records, or 'path' to read a full file (+ symbols_in_file).")
     public String query_repo_content(
             @ToolParam(description = "Search term to find indexed content (optional if path is given)", required = false) String query,
             @ToolParam(description = "Filter by repo name learned with github_repo (optional)", required = false) String repo,

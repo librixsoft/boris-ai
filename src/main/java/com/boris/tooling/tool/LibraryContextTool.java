@@ -68,12 +68,15 @@ public class LibraryContextTool {
     public static String execute(Map<String, Object> args) {
         String repo = (String) args.getOrDefault("repo", "");
         String version = (String) args.getOrDefault("version", "main");
-        String projectPath = (String) args.getOrDefault("project_path", ".");
+        String rawProjectPath = (String) args.getOrDefault("project_path", ".");
         boolean force = Boolean.TRUE.equals(args.get("force"));
 
         if (repo == null || repo.isBlank() || !repo.contains("/")) {
             return formatOutput(false, "Error: repo is required (format: owner/repo)");
         }
+
+        String projectPath = com.boris.context.ProjectContext.resolveRelativePath(rawProjectPath);
+        Path projectRoot = Paths.get(projectPath).toAbsolutePath().normalize();
 
         // Check learning limits (library context is expensive)
         if (!force && !LearningLimiter.allowLearningCall(repo)) {
@@ -83,63 +86,51 @@ public class LibraryContextTool {
         }
 
         String repoKey = repo.toLowerCase();
+        String repoName = repo.split("/")[1];
 
         // Rate limit check
         if (!force && PROCESSED_REPOS.contains(repoKey)) {
-            int count = SymbolRepository.countByRepo(repo);
+            int count = SymbolRepository.countByRepo(repoName);
             ToolProgressNotifier.notify("github_repo",
                 "Already processed: " + repo + " (" + count + " symbols)");
             return formatOutput(true,
                 repo + " ya indexado con " + count + " símbolos. " +
-                "Usa query_symbols() para buscar. NO vuelvas a llamar este tool.");
+                "Usa query_repo_content() para buscar. NO vuelvas a llamar este tool.");
         }
 
         // Check if already indexed
-        if (!force && (SymbolRepository.isIndexed(repo) || ContentRepository.isIndexed(repo))) {
-            int count = SymbolRepository.countByRepo(repo);
+        if (!force && (SymbolRepository.isIndexed(repoName) || ContentRepository.isIndexed(repoName))) {
+            int count = SymbolRepository.countByRepo(repoName);
             PROCESSED_REPOS.add(repoKey);
             ToolProgressNotifier.notify("github_repo",
                 "Cache hit: " + repo + " (" + count + " symbols)");
             return formatOutput(true,
                 repo + " ya indexado con " + count + " símbolos. " +
-                "Usa query_symbols() para buscar.");
+                "Usa query_repo_content() para buscar.");
         }
 
-        Path borisDir = Paths.get(projectPath, ".boris");
-        String repoName = repo.split("/")[1];
+        Path borisDir = projectRoot.resolve(".boris");
         Path repoDir = borisDir.resolve("repos").resolve(repoName);
 
         try {
             // Ensure .boris is in .gitignore
-            ensureGitignore(Paths.get(projectPath));
+            ensureGitignore(projectRoot);
 
             // Download ZIP only if not exists locally
             if (force || !Files.exists(repoDir)) {
                 ToolProgressNotifier.notify("github_repo",
-                    "Downloading " + repo + " v" + version + "...");
+                    "Downloading " + repo + " v" + version + " to " + repoDir + "...");
                 downloadAndExtractZip(repo, version, repoDir);
             } else {
                 ToolProgressNotifier.notify("github_repo",
-                    "Using cached repo (no download)");
+                    "Using cached repo at " + repoDir + " (no download)");
             }
 
-            // Index Java symbols into SQLite
             ToolProgressNotifier.notify("github_repo",
-                "Indexing Java symbols...");
+                "Indexing repo (Java symbols + content of any kind)...");
 
             int count = CodeIndexerService.indexRepository(repoName, repoDir);
-            if (!repoName.equals(repo)) {
-                CodeIndexerService.indexRepository(repo, repoDir);
-            }
-
-            // Index all text-based content (markdown, HTML, CSS, JS/TS, docs, books, etc.)
-            ToolProgressNotifier.notify("github_repo",
-                "Indexing content registry...");
-
             int docCount = ContentIndexerService.indexRepository(repoName, repoDir);
-            if (!repoName.equals(repo)) {
-                docCount += ContentIndexerService.indexRepository(repo, repoDir);
-            }
 
             PROCESSED_REPOS.add(repoKey);
 
@@ -148,14 +139,16 @@ public class LibraryContextTool {
 
             return formatOutput(true,
                 "Indexado " + repo + " v" + version + " con " + count + " símbolos y " + docCount +
-                " registros de contenido. " +
-                "Usa query_symbols(\"ClassName\") para clases/métodos Java y query_repo_content(\"término\", repo=\"" +
-                repo + "\") para buscar y leer contenido indexado (docs, código, HTML, etc.).");
+                " registros de contenido. La repo queda registrada como \"" + repoName + "\" " +
+                "(cache en " + repoDir.toAbsolutePath() + "). " +
+                "Usa query_repo_content(\"término\", repo=\"" + repoName + "\") para buscar símbolos Java " +
+                "y contenido indexado (docs, código, HTML, etc.) en la misma llamada. " +
+                "Para leer HTML/código del repo NO uses list_files sobre el cache: usa query_repo_content(path=\"...\").");
 
         } catch (Exception e) {
             // If download fails but already indexed, use that
-            if (SymbolRepository.isIndexed(repo) || ContentRepository.isIndexed(repo)) {
-                int count = SymbolRepository.countByRepo(repo);
+            if (SymbolRepository.isIndexed(repoName) || ContentRepository.isIndexed(repoName)) {
+                int count = SymbolRepository.countByRepo(repoName);
                 PROCESSED_REPOS.add(repoKey);
                 return formatOutput(true,
                     "Error descargando " + repo + ": " + e.getMessage() +

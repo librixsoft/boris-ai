@@ -5,6 +5,8 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import com.boris.chat.ChatService;
 import com.boris.config.BorisConfiguration;
 import com.boris.context.CodeIndexerService;
+import com.boris.context.ContentIndexerService;
+import com.boris.context.ContentRepository;
 import com.boris.context.SymbolRepository;
 import com.boris.llm.ollama.OllamaModelService;
 import com.boris.settings.Settings;
@@ -45,29 +47,21 @@ public class BorisApp implements Runnable {
 
     private void autoIndexCurrentProject() {
         Path currentDir = Path.of(System.getProperty("user.dir"));
-
-        // Solo indexar si es un proyecto Java (tiene pom.xml o build.gradle)
-        boolean isJavaProject = Files.exists(currentDir.resolve("pom.xml")) ||
-                               Files.exists(currentDir.resolve("build.gradle")) ||
-                               Files.exists(currentDir.resolve("build.gradle.kts"));
-
-        if (!isJavaProject) {
-            return;
-        }
-
         String projectName = currentDir.getFileName().toString();
 
-        // Si ya está indexado, skip
-        if (SymbolRepository.isIndexed(projectName)) {
+        if (SymbolRepository.isIndexed(projectName) || ContentRepository.isIndexed(projectName)) {
             System.out.println("[index] " + projectName + " already indexed (" +
-                SymbolRepository.countByRepo(projectName) + " symbols)");
+                SymbolRepository.countByRepo(projectName) + " symbols, " +
+                ContentRepository.countByRepo(projectName) + " content records)");
             return;
         }
 
         System.out.println("[index] Indexing " + projectName + "...");
         try {
-            int count = CodeIndexerService.indexRepository(projectName, currentDir);
-            System.out.println("[index] Indexed " + count + " symbols from " + projectName);
+            int symbolCount = CodeIndexerService.indexRepository(projectName, currentDir);
+            int contentCount = ContentIndexerService.indexRepository(projectName, currentDir);
+            System.out.println("[index] Indexed " + symbolCount + " symbols and " +
+                contentCount + " content records from " + projectName);
         } catch (Exception e) {
             System.err.println("[index] Warning: Could not index project: " + e.getMessage());
         }

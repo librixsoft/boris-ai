@@ -88,7 +88,7 @@ public class ContentRepository {
         params.add("%" + query + "%");
 
         if (repo != null && !repo.isBlank()) {
-            sql.append(" AND LOWER(repo) = LOWER(?)");
+            sql.append(filterFor(repo));
             params.add(repo);
         }
 
@@ -97,12 +97,20 @@ public class ContentRepository {
         return queryDocs(sql.toString(), params);
     }
 
+    private static String filterFor(String repo) {
+        int slash = repo.indexOf('/');
+        if (slash > 0 && slash < repo.length() - 1) {
+            return " AND (LOWER(repo) = LOWER(?) OR LOWER(repo) = LOWER(?))";
+        }
+        return " AND LOWER(repo) = LOWER(?)";
+    }
+
     public static List<DocResult> readByPath(String repo, String path) {
         String sql = """
             SELECT repo, path, chunk_index, title, content
             FROM docs
             WHERE LOWER(path) = LOWER(?)
-            """ + (repo != null && !repo.isBlank() ? " AND LOWER(repo) = LOWER(?)" : "") + """
+            """ + (repo != null && !repo.isBlank() ? filterFor(repo) : "") + """
             ORDER BY path, chunk_index
             LIMIT 100
             """;
@@ -111,6 +119,10 @@ public class ContentRepository {
         params.add(path);
         if (repo != null && !repo.isBlank()) {
             params.add(repo);
+            int slash = repo.indexOf('/');
+            if (slash > 0 && slash < repo.length() - 1) {
+                params.add(repo.substring(slash + 1));
+            }
         }
 
         return queryDocs(sql, params);

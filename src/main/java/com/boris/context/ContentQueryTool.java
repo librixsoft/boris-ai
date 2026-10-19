@@ -13,6 +13,7 @@ public class ContentQueryTool {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final int MAX_CONTENT_PER_RECORD = 2000;
     private static final int MAX_FULL_FILE_CONTENT = 20000;
+    private static final int MAX_SYMBOLS = 20;
 
     public static String search(String query, String repo, String path) {
         if ((query == null || query.isBlank()) && (path == null || path.isBlank())) {
@@ -26,8 +27,9 @@ public class ContentQueryTool {
         ToolProgressNotifier.notify("query_repo_content", "Buscando en repos indexados: " + query);
 
         try {
-            List<DocResult> results = ContentRepository.search(query, repo);
-            return formatResults(query, results);
+            List<DocResult> docs = ContentRepository.search(query, repo);
+            List<CodeSymbol> symbols = SymbolRepository.search(query, null, repo);
+            return formatResults(query, docs, symbols);
         } catch (Exception e) {
             return error("Error buscando contenido: " + e.getMessage());
         }
@@ -40,7 +42,7 @@ public class ContentQueryTool {
             List<DocResult> results = ContentRepository.readByPath(repo, path);
 
             if (results.isEmpty()) {
-                return formatResults(path, results);
+                return formatResults(path, results, List.of());
             }
 
             String resultRepo = results.getFirst().repo();
@@ -56,6 +58,9 @@ public class ContentQueryTool {
             root.put("content", fullContent.length() > MAX_FULL_FILE_CONTENT
                 ? fullContent.substring(0, MAX_FULL_FILE_CONTENT) + "... [truncado]"
                 : fullContent);
+
+            root.set("symbols_in_file",
+                symbolsArray(com.boris.context.SymbolRepository.findSymbolsByFile(results.getFirst().path())));
 
             ArrayNode moreArray = root.putArray("repo_files");
             int added = 0;
@@ -85,10 +90,27 @@ public class ContentQueryTool {
         }
     }
 
-    private static String formatResults(String query, List<DocResult> results) {
+    private static ArrayNode symbolsArray(List<CodeSymbol> symbols) {
+        ArrayNode symbolsArray = MAPPER.createArrayNode();
+        for (CodeSymbol s : symbols) {
+            ObjectNode symNode = symbolsArray.addObject();
+            symNode.put("name", s.getName());
+            symNode.put("type", s.getType().name());
+            symNode.put("signature", s.getSignature());
+            symNode.put("in", s.getParent());
+            symNode.put("file", s.getFile());
+            symNode.put("line", s.getLine());
+            symNode.put("repo", s.getRepo());
+        }
+        return symbolsArray;
+    }
+
+    private static String formatResults(String query, List<DocResult> results, List<CodeSymbol> symbols) {
         try {
             ObjectNode root = MAPPER.createObjectNode();
             root.put("query", query);
+
+            root.set("symbols", symbolsArray(symbols != null ? symbols : List.of()));
 
             if (results.isEmpty()) {
                 root.put("found", 0);
@@ -112,7 +134,7 @@ public class ContentQueryTool {
                     recordNode.put("content_excerpt", content);
                 }
 
-                root.put("hint", "Usa query_repo_content(path=\"...\") para leer un archivo completo. Los contenidos pueden tener varias secciones (chunk_1, chunk_2...).");
+                root.put("hint", "Resultado unificado: 'symbols' trae clases/metodos Java y 'records' trae contenido de cualquier tipo. Usa query_repo_content(path=\"...\") para leer un archivo completo (incluye symbols_in_file).");
             }
 
             return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root);

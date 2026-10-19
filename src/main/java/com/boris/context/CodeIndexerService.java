@@ -31,6 +31,10 @@ public class CodeIndexerService {
                 .limit(MAX_FILES)
                 .toList();
 
+            if (javaFiles.isEmpty()) {
+                return 0;
+            }
+
             ToolProgressNotifier.notify("index_code",
                 "Indexando " + javaFiles.size() + " archivos Java...");
 

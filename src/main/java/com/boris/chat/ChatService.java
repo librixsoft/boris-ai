@@ -651,6 +651,13 @@ public class ChatService {
         if (f.exists() && f.isDirectory()) {
             return f.getAbsolutePath();
         }
+        if (f.exists() && f.isFile()) {
+            java.io.File parent = f.getParentFile();
+            return parent != null && parent.exists() ? parent.getAbsolutePath() : null;
+        }
+        if (!f.exists() && f.getParentFile() != null && f.getParentFile().isDirectory()) {
+            return f.getParentFile().getAbsolutePath();
+        }
         return null;
     }
 
