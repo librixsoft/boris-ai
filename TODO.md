@@ -54,3 +54,19 @@
     pide editar directo sin explorar.
 
 [ ] - Bloqueo de acceso del agente a $PROYECTO/.boris ya implementado (ProjectContext.isInsideAgentWorkspace + guards en ListFilesTool y BatchReadFileTool; query_symbols ahora sugiere query_framework_knowledge en vez de exponer la ruta del .md). Pendiente opcional: extender guard a write/delete para que el agente tampoco escriba o borre dentro de .boris via tools.
+
+[x] - Sistema debe detectar automáticamente la ruta del proyecto del prompt y crear el cache .boris/repos en esa ruta (no hardcodear ~/.boris/repos/)
+
+  Diagnostico:
+  El usuario pasó un prompt con ruta absoluta al final: "/Users/lastprophet/Documents/workspaces-ai/landings-8b/index.html"
+  pero el sistema siempre usaba el cache global ~/.boris/repos/ sin detectar la ruta del proyecto.
+
+  Fix EJECUTADO:
+  - LibraryContextTool.java: modificado para usar projectPath/.boris/repos/ cuando se proporciona project_path,
+    fallback a ~/.boris/repos/ global si no se proporciona.
+  - ToolCallingConfig.java: inyección automática de project_path desde ProjectContext cuando el modelo no lo provee.
+  - ChatService.java: nuevo patrón ABSOLUTE_PATH_PATTERN para detectar rutas absolutas (/Users/..., /home/...)
+    en cualquier posición del prompt; extractProjectPath extrae el directorio padre cuando detecta un archivo.
+  - EditGateService.java: busca repos en ambos lugares (cache del proyecto + cache global).
+  - FrameworkKnowledgeTool.java: busca archivos fuente en ambos caches (proyecto + global).
+  - Actualizadas descripciones de parámetros project_path en LibraryContextTool y ToolCallingConfig.
