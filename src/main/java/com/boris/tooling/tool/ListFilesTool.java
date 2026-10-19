@@ -50,7 +50,7 @@ public class ListFilesTool {
     private static final int LISTING_LIMIT = 500;
     private static final Set<String> DEFAULT_IGNORED_NAMES = Set.of(
             ".git", ".DS_Store", ".idea", ".gradle", "node_modules", "target", "build",
-            "out", "dist", ".next", ".turbo", ".gradle", "venv", "__pycache__");
+            "out", "dist", ".next", ".turbo", "venv", "__pycache__");
 
     public static String execute(Map<String, Object> args) {
         String pathStr = (String) args.getOrDefault("path", ".");
