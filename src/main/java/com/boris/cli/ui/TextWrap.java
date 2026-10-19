@@ -40,6 +40,9 @@ public final class TextWrap {
         if (line.startsWith("+ ") || (line.startsWith("- ") && !line.startsWith("- [ ]") && !line.startsWith("- [x]"))) {
             return true;
         }
+        if (isTextLabelLine(line)) {
+            return true;
+        }
         if (line.startsWith("@@@") && line.endsWith("@@@")) {
             return true;
         }
@@ -54,6 +57,13 @@ public final class TextWrap {
      * Format: DIFF_CONT_MARKER + ('+' or '-') + content
      */
     public static final String DIFF_CONT_MARKER = "​​";
+
+    private static final java.util.regex.Pattern TEXT_LABEL_PATTERN =
+        java.util.regex.Pattern.compile("(?i)^(\\s*(?:[-*+]?\\s*)?(?:\\*{0,2}\\s*(?:old|new)[ _-]?text\\b[^:]*:)\\s*)(.*)$");
+
+    private static boolean isTextLabelLine(String line) {
+        return TEXT_LABEL_PATTERN.matcher(line).find();
+    }
 
     private static List<String> wrapDiffLine(String line, int width) {
         List<String> result = new ArrayList<>();
@@ -151,6 +161,53 @@ public final class TextWrap {
                     first = false;
                 } else {
                     result.add(DIFF_CONT_MARKER + symbol + "  " + chunk);
+                }
+            }
+            return result;
+        }
+
+        // Old Text / New Text label lines
+        java.util.regex.Matcher labelMatcher = TEXT_LABEL_PATTERN.matcher(line);
+        if (labelMatcher.matches()) {
+            boolean isAdd = labelMatcher.group(1).toLowerCase().matches(".*\\bnew\\b.*");
+            String symbol = isAdd ? "+" : "-";
+            String label = labelMatcher.group(1);
+            String content = labelMatcher.group(2);
+            int contentWidth = width - label.length();
+
+            if (contentWidth <= 3) {
+                result.add(truncateWithEllipsis(line, width));
+                return result;
+            }
+
+            if (content.length() <= contentWidth) {
+                result.add(line);
+                return result;
+            }
+
+            String remaining = content;
+            boolean first = true;
+            String indent = " ".repeat(label.length());
+
+            while (!remaining.isEmpty()) {
+                int cutWidth = first ? contentWidth : (width - indent.length());
+                if (cutWidth <= 0) cutWidth = 1;
+
+                String chunk;
+                if (remaining.length() <= cutWidth) {
+                    chunk = remaining;
+                    remaining = "";
+                } else {
+                    int breakPoint = findWordBreak(remaining, cutWidth);
+                    chunk = remaining.substring(0, breakPoint);
+                    remaining = remaining.substring(breakPoint).stripLeading();
+                }
+
+                if (first) {
+                    result.add(label + chunk);
+                    first = false;
+                } else {
+                    result.add(DIFF_CONT_MARKER + symbol + indent + chunk);
                 }
             }
             return result;

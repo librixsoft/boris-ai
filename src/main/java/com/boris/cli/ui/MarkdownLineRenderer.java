@@ -192,6 +192,12 @@ public class MarkdownLineRenderer {
     }
 
     private static final java.util.regex.Pattern QUEUED_PATTERN = java.util.regex.Pattern.compile("<queued:#(\\d+)>");
+    private static final java.util.regex.Pattern OLD_TEXT_LABEL_PATTERN =
+        java.util.regex.Pattern.compile("^\\s*(?:[-*+]?\\s*)?(?:\\*{0,2}\\s*)old[ _-]?text\\b",
+            java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final java.util.regex.Pattern NEW_TEXT_LABEL_PATTERN =
+        java.util.regex.Pattern.compile("^\\s*(?:[-*+]?\\s*)?(?:\\*{0,2}\\s*)new[ _-]?text\\b",
+            java.util.regex.Pattern.CASE_INSENSITIVE);
 
     public void render(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean inThinking, boolean thinkingEnabled, boolean inCodeBlock) {
         if (line == null) {
@@ -316,6 +322,14 @@ public class MarkdownLineRenderer {
 
         if (line.matches("^─+\\s*\\+\\d+\\s+-\\d+\\s*─+$")) {
             renderDiffStats(graphics, line, row, contentWidth, isThinking);
+            return;
+        }
+
+        if (renderTextLabelLine(graphics, line, row, contentWidth, isThinking, OLD_TEXT_LABEL_PATTERN, false)) {
+            return;
+        }
+
+        if (renderTextLabelLine(graphics, line, row, contentWidth, isThinking, NEW_TEXT_LABEL_PATTERN, true)) {
             return;
         }
 
@@ -546,6 +560,47 @@ public class MarkdownLineRenderer {
             }
             graphics.putString(x, row, padOrTruncate(current.toString(), contentWidth - x));
         }
+    }
+
+    private boolean renderTextLabelLine(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean isThinking,
+                                        java.util.regex.Pattern pattern, boolean isAdd) {
+        if (!pattern.matcher(line).find() || isThinking || !line.contains(":")) {
+            return false;
+        }
+
+        TextColor bgColor = isAdd ? UiTheme.DIFF_ADD_BG : UiTheme.DIFF_REMOVE_BG;
+        TextColor fgColor = isAdd ? UiTheme.DIFF_ADD : UiTheme.DIFF_REMOVE;
+
+        graphics.setBackgroundColor(bgColor);
+        int colonIdx = line.indexOf(':');
+        String label = line.substring(0, colonIdx + 1);
+        graphics.setForegroundColor(fgColor);
+        graphics.putString(0, row, label);
+        int x = label.length();
+
+        String code = line.substring(colonIdx + 1);
+        int availableWidth = contentWidth - x;
+        if (code.length() > availableWidth) {
+            code = RenderUtils.truncateWithEllipsis(code, availableWidth);
+        }
+
+        List<SyntaxHighlighter.SyntaxToken> tokens = SyntaxHighlighter.tokenizeLine(code);
+        for (SyntaxHighlighter.SyntaxToken token : tokens) {
+            if (x >= contentWidth) break;
+            graphics.setBackgroundColor(bgColor);
+            graphics.setForegroundColor(token.color());
+            String tokenText = token.text();
+            int spaceLeft = contentWidth - x;
+            if (tokenText.length() > spaceLeft) {
+                tokenText = tokenText.substring(0, spaceLeft);
+            }
+            graphics.putString(x, row, tokenText);
+            x += tokenText.length();
+        }
+
+        graphics.setBackgroundColor(bgColor);
+        graphics.putString(x, row, padOrTruncate("", contentWidth - x));
+        return true;
     }
 
     private void renderDiffLineWithNumber(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean isThinking, boolean isAdd, boolean isError) {

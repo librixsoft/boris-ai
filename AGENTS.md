@@ -1,5 +1,9 @@
 # AGENTS.md - boris-ai
 
+## REGLA ESTRICTA — PROHIBIDO USAR FALLBACKS
+
+Es estrictamente prohibido usar fallbacks en este código. Si un valor, recurso o dependencia no está disponible, se debe lanzar una excepción o programar una excepción controlada. Nunca uses valores por defecto ocultos, valores de respaldo, data dummy, try-catch silenciosos ni comportamiento alternativo encubierto. La ausencia de datos debe fallar visible y explícitamente. Usar custom exceptions.
+
 ## ARCHIVOS PROHIBIDOS — NO EDITAR
 
 Queda estrictamente prohibido editar, modificar, sobreescribir o eliminar los siguientes archivos:

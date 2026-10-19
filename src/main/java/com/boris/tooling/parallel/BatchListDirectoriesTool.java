@@ -32,7 +32,9 @@ public class BatchListDirectoriesTool {
 
         Path path = Paths.get(pathStr);
         String resolvedPath;
-        if (path.isAbsolute()) {
+        if (pathStr.startsWith("~/") || pathStr.equals("~")) {
+            resolvedPath = pathStr.replaceFirst("^~", System.getProperty("user.home"));
+        } else if (path.isAbsolute()) {
             resolvedPath = pathStr;
         } else {
             resolvedPath = Paths.get(projectPath, pathStr).toString();
@@ -44,10 +46,6 @@ public class BatchListDirectoriesTool {
         }
         if (!Files.isDirectory(dirPath)) {
             return formatError("Not a directory: " + pathStr);
-        }
-        if (!ProjectContext.isInsideProject(dirPath.toAbsolutePath())) {
-            return formatError("Access denied: " + pathStr + " is outside the project directory (" + projectPath
-                + "). Directory listing is restricted to the current project. Do not walk the filesystem, user home, caches (e.g. ~/.m2) or hidden folders.");
         }
         if (ProjectContext.isInsideAgentWorkspace(dirPath.toAbsolutePath())) {
             return formatError("Access denied: .boris is agent internal workspace. Use query_framework_knowledge(framework, class_name) for cached class summaries.");

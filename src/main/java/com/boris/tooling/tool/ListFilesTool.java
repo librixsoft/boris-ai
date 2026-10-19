@@ -79,14 +79,6 @@ public class ListFilesTool {
         }
 
         Path absoluteBase = basePath.toAbsolutePath().normalize();
-        if (!ProjectContext.isInsideProject(absoluteBase)) {
-            return formatOutput(false,
-                "Access denied: " + pathStr + " is outside the project directory (" + projectPath + "). "
-                + "list_files can only explore directories inside the current project. "
-                + "Do not walk the filesystem, user home, caches (e.g. ~/.m2) or hidden folders. "
-                + "For library symbols or signatures use create_library_context, query_symbols or query_methods.",
-                null);
-        }
 
         if (ProjectContext.isInsideAgentWorkspace(absoluteBase)) {
             return formatOutput(false,

@@ -35,6 +35,9 @@ public class ProjectContext {
             pathStr = ".";
         }
         Path path = Paths.get(pathStr);
+        if (pathStr.startsWith("~/") || pathStr.equals("~")) {
+            return pathStr.replaceFirst("^~", System.getProperty("user.home"));
+        }
         if (path.isAbsolute()) {
             return pathStr;
         }
