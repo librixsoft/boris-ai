@@ -36,7 +36,7 @@ import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
 
-// BatchGitHubSearchTool ELIMINADO - usar create_library_context
+// BatchGitHubSearchTool ELIMINADO - usar github_repo
 // ParallelSearchTool ELIMINADO
 import com.boris.tooling.ToolProgressNotifier;
 import com.boris.context.ProjectContext;
@@ -673,16 +673,18 @@ public class ToolCallingConfig {
     // ========== Code Symbol Query Tools ==========
 
     @Tool(
-            name = "create_library_context",
-            description = "Downloads GitHub repo and indexes it into SQLite for on-demand symbol queries. " +
-                         "NOTE: Do NOT browse or explore all classes after indexing; use only for specific symbols when strictly needed.")
-    public String create_library_context(
+            name = "github_repo",
+            description = "Learn from ANY GitHub repo: downloads owner/repo and indexes it into local registries. " +
+                         "Works for Java libraries (symbols via query_symbols), and also for landing pages, books, " +
+                         "frontends, backends, docs or new libraries (markdown/HTML/CSS/JS/text via query_repo_content). " +
+                         "Use once per repo when the project depends on something you do not know.")
+    public String github_repo(
             @ToolParam(description = "GitHub repo in format owner/repo (e.g., mabe02/lanterna)") String repo,
             @ToolParam(description = "Version, tag or branch (default: main)") String version,
             @ToolParam(description = "Project path where repo will be cached in .boris/repos/") String project_path,
             @ToolParam(description = "Force re-download and re-index (default: false)") Boolean force) {
 
-        ToolProgressNotifier.notify("create_library_context", "Indexando: " + repo);
+        ToolProgressNotifier.notify("github_repo", "Indexando: " + repo);
 
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("repo", repo);
@@ -691,7 +693,21 @@ public class ToolCallingConfig {
         if (force != null) args.put("force", force);
 
         String result = LibraryContextTool.execute(args);
-        notifyToolTokens("create_library_context", repo, result);
+        notifyToolTokens("github_repo", repo, result);
+        return result;
+    }
+
+    @Tool(
+            name = "query_repo_content",
+            description = "Search and read indexed content from GitHub repos learned with github_repo. " +
+                         "Indexes markdown, HTML, CSS, JS/TS and other text files (landing pages, books, docs, " +
+                         "frontends, backends). Pass 'query' to search records, or 'path' to read a full file.")
+    public String query_repo_content(
+            @ToolParam(description = "Search term to find indexed content (optional if path is given)", required = false) String query,
+            @ToolParam(description = "Filter by repo name learned with github_repo (optional)", required = false) String repo,
+            @ToolParam(description = "Relative path inside the repo (as shown in results) to read the full file (optional)", required = false) String path) {
+        String result = com.boris.context.ContentQueryTool.search(query, repo, path);
+        notifyToolTokens("query_repo_content", (query != null ? query : "") + " " + (path != null ? path : ""), result);
         return result;
     }
 

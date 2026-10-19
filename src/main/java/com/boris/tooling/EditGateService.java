@@ -222,7 +222,7 @@ public final class EditGateService {
                 }
                 try {
                     if (!SymbolRepository.isIndexed(repoName)) {
-                        ToolProgressNotifier.notify("create_library_context",
+                        ToolProgressNotifier.notify("github_repo",
                             "Indexando " + repoName + " desde cache .boris/repos...");
                         CodeIndexerService.indexRepository(repoName, repoDir);
                     }
@@ -260,7 +260,7 @@ public final class EditGateService {
         Path projectRoot = KnowledgeStorageService.resolveProjectRoot(null);
         return "Hay errores de compilación sin corregir y las clases/librerías involucradas no están "
             + "indexadas ni tienen knowledge card: " + classes + ". "
-            + "Dispara UNA SOLA VEZ create_library_context(repo='owner/repo', version='main' o el tag correcto, "
+            + "Dispara UNA SOLA VEZ github_repo(repo='owner/repo', version='main' o el tag correcto, "
             + "project_path='" + projectRoot + "') para indexar la librería (cache en .boris/repos), "
             + "y luego query_symbols('Clase') para ver las signaturas o query_framework_knowledge si hay ficha. "
             + "NO uses list_files ni explores el disco para documentarte.";

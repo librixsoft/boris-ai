@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -126,11 +127,18 @@ public class SymbolQueryTool {
 
     public static String indexStatus() {
         int total = SymbolRepository.totalCount();
-        List<String> repos = SymbolRepository.listRepos();
+        int totalDocs = ContentRepository.totalDocCount();
+        List<String> repos = new ArrayList<>(SymbolRepository.listRepos());
+        for (String docRepo : com.boris.context.ContentRepository.listDocsRepos()) {
+            if (!repos.contains(docRepo)) {
+                repos.add(docRepo);
+            }
+        }
 
         try {
             ObjectNode root = MAPPER.createObjectNode();
             root.put("total_symbols", total);
+            root.put("total_content_records", totalDocs);
             root.put("indexed_repos", repos.size());
 
             ArrayNode reposArray = root.putArray("repos");
@@ -138,6 +146,7 @@ public class SymbolQueryTool {
                 ObjectNode repoNode = reposArray.addObject();
                 repoNode.put("name", repo);
                 repoNode.put("symbols", SymbolRepository.countByRepo(repo));
+                repoNode.put("content_records", ContentRepository.countByRepo(repo));
             }
 
             return MAPPER.writeValueAsString(root);

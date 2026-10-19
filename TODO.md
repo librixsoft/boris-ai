@@ -36,7 +36,7 @@
   - Cambiar la condicion de los gates: solo exigir documentacion (query_framework_knowledge / analyze repo)
     si la clase o libreria involucrada NO esta ni indexada en query_symbols NI tiene knowledge card
     (KnowledgeStorageService.hasKnowledge). Si ya esta, dejar editar directo sin ordenar documentarse.
-  - Si la clase/lib es externa y desconocida: disparar una sola vez create_library_context (cache a
+  - Si la clase/lib es externa y desconocida: disparar una sola vez github_repo (cache a
     .boris/repos) y redirigir a query_symbols/query_framework_knowledge; no dejar caer a list_files.
   - Quitar o rebajar el hint de ChatService:525 (list_files como default).
 
@@ -45,7 +45,7 @@
     editado; si todas estan indexadas (SymbolRepository.findExact) o tienen knowledge card
     (KnowledgeStorageService.hasKnowledge) permite editar directo. Si hay desconocidas, auto-indexa
     una sola vez desde cache .boris/repos (CodeIndexerService) y si sigue desconocida emite UN redirect
-    por ciclo de errores apuntando a create_library_context(query_symbols/query_framework_knowledge),
+    por ciclo de errores apuntando a github_repo(query_symbols/query_framework_knowledge),
     prohibiendo list_files; los intentos siguientes no re-bloquean (sin cascada de exploracion).
   - ToolCallingConfig: gates de write_file y apply_edit ahora usan EditGateService.checkEditAllowed.
   - SymbolRepository: nuevo metodo findExact(name).

@@ -121,7 +121,7 @@ public class WriteArgsPreviewStreamer {
         }
 
         private void readStringChar(char c, StringBuilder target, Runnable onEnd) {
-            if (escapeMode) {
+            if (escapeMode || unicodePending > 0) {
                 handleEscape(c, target);
                 return;
             }
@@ -137,7 +137,7 @@ public class WriteArgsPreviewStreamer {
         }
 
         private void readContentChar(char c) {
-            if (escapeMode) {
+            if (escapeMode || unicodePending > 0) {
                 handleEscape(c, lineBuf);
                 return;
             }

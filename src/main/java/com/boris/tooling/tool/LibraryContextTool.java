@@ -11,18 +11,20 @@ import java.util.zip.ZipInputStream;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.context.CodeIndexerService;
+import com.boris.context.ContentIndexerService;
+import com.boris.context.ContentRepository;
 import com.boris.context.SymbolRepository;
 import com.boris.tooling.ToolDefinition;
 import com.boris.tooling.ToolProgressNotifier;
 import com.boris.tooling.LearningLimiter;
 
 /**
- * Tool that downloads GitHub repositories and indexes them into SQLite for fast symbol queries.
+ * Tool that downloads any GitHub repository and indexes it into local registries that the agent reads from.
  *
  * - Downloads ZIP once from GitHub
- * - Extracts and indexes with JavaParser
- * - Stores symbols in SQLite RAM (shared with local project indexing)
- * - Use query_symbols() to search indexed code
+ * - Extracts and indexes Java files with JavaParser (symbols in SQLite RAM)
+ * - Extracts and indexes any other text file (markdown, HTML, CSS, JS/TS, books, docs) as content registry
+ * - Use query_symbols() for Java symbols and query_repo_content() for content of any kind
  */
 public class LibraryContextTool {
 
@@ -32,7 +34,7 @@ public class LibraryContextTool {
     private static final Set<String> PROCESSED_REPOS =
         Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
 
-    public static ToolDefinition create_library_context() {
+    public static ToolDefinition github_repo() {
         var repoProp = Map.of("type", "string", "description",
             "GitHub repository in format owner/repo (e.g., mabe02/lanterna)");
         var versionProp = Map.of("type", "string", "description",
@@ -54,10 +56,12 @@ public class LibraryContextTool {
         schema.put("required", List.of("repo", "project_path"));
 
         return ToolDefinition.of(
-            "create_library_context",
-            "Downloads GitHub repo and indexes it into SQLite for symbol queries. " +
-            "After indexing, use query_symbols() to search classes/methods. " +
-            "Use force=true to re-download and re-index.",
+            "github_repo",
+            "Downloads any GitHub repo (owner/repo) and indexes it into local registries so you can learn " +
+            "from it: Java repos via symbols, plus markdown, HTML, CSS, JS/TS, and other text files " +
+            "(landing pages, books, frontends, backends, docs, new libraries). " +
+            "After indexing, use query_symbols() for Java symbols and query_repo_content() to search and read " +
+            "the indexed content. Use force=true to re-download and re-index.",
             schema);
     }
 
@@ -83,7 +87,7 @@ public class LibraryContextTool {
         // Rate limit check
         if (!force && PROCESSED_REPOS.contains(repoKey)) {
             int count = SymbolRepository.countByRepo(repo);
-            ToolProgressNotifier.notify("create_library_context",
+            ToolProgressNotifier.notify("github_repo",
                 "Already processed: " + repo + " (" + count + " symbols)");
             return formatOutput(true,
                 repo + " ya indexado con " + count + " símbolos. " +
@@ -91,10 +95,10 @@ public class LibraryContextTool {
         }
 
         // Check if already indexed
-        if (!force && SymbolRepository.isIndexed(repo)) {
+        if (!force && (SymbolRepository.isIndexed(repo) || ContentRepository.isIndexed(repo))) {
             int count = SymbolRepository.countByRepo(repo);
             PROCESSED_REPOS.add(repoKey);
-            ToolProgressNotifier.notify("create_library_context",
+            ToolProgressNotifier.notify("github_repo",
                 "Cache hit: " + repo + " (" + count + " symbols)");
             return formatOutput(true,
                 repo + " ya indexado con " + count + " símbolos. " +
@@ -111,35 +115,46 @@ public class LibraryContextTool {
 
             // Download ZIP only if not exists locally
             if (force || !Files.exists(repoDir)) {
-                ToolProgressNotifier.notify("create_library_context",
+                ToolProgressNotifier.notify("github_repo",
                     "Downloading " + repo + " v" + version + "...");
                 downloadAndExtractZip(repo, version, repoDir);
             } else {
-                ToolProgressNotifier.notify("create_library_context",
+                ToolProgressNotifier.notify("github_repo",
                     "Using cached repo (no download)");
             }
 
-            // Index into SQLite
-            ToolProgressNotifier.notify("create_library_context",
-                "Indexing with JavaParser...");
+            // Index Java symbols into SQLite
+            ToolProgressNotifier.notify("github_repo",
+                "Indexing Java symbols...");
 
             int count = CodeIndexerService.indexRepository(repoName, repoDir);
             if (!repoName.equals(repo)) {
                 CodeIndexerService.indexRepository(repo, repoDir);
             }
 
+            // Index all text-based content (markdown, HTML, CSS, JS/TS, docs, books, etc.)
+            ToolProgressNotifier.notify("github_repo",
+                "Indexing content registry...");
+
+            int docCount = ContentIndexerService.indexRepository(repoName, repoDir);
+            if (!repoName.equals(repo)) {
+                docCount += ContentIndexerService.indexRepository(repo, repoDir);
+            }
+
             PROCESSED_REPOS.add(repoKey);
 
-            ToolProgressNotifier.notify("create_library_context",
-                "Indexed " + count + " symbols from " + repo);
+            ToolProgressNotifier.notify("github_repo",
+                "Indexed " + count + " symbols and " + docCount + " content records from " + repo);
 
             return formatOutput(true,
-                "Indexado " + repo + " v" + version + " con " + count + " símbolos. " +
-                "Usa query_symbols(\"ClassName\") para buscar clases/métodos.");
+                "Indexado " + repo + " v" + version + " con " + count + " símbolos y " + docCount +
+                " registros de contenido. " +
+                "Usa query_symbols(\"ClassName\") para clases/métodos Java y query_repo_content(\"término\", repo=\"" +
+                repo + "\") para buscar y leer contenido indexado (docs, código, HTML, etc.).");
 
         } catch (Exception e) {
             // If download fails but already indexed, use that
-            if (SymbolRepository.isIndexed(repo)) {
+            if (SymbolRepository.isIndexed(repo) || ContentRepository.isIndexed(repo)) {
                 int count = SymbolRepository.countByRepo(repo);
                 PROCESSED_REPOS.add(repoKey);
                 return formatOutput(true,
@@ -159,7 +174,7 @@ public class LibraryContextTool {
         Files.createDirectories(targetDir);
 
         String refPath = resolveRef(repo, branch);
-        ToolProgressNotifier.notify("create_library_context", "Resolved ref: " + refPath);
+        ToolProgressNotifier.notify("github_repo", "Resolved ref: " + refPath);
 
         String zipUrl = "https://codeload.github.com/" + repo + "/zip/" + refPath;
         byte[] zipData = downloadUrl(zipUrl);
