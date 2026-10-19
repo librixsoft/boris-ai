@@ -69,6 +69,15 @@ public class StreamingFileWriter {
     private boolean inCodeBlock = false;
     private boolean isEditMode = false;
     private boolean inThinkingBlock = false;
+    private FileSaver saveFunction;
+
+    public interface FileSaver {
+        void save(String path, String content, int shownLines);
+    }
+
+    public void setSaveFunction(FileSaver saver) {
+        this.saveFunction = saver;
+    }
 
     // Estado para SEARCH/REPLACE
     private boolean inSearchBlock = false;
@@ -187,7 +196,8 @@ public class StreamingFileWriter {
             endBlock();
         }
 
-        String resolvedPath = ProjectContext.resolveRelativePath(path);
+        String sanitizedPath = com.boris.tooling.tool.WriteTool.sanitizeTargetPath(path);
+        String resolvedPath = ProjectContext.resolveRelativePath(sanitizedPath);
         currentFilePath = resolvedPath;
         currentLanguage = language;
         lineNumber = 0;
@@ -204,7 +214,8 @@ public class StreamingFileWriter {
             endBlock();
         }
 
-        String resolvedPath = ProjectContext.resolveRelativePath(path);
+        String sanitizedPath = com.boris.tooling.tool.WriteTool.sanitizeTargetPath(path);
+        String resolvedPath = ProjectContext.resolveRelativePath(sanitizedPath);
         currentFilePath = resolvedPath;
         lineNumber = 0;
         inCodeBlock = true;
@@ -287,21 +298,37 @@ public class StreamingFileWriter {
             return;
         }
 
-        try {
-            Path filePath = Paths.get(currentFilePath);
-            Files.createDirectories(filePath.getParent());
+        String targetPath = currentFilePath;
+        String content = String.join("\n", contentLines);
+        if (!content.endsWith("\n")) {
+            content += "\n";
+        }
+        int shownLines = lineNumber;
 
-            String content = String.join("\n", contentLines);
-            if (!content.endsWith("\n")) {
-                content += "\n";
+        if (saveFunction != null) {
+            try {
+                saveFunction.save(targetPath, content, shownLines);
+            } catch (Exception e) {
+                DiffLineNotifier.notify("⚠ Error guardando " + targetPath + ": " + e.getMessage());
             }
+            return;
+        }
+
+        try {
+            Path filePath = Paths.get(targetPath);
+            Files.createDirectories(parentOrCurrent(filePath));
             Files.writeString(filePath, content);
 
-            DiffLineNotifier.notify(String.format("─── +%d ✓ %s guardado ───", lineNumber, currentFilePath));
+            DiffLineNotifier.notify(String.format("─── +%d ✓ %s guardado ───", shownLines, targetPath));
 
         } catch (IOException e) {
             DiffLineNotifier.notify("⚠ Error guardando: " + e.getMessage());
         }
+    }
+
+    private static Path parentOrCurrent(Path filePath) {
+        Path parent = filePath.getParent();
+        return parent != null ? parent : Paths.get(".");
     }
 
     private void applyEdits() {
@@ -383,16 +410,30 @@ public class StreamingFileWriter {
      * Simula el comportamiento de streaming con contenido completo.
      */
     public static void writeFileWithPreview(String pathStr, String content) throws IOException {
+        writeFileWithPreview(pathStr, content, null);
+    }
+
+    /**
+     * Si streamedLines != null, el contenido ya fue mostrado en vivo durante la generación,
+     * por lo que solo se valida la escritura y se emite el footer con las líneas contadas.
+     */
+    public static void writeFileWithPreview(String pathStr, String content, Integer streamedLines) throws IOException {
         Path filePath = Paths.get(pathStr);
 
-        DiffLineNotifier.notify("@@@ " + filePath.getFileName() + " (crear) @@@");
-        String[] lines = content.split("\n", -1);
-        for (int i = 0; i < lines.length; i++) {
-            DiffLineNotifier.notify(String.format("%3d │+ %s", i + 1, lines[i]));
+        if (streamedLines == null) {
+            DiffLineNotifier.notify("@@@ " + filePath.getFileName() + " (crear) @@@");
+            String[] lines = content.split("\n", -1);
+            for (int i = 0; i < lines.length; i++) {
+                DiffLineNotifier.notify(String.format("%3d │+ %s", i + 1, lines[i]));
+            }
+            Files.createDirectories(parentOrCurrent(filePath));
+            Files.writeString(filePath, content);
+            DiffLineNotifier.notify(String.format("─── +%d ✓ %s guardado ───", lines.length, pathStr));
+            return;
         }
 
-        Files.createDirectories(filePath.getParent());
+        Files.createDirectories(parentOrCurrent(filePath));
         Files.writeString(filePath, content);
-        DiffLineNotifier.notify(String.format("─── +%d ✓ %s guardado ───", lines.length, pathStr));
+        DiffLineNotifier.notify(String.format("─── +%d ✓ %s guardado ───", streamedLines, pathStr));
     }
 }

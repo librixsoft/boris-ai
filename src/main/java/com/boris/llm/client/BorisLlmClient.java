@@ -20,6 +20,7 @@ import com.boris.exceptions.ChatException.ErrorType;
 import com.boris.task.TaskExecutionState;
 import com.boris.task.TaskStateNotifier;
 import com.boris.tooling.ToolProgressNotifier;
+import com.boris.tooling.WriteArgsPreviewStreamer;
 import com.boris.tooling.engine.ToolRegistry;
 
 /**
@@ -195,6 +196,97 @@ public class BorisLlmClient {
         return TaskStateNotifier.getCurrentState();
     }
 
+    private static final class ToolCallAccumulator {
+        private String id;
+        private String name;
+        private final StringBuilder arguments = new StringBuilder();
+
+        private ToolCall toToolCall(int index) {
+            String resolvedId = (id != null && !id.isBlank()) ? id : "call_stream_" + index;
+            String resolvedName = (name != null && !name.isBlank()) ? name : "unknown_tool_" + index;
+            String resolvedArgs = arguments.length() > 0 ? arguments.toString() : "{}";
+            return new ToolCall(resolvedId, "function", new ToolCallFunction(resolvedName, resolvedArgs));
+        }
+    }
+
+    private record StreamedAssistantMessage(
+            ChatMessage message,
+            List<ToolCall> nativeToolCalls,
+            List<Integer> nativeCallIndexes,
+            WriteArgsPreviewStreamer previewStreamer
+    ) {}
+
+    private StreamedAssistantMessage streamAssistantMessage(
+            ChatRequest request,
+            Consumer<String> onChunk,
+            Supplier<Boolean> isAborted) {
+
+        StringBuilder content = new StringBuilder();
+        StringBuilder reasoning = new StringBuilder();
+        var accumulators = new java.util.LinkedHashMap<Integer, ToolCallAccumulator>();
+        WriteArgsPreviewStreamer previewStreamer = new WriteArgsPreviewStreamer();
+
+        chatStream(request, chunk -> {
+            if (chunk == null || chunk.choices() == null || chunk.choices().isEmpty()) {
+                return;
+            }
+            ChatChunk.ChunkChoice choice = chunk.choices().getFirst();
+            if (choice.delta() == null) {
+                return;
+            }
+            ChatChunk.Delta delta = choice.delta();
+
+            if (delta.reasoningContent() != null && !delta.reasoningContent().isEmpty()) {
+                reasoning.append(delta.reasoningContent());
+            }
+
+            if (delta.content() != null && !delta.content().isEmpty()) {
+                content.append(delta.content());
+                if (onChunk != null) {
+                    onChunk.accept(delta.content());
+                }
+            }
+
+            if (delta.toolCalls() != null) {
+                for (ChatChunk.ToolCallChunk tc : delta.toolCalls()) {
+                    ToolCallAccumulator acc = accumulators.computeIfAbsent(tc.index(), k -> new ToolCallAccumulator());
+                    if (tc.id() != null && !tc.id().isEmpty()) {
+                        acc.id = tc.id();
+                    }
+                    if (tc.function() != null && tc.function().name() != null && !tc.function().name().isEmpty()) {
+                        acc.name = tc.function().name();
+                    }
+                    if (tc.function() != null && tc.function().arguments() != null && !tc.function().arguments().isEmpty()) {
+                        String argsDelta = tc.function().arguments();
+                        acc.arguments.append(argsDelta);
+                        previewStreamer.onArgsDelta(tc.index(), acc.name, argsDelta);
+                    }
+                }
+            }
+        }, null, null, isAborted);
+
+        List<ToolCall> nativeToolCalls = new ArrayList<>();
+        List<Integer> nativeCallIndexes = new ArrayList<>();
+        for (var entry : accumulators.entrySet()) {
+            ToolCallAccumulator acc = entry.getValue();
+            if (acc.name == null || acc.name.isBlank()) {
+                continue;
+            }
+            nativeCallIndexes.add(entry.getKey());
+            nativeToolCalls.add(acc.toToolCall(entry.getKey()));
+        }
+
+        ChatMessage streamedMessage = ChatMessage.assistant(
+                content.toString(),
+                nativeToolCalls.isEmpty() ? null : nativeToolCalls,
+                reasoning.length() > 0 ? reasoning.toString() : null);
+
+        if (nativeToolCalls.isEmpty()) {
+            return new StreamedAssistantMessage(streamedMessage, null, null, null);
+        }
+        return new StreamedAssistantMessage(streamedMessage, nativeToolCalls, nativeCallIndexes, previewStreamer);
+    }
+
     /**
      * Bucle del agente: gestiona peticiones con llamadas a tools automáticas.
      */
@@ -264,52 +356,65 @@ public class BorisLlmClient {
                 reqBuilder.think(false);
             }
 
-            ChatResponse response;
-            try {
-                response = chat(reqBuilder.build());
-            } catch (ChatException e) {
-                if (e.getMessage() != null && e.getMessage().contains("No user query found in messages")) {
-                    if (fullMessages.stream().noneMatch(m -> "user".equals(m.role()))) {
-                        throw new ChatException(
-                                "El modelo requiere un mensaje de usuario pero no se encontró ninguno en la conversación. "
-                                + "Esto puede ocurrir si el historial se perdió o la conversación está corrupta.",
-                                e, ErrorType.UNKNOWN);
+            StreamedAssistantMessage streamedMessage = null;
+            ChatMessage assistantMsg;
+            if (onChunk != null) {
+                streamedMessage = streamAssistantMessage(reqBuilder.build(), onChunk, isAborted);
+                assistantMsg = streamedMessage.message();
+            } else {
+                ChatResponse response;
+                try {
+                    response = chat(reqBuilder.build());
+                } catch (ChatException e) {
+                    if (e.getMessage() != null && e.getMessage().contains("No user query found in messages")) {
+                        if (fullMessages.stream().noneMatch(m -> "user".equals(m.role()))) {
+                            throw new ChatException(
+                                    "El modelo requiere un mensaje de usuario pero no se encontró ninguno en la conversación. "
+                                    + "Esto puede ocurrir si el historial se perdió o la conversación está corrupta.",
+                                    e, ErrorType.UNKNOWN);
+                        }
+
+                        List<ChatMessage> retryMessages = new ArrayList<>(fullMessages);
+                        retryMessages.add(ChatMessage.user("Continúa exactamente donde lo dejaste usando los resultados de las herramientas anteriores."));
+
+                        ChatRequest retryRequest = ChatRequest.builder()
+                                .model(model)
+                                .messages(retryMessages)
+                                .temperature(temperature)
+                                .tools(toolsSchema)
+                                .parallelToolCalls(false)
+                                .reasoningEffort(thinkMode != null && !thinkMode.isBlank() ? thinkMode : "none")
+                                .think(thinkMode != null && !thinkMode.isBlank() ? thinkMode : (Object) false)
+                                .build();
+
+                        try {
+                            response = chat(retryRequest);
+                        } catch (ChatException retryEx) {
+                            throw new ChatException(
+                                    "El modelo (" + model + ") no soporta el formato de conversación actual. "
+                                    + "Posiblemente su chat template no maneja mensajes con rol 'tool'. "
+                                    + "Considere usar un modelo con soporte nativo de tool calling.",
+                                    retryEx, ErrorType.UNKNOWN);
+                        }
+
+                        // El retry funcionó: conservar la conversación completa con los resultados de las herramientas
+                        fullMessages.clear();
+                        fullMessages.addAll(retryMessages);
+                    } else {
+                        throw e;
                     }
-
-                    List<ChatMessage> retryMessages = new ArrayList<>(fullMessages);
-                    retryMessages.add(ChatMessage.user("Continúa exactamente donde lo dejaste usando los resultados de las herramientas anteriores."));
-
-                    ChatRequest retryRequest = ChatRequest.builder()
-                            .model(model)
-                            .messages(retryMessages)
-                            .temperature(temperature)
-                            .tools(toolsSchema)
-                            .parallelToolCalls(false)
-                            .reasoningEffort(thinkMode != null && !thinkMode.isBlank() ? thinkMode : "none")
-                            .think(thinkMode != null && !thinkMode.isBlank() ? thinkMode : (Object) false)
-                            .build();
-
-                    try {
-                        response = chat(retryRequest);
-                    } catch (ChatException retryEx) {
-                        throw new ChatException(
-                                "El modelo (" + model + ") no soporta el formato de conversación actual. "
-                                + "Posiblemente su chat template no maneja mensajes con rol 'tool'. "
-                                + "Considere usar un modelo con soporte nativo de tool calling.",
-                                retryEx, ErrorType.UNKNOWN);
-                    }
-
-                    // El retry funcionó: conservar la conversación completa con los resultados de las herramientas
-                    fullMessages.clear();
-                    fullMessages.addAll(retryMessages);
-                } else {
-                    throw e;
                 }
+
+                assistantMsg = response.getFirstMessage();
             }
 
-            ChatMessage assistantMsg = response.getFirstMessage();
+            boolean emptyAssistantTurn = assistantMsg == null
+                    || (streamedMessage != null
+                            && (assistantMsg.content() == null || assistantMsg.content().isBlank())
+                            && (assistantMsg.toolCalls() == null || assistantMsg.toolCalls().isEmpty())
+                            && (assistantMsg.reasoningContent() == null || assistantMsg.reasoningContent().isBlank()));
 
-            if (assistantMsg == null) {
+            if (emptyAssistantTurn) {
                 // TODO: FIX PENDIENTE DE VALIDAR - Deteccion de parada del agente con respuesta vacia del modelo
                 //  (nudge hasta MAX_NUDGES, luego estado INCOMPLETE + aviso al usuario). Aun no se ha validado
                 //  en ejecucion real; puede seguir fallando la detencion en plena tarea.
@@ -359,7 +464,7 @@ public class BorisLlmClient {
             if (toolCalls == null || toolCalls.isEmpty() || toolRegistry == null) {
                 // Caso A: Chat normal (nunca se activó ninguna herramienta) o sin registry
                 if (!taskPending || toolRegistry == null) {
-                    if (onChunk != null && !cleanContent.isEmpty()) {
+                    if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
                         emitText(cleanContent, onChunk);
                     }
                     String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
@@ -370,7 +475,7 @@ public class BorisLlmClient {
                 if (hasModified) {
                     taskPending = false;
                     TaskStateNotifier.setState(TaskExecutionState.COMPLETED);
-                    if (onChunk != null && !cleanContent.isEmpty()) {
+                    if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
                         emitText(cleanContent, onChunk);
                     }
                     String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
@@ -380,7 +485,7 @@ public class BorisLlmClient {
                 // Caso C: El agente intentó parar antes de tiempo (usó tools pero hasModified == false)
                 if (nudgeCount < MAX_NUDGES) {
                     nudgeCount++;
-                    if (onChunk != null && !cleanContent.isEmpty()) {
+                    if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
                         emitText(cleanContent + "\n\n", onChunk);
                     }
                     fullMessages.add(ChatMessage.assistant(cleanContent));
@@ -392,7 +497,10 @@ public class BorisLlmClient {
                     TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
                     String warningMsg = "\n\n⚠️ Tarea no completada: Boris se detuvo tras " + MAX_NUDGES + " intentos porque no se aplicó ninguna modificación en los archivos.";
                     if (onChunk != null) {
-                        emitText(cleanContent + warningMsg, onChunk);
+                        if (streamedMessage == null && !cleanContent.isEmpty()) {
+                            emitText(cleanContent, onChunk);
+                        }
+                        emitText(warningMsg, onChunk);
                     }
                     String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
                     return new ChatTurn(cleanContent + warningMsg, thinkingResult);
@@ -400,7 +508,7 @@ public class BorisLlmClient {
             }
 
             // El modelo solicitó invocar herramientas
-            if (onChunk != null && !cleanContent.isEmpty()) {
+            if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
                 // Emitir texto previo a la invocación de la herramienta (ej. "Voy a compilar...")
                 String displayContent = cleanContent;
                 if (FALLBACK_MAVEN_BLOCK.matcher(displayContent).find()) {
@@ -413,7 +521,13 @@ public class BorisLlmClient {
 
             fullMessages.add(ChatMessage.assistant(cleanContent, toolCalls, assistantMsg.reasoningContent()));
 
-            for (ToolCall call : toolCalls) {
+            List<Integer> nativeCallIndexes =
+                    streamedMessage != null && toolCalls == streamedMessage.nativeToolCalls()
+                            ? streamedMessage.nativeCallIndexes()
+                            : null;
+
+            for (int callIndex = 0; callIndex < toolCalls.size(); callIndex++) {
+                ToolCall call = toolCalls.get(callIndex);
                 if (isAborted != null && Boolean.TRUE.equals(isAborted.get())) {
                     TaskStateNotifier.setState(TaskExecutionState.IDLE);
                     return new ChatTurn("", null);
@@ -423,10 +537,15 @@ public class BorisLlmClient {
                 String toolArgs = call.function() != null ? call.function().arguments() : "{}";
                 String toolResult;
 
+                if (nativeCallIndexes != null) {
+                    streamedMessage.previewStreamer().prepareExecution(nativeCallIndexes.get(callIndex));
+                }
                 try {
                     toolResult = toolRegistry.execute(toolName, toolArgs);
                 } catch (Exception e) {
                     toolResult = "Error ejecutando " + toolName + ": " + e.getMessage();
+                } finally {
+                    WriteArgsPreviewStreamer.clearLivePreview();
                 }
 
                 // En cuanto se invoca CUALQUIER herramienta, se activa taskPending

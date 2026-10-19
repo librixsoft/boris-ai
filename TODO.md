@@ -1,6 +1,23 @@
 # TODO - Boris AI
 
-[ ] El agente tiene que escribir generar codigo en el chat en tiempo real y cuando termine guardar el file con write_file en el disco.
+[x] El agente tiene que escribir generar codigo en el chat en tiempo real y cuando terminar guardar el file con write_file en el disco.
+
+  Implementacion:
+  - El flujo write_file ya guarda con la tool existente (WriteTool -> StreamingFileWriter), el problema real era
+    que executeChatWithTools usaba llamada sincronica (chat()): el codigo viajaba dentro de los arguments del
+    tool call (invisible) y el preview se dumpeaba de golpe recien cuando la tool ejecutaba.
+  - Nuevo com.boris.tooling.WriteArgsPreviewStreamer: parsea incrementalmente los deltas JSON de arguments de
+    write_file durante el streaming SSE, un-escapa el campo content en tiempo real (\\n, \\t, \", \\uXXXX) y emite
+    header @@ file (crear) @@ + las lineas al DiffLineNotifier conforme el modelo las va generando. Expone por
+    ThreadLocal el PreviewInfo(path, lineas mostradas) para la ejecucion posterior.
+  - BorisLlmClient.executeChatWithTools: cuando hay consumer de streaming, cada iteracion del loop pasa de
+    chat() sincronico a chatStream() (SSE real): los deltas de texto llegan al chat en tiempo real; los deltas
+    de tool_calls se acumulan por indice (id/name/arguments) y el preview de write_file se streamea durante la
+    generacion; al terminar el stream ejecuta las tools como antes (gates de EditGateService intactos).
+  - StreamingFileWriter.writeFileWithPreview(path, content, streamedLines): si el preview ya se streameo en vivo
+    (mismo path resuelto) omite el dump y solo escribe + emite footer; el dump completo queda para el caso
+    sincronico (sendMessage sin streaming) sin cambiar comportamiento previo.
+  - ChatService: el historial de la conversacion en modo streaming se guarda limpio de tags de think.
 
 [x] - Siempre que se le pide al agente crear un file va y analiza todos los repos o hace list_files, solo debe de ir a analizar el repo cuando se le pida que cree un archivo o libreria que desconoce como "creame una app java tui en lanterna" en caso contrario debe crear el file o editar sin ir a analizar repos o documentarse (a nivel programacion no a nivel prompt)
 

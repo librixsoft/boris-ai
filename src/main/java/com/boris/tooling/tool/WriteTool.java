@@ -38,6 +38,8 @@ public class WriteTool {
             return formatOutput(false, "Error: path is required");
         }
 
+        pathStr = sanitizeTargetPath(pathStr);
+
         // Resolver ruta relativa usando el proyecto actual
         pathStr = ProjectContext.resolveRelativePath(pathStr);
 
@@ -46,12 +48,32 @@ public class WriteTool {
         }
 
         try {
+            var streamedPreview = com.boris.tooling.WriteArgsPreviewStreamer.takeLivePreview();
+            Integer streamedLines = streamedPreview != null && pathStr.equals(streamedPreview.path())
+                    ? streamedPreview.shownLines()
+                    : null;
+
             // Wrapper: delega a StreamingFileWriter
-            StreamingFileWriter.writeFileWithPreview(pathStr, content);
+            StreamingFileWriter.writeFileWithPreview(pathStr, content, streamedLines);
             return formatOutput(true, "File written: " + pathStr);
         } catch (IOException e) {
             return formatOutput(false, "Error writing file: " + e.getMessage());
         }
+    }
+
+    public static String sanitizeTargetPath(String rawPath) {
+        String trimmed = rawPath.trim();
+        if (!trimmed.matches("(?s).*\\s.*")) {
+            return trimmed;
+        }
+        String[] tokens = trimmed.split("[\\r\\n\\t ]+");
+        for (int i = tokens.length - 1; i >= 0; i--) {
+            String token = tokens[i].trim();
+            if (token.matches(".+\\.[a-zA-Z0-9]{1,10}$") && (token.startsWith("/") || token.startsWith("~") || token.startsWith("."))) {
+                return token;
+            }
+        }
+        return trimmed;
     }
 
     private static String formatOutput(boolean success, String message) {

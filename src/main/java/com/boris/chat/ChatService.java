@@ -19,6 +19,8 @@ import com.boris.llm.client.ChatRequest;
 import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.llm.think.ThinkContextHolder;
 import com.boris.tooling.ToolResultNotifier;
+import com.boris.tooling.DiffLineNotifier;
+import com.boris.tooling.WriteArgsPreviewStreamer;
 import com.boris.tooling.engine.ToolRegistry;
 import com.boris.tooling.integration.ToolCallingConfig;
 import com.boris.tooling.LearningLimiter;
@@ -200,6 +202,9 @@ public class ChatService {
             ToolRegistry registry = this.toolRegistry != null ? this.toolRegistry :
                     (currentSettings != null ? ToolCallingConfig.buildToolRegistry(currentSettings) : null);
 
+            fileWriter.setSaveFunction((blockPath, blockContent, shownLines) ->
+                    saveBlockViaWriteFileTool(registry, blockPath, blockContent, shownLines));
+
             BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
                     conv,
                     modelName,
@@ -226,7 +231,7 @@ public class ChatService {
 
             String finalResponse = fullResponse.length() > 0 ? fullResponse.toString() : (turn != null ? turn.response() : "");
             if (enableHistory && finalResponse != null && !finalResponse.isEmpty()) {
-                conversationHistory.add(botName + ": " + finalResponse);
+                conversationHistory.add(botName + ": " + extractFinalResponse(finalResponse));
                 trimHistory();
             }
 
@@ -266,6 +271,43 @@ public class ChatService {
                 taskAborter.markGenerationEnd();
             }
             ThinkContextHolder.clearAll();
+        }
+    }
+
+    private void saveBlockViaWriteFileTool(ToolRegistry registry, String blockPath, String blockContent, int shownLines) {
+        if (registry == null || !registry.hasTool("write_file")) {
+            throw new IllegalStateException("saveBlockViaWriteFileTool requiere la tool write_file registrada");
+        }
+        try {
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            String json = mapper.writeValueAsString(java.util.Map.of(
+                    "path", blockPath != null ? blockPath : "",
+                    "content", blockContent != null ? blockContent : ""));
+
+            WriteArgsPreviewStreamer.setLivePreview(new WriteArgsPreviewStreamer.PreviewInfo(blockPath, shownLines));
+            String result;
+            try {
+                result = registry.execute("write_file", json);
+            } finally {
+                WriteArgsPreviewStreamer.clearLivePreview();
+            }
+
+            if (result != null && result.contains("\"success\":false")) {
+                String message = extractJsonProperty(result, "error");
+                DiffLineNotifier.notify("⚠ write_file no guardo " + blockPath + (message != null ? ": " + message : ""));
+            }
+        } catch (Exception e) {
+            DiffLineNotifier.notify("⚠ Error guardando " + blockPath + ": " + e.getMessage());
+        }
+    }
+
+    private String extractJsonProperty(String json, String property) {
+        try {
+            var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
+            var value = node.get(property);
+            return value != null && !value.isNull() ? value.asText() : null;
+        } catch (Exception e) {
+            return null;
         }
     }
 
