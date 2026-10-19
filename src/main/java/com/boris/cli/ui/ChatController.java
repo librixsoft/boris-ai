@@ -40,6 +40,7 @@ public class ChatController implements InputArea.InputListener {
     private volatile long responseStartTime;
     private volatile int responseStartInputTokens;
     private volatile int responseStartOutputTokens;
+    private volatile String announcedProjectPath;
 
     public ChatController(ChatService chatService,
                           SkillManager skillManager,
@@ -385,6 +386,7 @@ public class ChatController implements InputArea.InputListener {
         }
         waiting.set(false);
         transcript.endAssistantResponse();
+        announceProjectPath();
 
         String finalText;
         synchronized (assistantBuffer) {
@@ -403,6 +405,15 @@ public class ChatController implements InputArea.InputListener {
             onClose.run();
         }
         taskAborter.reset();
+    }
+
+    private void announceProjectPath() {
+        String projectPath = chatService.getCurrentProjectPath();
+        if (projectPath == null || projectPath.isBlank() || projectPath.equals(announcedProjectPath)) {
+            return;
+        }
+        announcedProjectPath = projectPath;
+        transcript.appendLine("* working dir: " + projectPath);
     }
 
     private boolean isValidCommand(String text) {

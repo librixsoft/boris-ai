@@ -55,6 +55,10 @@ public class ChatService {
     private static final Pattern ORPHAN_THINK_TAGS = Pattern.compile("(?i)</?(?:think|thinking|thought|reasoning)>");
     private static final Pattern PROJECT_PATH_PATTERN = Pattern.compile("^\\s*(/[^\\s]+|~/[^\\s]+)\\s+(.+)$", Pattern.DOTALL);
     private static final Pattern INLINE_PATH_PATTERN = Pattern.compile("(?:en|in|to|at|dentro de|path|ruta|directorio|carpeta|folder)\\s+(/[^\\s\"']+|~/[^\\s\"']+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ANY_ABSOLUTE_PATH_PATTERN = Pattern.compile("(?<![\\w:/~.-])(~?/[^\\s\"'`,;]+)");
+    private static final List<String> FORBIDDEN_PROJECT_ROOTS = List.of(
+            "/etc", "/usr", "/bin", "/sbin", "/lib", "/lib64", "/boot", "/dev", "/proc", "/sys",
+            "/System", "/Library", "/Applications", "/private", "/var", "/root");
     private volatile String currentProjectPath;
 
     public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory) {
@@ -636,17 +640,109 @@ public class ChatService {
             }
         }
 
+        String detected = detectProjectPathFromMessage(message);
+        if (detected != null) {
+            return new String[]{message, detected};
+        }
+
         return new String[]{message, null};
+    }
+
+    private String detectProjectPathFromMessage(String message) {
+        List<String> candidates = new ArrayList<>();
+        Matcher matcher = ANY_ABSOLUTE_PATH_PATTERN.matcher(message);
+        while (matcher.find()) {
+            String candidate = stripTrailingPunctuation(matcher.group(1));
+            if (!candidate.isBlank() && !isForbiddenProjectRoot(candidate)) {
+                candidates.add(candidate);
+            }
+        }
+        if (candidates.isEmpty()) {
+            return null;
+        }
+
+        for (String candidate : candidates) {
+            java.io.File f = new java.io.File(expandHome(candidate));
+            if (f.isDirectory()) {
+                return f.getAbsolutePath();
+            }
+        }
+
+        for (String candidate : candidates) {
+            java.io.File f = new java.io.File(expandHome(candidate));
+            if (f.isFile()) {
+                java.io.File parent = f.getParentFile();
+                if (parent != null && parent.isDirectory()) {
+                    return parent.getAbsolutePath();
+                }
+            }
+        }
+
+        for (String candidate : candidates) {
+            try {
+                String resolved = resolveAndValidatePath(candidate);
+                if (resolved != null) {
+                    return resolved;
+                }
+            } catch (IllegalStateException e) {
+                continue;
+            }
+        }
+        return null;
+    }
+
+    private static String expandHome(String path) {
+        if (path.startsWith("~/")) {
+            return System.getProperty("user.home") + path.substring(1);
+        }
+        if ("~".equals(path)) {
+            return System.getProperty("user.home");
+        }
+        return path;
+    }
+
+    private static String stripTrailingPunctuation(String path) {
+        int end = path.length();
+        while (end > 0) {
+            char c = path.charAt(end - 1);
+            if (".,;:!?".indexOf(c) >= 0) {
+                end--;
+                continue;
+            }
+            if (c == ')' || c == ']' || c == '}') {
+                char open = c == ')' ? '(' : (c == ']' ? '[' : '{');
+                int opens = 0;
+                int closes = 0;
+                for (int i = 0; i < end; i++) {
+                    if (path.charAt(i) == open) opens++;
+                    if (path.charAt(i) == c) closes++;
+                }
+                if (closes > opens) {
+                    end--;
+                    continue;
+                }
+            }
+            break;
+        }
+        return path.substring(0, end);
+    }
+
+    private static boolean isForbiddenProjectRoot(String path) {
+        String normalized = expandHome(path);
+        if (normalized.startsWith("/") && normalized.split("/").length < 3) {
+            return true;
+        }
+        for (String forbidden : FORBIDDEN_PROJECT_ROOTS) {
+            if (normalized.equals(forbidden) || normalized.startsWith(forbidden + "/")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String resolveAndValidatePath(String path) {
         if (path == null || path.isBlank()) return null;
-        String resolved = path.trim();
-        if (resolved.startsWith("~/")) {
-            resolved = System.getProperty("user.home") + resolved.substring(1);
-        } else if ("~".equals(resolved)) {
-            resolved = System.getProperty("user.home");
-        }
+        String resolved = expandHome(path.trim());
         java.io.File f = new java.io.File(resolved);
         if (f.exists() && f.isDirectory()) {
             return f.getAbsolutePath();

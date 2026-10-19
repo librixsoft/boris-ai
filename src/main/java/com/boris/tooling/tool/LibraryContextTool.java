@@ -143,7 +143,7 @@ public class LibraryContextTool {
         }
 
         String projectPath = com.boris.context.ProjectContext.resolveRelativePath(rawProjectPath);
-        Path projectRoot = Paths.get(projectPath).toAbsolutePath().normalize();
+        Path projectRoot = com.boris.knowledge.KnowledgeStorageService.resolveProjectRoot(projectPath);
 
         // Check learning limits (library context is expensive)
         if (!force && !LearningLimiter.allowLearningCall(repo)) {
@@ -155,9 +155,8 @@ public class LibraryContextTool {
         String repoKey = repo.toLowerCase();
         String repoName = repo.split("/")[1];
 
-        // Use global cache directory in ~/.boris/repos/ instead of project-specific
-        Path globalBorisDir = Paths.get(System.getProperty("user.home"), ".boris");
-        Path repoDir = globalBorisDir.resolve("repos").resolve(repoName);
+        // Cache de repos dentro del workspace del proyecto: <project_path>/.boris/repos/<repo>
+        Path repoDir = resolveRepoDir(projectRoot, repoName);
 
         // Rate limit check
         if (!force && PROCESSED_REPOS.contains(repoKey)) {
@@ -293,6 +292,19 @@ public class LibraryContextTool {
         String project_path = (String) args.get("project_path");
 
         return com.boris.knowledge.FrameworkKnowledgeTool.listKnowledge(framework, project_path);
+    }
+
+    // === REPO CACHE DIRECTORY ===
+
+    private static Path resolveRepoDir(Path projectRoot, String repoName) {
+        Path reposDir = projectRoot.resolve(".boris").resolve("repos");
+        try {
+            com.boris.knowledge.KnowledgeStorageService.ensureGitignore(projectRoot);
+            Files.createDirectories(reposDir);
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo crear el cache de repos en " + reposDir + ": " + e.getMessage(), e);
+        }
+        return reposDir.resolve(repoName);
     }
 
     // === ZIP DOWNLOAD & EXTRACTION ===
