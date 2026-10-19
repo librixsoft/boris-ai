@@ -6,7 +6,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ContentQueryTool {
 
@@ -14,6 +21,18 @@ public class ContentQueryTool {
     private static final int MAX_CONTENT_PER_RECORD = 2000;
     private static final int MAX_FULL_FILE_CONTENT = 20000;
     private static final int MAX_SYMBOLS = 20;
+
+    private static final int MAX_BUNDLE_FILES = 10;
+    private static final int MAX_BUNDLE_FILE_CONTENT = 15000;
+    private static final int MAX_BUNDLE_TOTAL_CONTENT = 30000;
+
+    private static final Set<String> BUNDLE_SOURCE_EXTENSIONS = Set.of("html", "htm", "css", "scss", "sass", "less");
+    private static final Set<String> BUNDLE_REF_EXTENSIONS = Set.of("css", "scss", "sass", "less", "js", "mjs", "cjs", "ts");
+
+    private static final Pattern HTML_REF_PATTERN = Pattern.compile(
+        "(?i)(?:href|src)\\s*=\\s*\"([^\"]*)\"|(?:href|src)\\s*=\\s*'([^']*)'");
+    private static final Pattern CSS_REF_PATTERN = Pattern.compile(
+        "url\\(\\s*(['\"]?)([^'\")]+)\\1\\s*\\)|@import\\s+(?:url\\(\\s*)?(?:\"([^\"]*)\"|'([^']*)')");
 
     public static String search(String query, String repo, String path) {
         if ((query == null || query.isBlank()) && (path == null || path.isBlank())) {
@@ -62,6 +81,10 @@ public class ContentQueryTool {
             root.set("symbols_in_file",
                 symbolsArray(com.boris.context.SymbolRepository.findSymbolsByFile(results.getFirst().path())));
 
+            ArrayNode bundledArray = root.putArray("bundled_files");
+            int bundledCount = bundleReferencedFiles(resultRepo, results.getFirst().path(), fullContent, bundledArray);
+            root.put("bundled_files_count", bundledCount);
+
             ArrayNode moreArray = root.putArray("repo_files");
             int added = 0;
             for (String related : ContentRepository.listFiles(resultRepo)) {
@@ -88,6 +111,143 @@ public class ContentQueryTool {
         if (idx + 1 > 0 && idx < related.length() - 1) {
             node.put("name", related.substring(idx + 1));
         }
+    }
+
+    private static int bundleReferencedFiles(String repo, String sourcePath, String sourceContent, ArrayNode out) {
+        String sourceExt = fileExtension(sourcePath);
+        if (!BUNDLE_SOURCE_EXTENSIONS.contains(sourceExt)) {
+            return 0;
+        }
+
+        String baseDir = "";
+        int slash = sourcePath.lastIndexOf('/');
+        if (slash > 0) {
+            baseDir = sourcePath.substring(0, slash);
+        }
+
+        Set<String> resolvedRefs = extractRefs(sourceExt, sourceContent, baseDir);
+        if (resolvedRefs.isEmpty()) {
+            return 0;
+        }
+
+        int bundled = 0;
+        int totalChars = 0;
+
+        for (String ref : resolvedRefs) {
+            if (bundled >= MAX_BUNDLE_FILES || totalChars >= MAX_BUNDLE_TOTAL_CONTENT) {
+                break;
+            }
+
+            List<DocResult> refResults = ContentRepository.readByPath(repo, ref);
+            if (refResults.isEmpty()) {
+                continue;
+            }
+
+            StringBuilder refContent = new StringBuilder();
+            for (DocResult chunk : refResults) {
+                refContent.append(chunk.content());
+            }
+
+            String refFull = refContent.toString();
+            boolean truncated = refFull.length() > MAX_BUNDLE_FILE_CONTENT
+                || totalChars + refFull.length() > MAX_BUNDLE_TOTAL_CONTENT;
+            if (truncated) {
+                int available = Math.max(0, Math.min(MAX_BUNDLE_FILE_CONTENT, MAX_BUNDLE_TOTAL_CONTENT - totalChars));
+                refFull = refFull.substring(0, available) + "... [truncado]";
+            }
+
+            ObjectNode bundledNode = out.addObject();
+            bundledNode.put("path", refResults.getFirst().repo() + "/" + refResults.getFirst().path());
+            bundledNode.put("local_path", refResults.getFirst().path());
+            bundledNode.put("content", refFull);
+            bundledNode.put("truncated", truncated);
+
+            totalChars += refFull.length();
+            bundled++;
+        }
+
+        return bundled;
+    }
+
+    private static LinkedHashSet<String> extractRefs(String sourceExt, String content, String baseDir) {
+        LinkedHashSet<String> refs = new LinkedHashSet<>();
+
+        Pattern[] patterns = sourceExt.equals("css") || sourceExt.equals("scss")
+            || sourceExt.equals("sass") || sourceExt.equals("less")
+            ? new Pattern[]{CSS_REF_PATTERN}
+            : new Pattern[]{HTML_REF_PATTERN, CSS_REF_PATTERN};
+
+        for (Pattern pattern : patterns) {
+            Matcher matcher = pattern.matcher(content);
+            while (matcher.find()) {
+                String ref = firstNonNull(matcher.group(1), matcher.group(2),
+                    matcher.group(3), matcher.group(4));
+                String resolved = resolveRef(baseDir, ref);
+                if (resolved != null && BUNDLE_REF_EXTENSIONS.contains(fileExtension(resolved))) {
+                    refs.add(resolved);
+                }
+            }
+        }
+
+        return refs;
+    }
+
+    private static String resolveRef(String baseDir, String rawRef) {
+        if (rawRef == null || rawRef.isBlank()) {
+            return null;
+        }
+
+        String cleaned = rawRef.split("[?#]", 2)[0].replace('\\', '/').strip();
+        if (cleaned.isEmpty() || cleaned.equals("#")) {
+            return null;
+        }
+
+        if (cleaned.startsWith("http://") || cleaned.startsWith("https://")
+            || cleaned.startsWith("data:") || cleaned.startsWith("//")) {
+            return null;
+        }
+
+        Deque<String> parts = new ArrayDeque<>();
+        if (cleaned.startsWith("/")) {
+            addPathParts(parts, cleaned.substring(1));
+        } else if (baseDir == null || baseDir.isEmpty()) {
+            addPathParts(parts, cleaned);
+        } else {
+            addPathParts(parts, baseDir + "/" + cleaned);
+        }
+
+        return parts.isEmpty() ? null : String.join("/", parts);
+    }
+
+    private static void addPathParts(Deque<String> parts, String path) {
+        for (String part : path.split("/")) {
+            if (part.isEmpty() || part.equals(".")) {
+                continue;
+            }
+            if (part.equals("..")) {
+                parts.pollLast();
+                continue;
+            }
+            parts.addLast(part);
+        }
+    }
+
+    private static String fileExtension(String path) {
+        String name = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
+        int dot = name.lastIndexOf('.');
+        if (dot < 0 || dot == name.length() - 1) {
+            return "";
+        }
+        return name.substring(dot + 1).toLowerCase(Locale.ROOT);
+    }
+
+    private static String firstNonNull(String... values) {
+        for (String value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private static ArrayNode symbolsArray(List<CodeSymbol> symbols) {
