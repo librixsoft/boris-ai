@@ -14,6 +14,10 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.io.IOException;
 
 public class ContentQueryTool {
 
@@ -25,6 +29,10 @@ public class ContentQueryTool {
     private static final int MAX_BUNDLE_FILES = 10;
     private static final int MAX_BUNDLE_FILE_CONTENT = 15000;
     private static final int MAX_BUNDLE_TOTAL_CONTENT = 30000;
+
+    private static final int MAX_BATCH_FILES = 10;
+    private static final int MAX_BATCH_FILE_CONTENT = 20000;
+    private static final int MAX_BATCH_TOTAL_CONTENT = 60000;
 
     private static final Set<String> BUNDLE_SOURCE_EXTENSIONS = Set.of("html", "htm", "css", "scss", "sass", "less");
     private static final Set<String> BUNDLE_REF_EXTENSIONS = Set.of("css", "scss", "sass", "less", "js", "mjs", "cjs", "ts");
@@ -43,7 +51,7 @@ public class ContentQueryTool {
             return readByPath(repo, path);
         }
 
-        ToolProgressNotifier.notify("query_repo_content", "Buscando en repos indexados: " + query);
+        ToolProgressNotifier.notify("github_repo", "Buscando en repos indexados: " + query);
 
         try {
             List<DocResult> docs = ContentRepository.search(query, repo);
@@ -54,8 +62,158 @@ public class ContentQueryTool {
         }
     }
 
+    public static String readBatch(String repo, List<String> paths, String targetDir, List<String> targetPaths) {
+        if (repo == null || repo.isBlank()) {
+            return error("repo es requerido (nombre registrado con github_repo)");
+        }
+        if (paths == null || paths.isEmpty()) {
+            return error("paths es requerido: lista de archivos del manifiesto que necesitas leer");
+        }
+        if (targetPaths != null && !targetPaths.isEmpty() && targetPaths.size() != paths.size()) {
+            return error("target_paths debe tener la misma cantidad de elementos que paths");
+        }
+
+        boolean copyRequested = targetDir != null && !targetDir.isBlank();
+        Path cacheDir = null;
+        if (copyRequested) {
+            String cachePath = ContentRepository.repoPath(repo);
+            if (cachePath == null) {
+                return error("No hay ruta de cache registrada para '" + repo + "'. Llamá github_repo(repo, project_path) antes de pedir copia.");
+            }
+            cacheDir = Path.of(cachePath).toAbsolutePath().normalize();
+            if (!Files.isDirectory(cacheDir)) {
+                return error("El cache del repo no existe en disco: " + cacheDir);
+            }
+        }
+
+        ToolProgressNotifier.notify("read_repo_files",
+            "Leyendo " + Math.min(paths.size(), MAX_BATCH_FILES) + " archivo(s) de " + repo);
+
+        try {
+            ObjectNode root = MAPPER.createObjectNode();
+            root.put("success", true);
+            root.put("repo", repo);
+
+            String cachePath = ContentRepository.repoPath(repo);
+            if (cachePath != null) {
+                root.put("cache_path", cachePath);
+                root.put("cache_path_note",
+                    "Estos archivos provienen del cache de github_repo en esa ruta; NO los leas con batch_read_files usando paths del proyecto.");
+            } else {
+                root.put("cache_path_error",
+                    "Sin ruta de cache registrada para '" + repo + "'; el repo no fue descargado con github_repo en esta sesión");
+            }
+
+            Path targetBase = copyRequested
+                ? Path.of(ProjectContext.resolveRelativePath(targetDir)).toAbsolutePath().normalize()
+                : null;
+
+            ArrayNode filesArray = root.putArray("files");
+            ArrayNode copiedArray = copyRequested ? root.putArray("copied") : null;
+            ArrayNode failedArray = copyRequested ? root.putArray("copy_failed") : null;
+            ArrayNode notFoundArray = root.putArray("not_found");
+
+            int[] totalCharsRef = {0};
+            int readFiles = 0;
+            int copiedCount = 0;
+
+            for (int i = 0; i < paths.size(); i++) {
+                String rawPath = paths.get(i) == null ? "" : paths.get(i).strip();
+                if (rawPath.isEmpty()) {
+                    continue;
+                }
+
+                if (readFiles >= MAX_BATCH_FILES) {
+                    notFoundArray.addObject().put("path", rawPath).put("reason", "límite de " + MAX_BATCH_FILES + " archivos por llamada alcanzado");
+                    continue;
+                }
+
+                if (copyRequested) {
+                    String targetOverride = targetPaths != null && !targetPaths.isEmpty() ? targetPaths.get(i).strip() : null;
+                    copiedCount += copyFromCache(cacheDir, rawPath, targetBase, targetOverride, copiedArray, failedArray);
+                }
+
+                List<DocResult> results = ContentRepository.readByPath(repo, rawPath);
+                if (results.isEmpty()) {
+                    notFoundArray.addObject().put("path", rawPath)
+                        .put("reason", "no indexado o path incorrecto (verifica contra el manifiesto)");
+                    continue;
+                }
+
+                readFiles++;
+                readAndAppendContent(results, filesArray, totalCharsRef);
+            }
+
+            root.put("files_read", readFiles);
+            root.put("total_chars", totalCharsRef[0]);
+            if (copyRequested) {
+                root.put("copied_count", copiedCount);
+                root.put("copy_failed_count", failedArray.size());
+            }
+
+            return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root);
+        } catch (Exception e) {
+            return error("Error leyendo archivos: " + e.getMessage());
+        }
+    }
+
+    private static void readAndAppendContent(List<DocResult> results, ArrayNode filesArray, int[] totalCharsRef) {
+        StringBuilder contentBuilder = new StringBuilder();
+        for (DocResult chunk : results) {
+            contentBuilder.append(chunk.content());
+        }
+        String content = contentBuilder.toString();
+
+        int available = Math.min(MAX_BATCH_FILE_CONTENT, MAX_BATCH_TOTAL_CONTENT - totalCharsRef[0]);
+        boolean truncated = content.length() > available;
+        if (truncated) {
+            content = content.substring(0, Math.max(0, available)) + "... [truncado]";
+        }
+
+        ObjectNode fileNode = filesArray.addObject();
+        fileNode.put("path", results.getFirst().path());
+        fileNode.put("content", content);
+        fileNode.put("truncated", truncated);
+        totalCharsRef[0] += content.length();
+    }
+
+    private static int copyFromCache(Path cacheDir, String relativePath, Path targetBase,
+                                     String targetRelativeOverride, ArrayNode copiedArray, ArrayNode failedArray) {
+        Path source = cacheDir.resolve(relativePath).normalize();
+        String targetRelative = targetRelativeOverride != null && !targetRelativeOverride.isBlank()
+            ? targetRelativeOverride
+            : relativePath;
+        try {
+            if (!source.startsWith(cacheDir) || !Files.isRegularFile(source)) {
+                ObjectNode failedNode = failedArray.addObject();
+                failedNode.put("path", relativePath);
+                failedNode.put("reason", "no existe en el cache del repo como archivo regular");
+                return 0;
+            }
+
+            Path target = targetBase.resolve(targetRelative).normalize();
+            if (!target.startsWith(targetBase)) {
+                ObjectNode failedNode = failedArray.addObject();
+                failedNode.put("path", relativePath);
+                failedNode.put("reason", "target_path inválido (fuera del directorio base)");
+                return 0;
+            }
+
+            Files.createDirectories(target.getParent());
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+
+            ObjectNode copiedNode = copiedArray.addObject();
+            copiedNode.put("source", relativePath);
+            copiedNode.put("target", target.toString());
+            copiedNode.put("bytes", Files.size(target));
+            return 1;
+        } catch (IOException e) {
+            throw new RuntimeException("Error copiando '" + relativePath + "' desde el cache: " + e.getMessage(), e);
+        }
+    }
+
     private static String readByPath(String repo, String path) {
-        ToolProgressNotifier.notify("query_repo_content", "Leyendo archivo: " + path);
+        ToolProgressNotifier.notify("github_repo", "Leyendo archivo: " + path);
 
         try {
             List<DocResult> results = ContentRepository.readByPath(repo, path);
@@ -294,7 +452,7 @@ public class ContentQueryTool {
                     recordNode.put("content_excerpt", content);
                 }
 
-                root.put("hint", "Resultado unificado: 'symbols' trae clases/metodos Java y 'records' trae contenido de cualquier tipo. Usa query_repo_content(path=\"...\") para leer un archivo completo (incluye symbols_in_file).");
+                root.put("hint", "Resultado unificado: 'symbols' trae clases/metodos Java y 'records' trae contenido de cualquier tipo. Usa github_repo(action='search', path=\"...\") para leer un archivo completo (incluye symbols_in_file).");
             }
 
             return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root);

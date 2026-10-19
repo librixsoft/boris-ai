@@ -197,7 +197,7 @@ public class ToolCallingConfig {
     /*
     @Tool(
             name = "bulk_edit",
-            description = "Create or replace a file with streaming visual feedback. Validates classes against indexed symbols BEFORE writing. Shows each line as it writes (green diff). Use query_symbols() first to verify classes exist.")
+            description = "Create or replace a file with streaming visual feedback. Validates classes against indexed symbols BEFORE writing. Shows each line as it writes (green diff). Use github_repo(action='symbols') first to verify classes exist.")
     public String bulk_edit(
             @ToolParam(description = "Path for the file to create/overwrite") String path,
             @ToolParam(description = "Complete file content") String content) {
@@ -674,123 +674,56 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "github_repo",
-            description = "Learn from ANY GitHub repo: downloads owner/repo and indexes it into local registries. " +
-                         "Works for Java libraries (symbols via query_symbols), and also for landing pages, books, " +
-                         "frontends, backends, docs or new libraries (markdown/HTML/CSS/JS/text via query_repo_content). " +
+            description = "UNIFIED GitHub repo tool with actions. action='download' (default): download owner/repo and index it; " +
+                         "the result includes the 'files' manifest so you can pick exactly which files you need. " +
+                         "action='read_files': read selected files from the manifest (pass paths). With target_dir it ALSO copies them " +
+                         "exactly from the repo cache into the project (recommended for large files and binary assets like images/fonts). " +
+                         "action='search': search or read indexed content of any kind (query or path required). " +
+                         "action='symbols': search Java class/method symbols by name. " +
+                         "action='methods': public methods of one class (pass class_name). " +
+                         "action='classes': list indexed classes. " +
+                         "action='status': indexing status summary. " +
+                         "action='knowledge': read a markdown knowledge card for a framework/class (framework + class_name). " +
+                         "action='knowledge_save': save/update a knowledge card (framework + class_name + content). " +
+                         "action='knowledge_list': list cached classes of a framework. " +
                          "Use once per repo when the project depends on something you do not know.")
     public String github_repo(
-            @ToolParam(description = "GitHub repo in format owner/repo (e.g., mabe02/lanterna)") String repo,
-            @ToolParam(description = "Version, tag or branch (default: main)") String version,
-            @ToolParam(description = "Project path where repo will be cached in .boris/repos/") String project_path,
-            @ToolParam(description = "Force re-download and re-index (default: false)") Boolean force) {
-
-        ToolProgressNotifier.notify("github_repo", "Indexando: " + repo);
+            @ToolParam(description = "Operation mode: download (default), read_files, search, symbols, methods, classes, status, knowledge, knowledge_save, knowledge_list", required = false) String action,
+            @ToolParam(description = "download: repo in 'owner/repo' format. Other actions: registered repo name as filter (required for read_files/knowledge/knowledge_save, optional filter elsewhere)", required = false) String repo,
+            @ToolParam(description = "download only: version, tag or branch (default: main)", required = false) String version,
+            @ToolParam(description = "download only: project path where repo is cached in .boris/repos/ (default: current project) (optional)", required = false) String project_path,
+            @ToolParam(description = "download only: force re-download and re-index (default: false)", required = false) Boolean force,
+            @ToolParam(description = "read_files only: file paths chosen from the github_repo 'files' manifest", required = false) java.util.List<String> paths,
+            @ToolParam(description = "read_files only: base directory in the project where files are copied exactly from cache (optional)", required = false) String target_dir,
+            @ToolParam(description = "read_files only: optional target names, parallel to paths (omit to keep relative paths)", required = false) java.util.List<String> target_paths,
+            @ToolParam(description = "search/symbols only: search term (optional for search if path is given)", required = false) String query,
+            @ToolParam(description = "search only: relative path inside the repo to read one full file (optional)", required = false) String path,
+            @ToolParam(description = "symbols only: filter CLASS, METHOD, CONSTRUCTOR, FIELD, INTERFACE or ENUM (optional)", required = false) String type,
+            @ToolParam(description = "methods/knowledge only: class name", required = false) String class_name,
+            @ToolParam(description = "knowledge/knowledge_save/knowledge_list only: framework, library or repo name", required = false) String framework,
+            @ToolParam(description = "knowledge_save only: concise markdown summary with purpose, key methods and usage example", required = false) String content) {
 
         Map<String, Object> args = new java.util.LinkedHashMap<>();
-        args.put("repo", repo);
+        if (action != null) args.put("action", action);
+        if (repo != null) args.put("repo", repo);
         if (version != null) args.put("version", version);
-        args.put("project_path", project_path != null ? project_path : ".");
+        if (project_path != null) args.put("project_path", project_path);
         if (force != null) args.put("force", force);
+        if (paths != null) args.put("paths", paths);
+        if (target_dir != null) args.put("target_dir", target_dir);
+        if (target_paths != null) args.put("target_paths", target_paths);
+        if (query != null) args.put("query", query);
+        if (path != null) args.put("path", path);
+        if (type != null) args.put("type", type);
+        if (class_name != null) args.put("class_name", class_name);
+        if (framework != null) args.put("framework", framework);
+        if (content != null) args.put("content", content);
 
+        String actionLabel = (action != null ? action : "download");
         String result = LibraryContextTool.execute(args);
-        notifyToolTokens("github_repo", repo, result);
+        notifyToolTokens("github_repo", actionLabel + " " + (repo != null ? repo : "") + " " + (query != null ? query : ""), result);
         return result;
     }
-
-    @Tool(
-            name = "query_repo_content",
-            description = "UNIFIED search for anything learned with github_repo: 'symbols' section brings " +
-                         "Java classes/methods and 'records' section brings indexed content (markdown, HTML, " +
-                         "CSS, JS/TS, books, docs). Works for repos of any kind; no need to classify the repo " +
-                         "first. Pass 'query' to search records, or 'path' to read a full file (+ symbols_in_file).")
-    public String query_repo_content(
-            @ToolParam(description = "Search term to find indexed content (optional if path is given)", required = false) String query,
-            @ToolParam(description = "Filter by repo name learned with github_repo (optional)", required = false) String repo,
-            @ToolParam(description = "Relative path inside the repo (as shown in results) to read the full file (optional)", required = false) String path) {
-        String result = com.boris.context.ContentQueryTool.search(query, repo, path);
-        notifyToolTokens("query_repo_content", (query != null ? query : "") + " " + (path != null ? path : ""), result);
-        return result;
-    }
-
-    @Tool(
-            name = "query_symbols",
-            description = "Search for a specific class or method symbol on-demand. " +
-                         "Use ONLY when looking for an unknown symbol or signature. " +
-                         "Do NOT query exhaustively or inspect unneeded classes.")
-    public String query_symbols(
-            @ToolParam(description = "Name to search (class, method, etc)") String query,
-            @ToolParam(description = "Filter by type: CLASS, METHOD, CONSTRUCTOR, FIELD, INTERFACE, ENUM (optional)") String type,
-            @ToolParam(description = "Filter by repo name (optional)") String repo) {
-        String result = com.boris.context.SymbolQueryTool.search(query, type, repo);
-        notifyToolTokens("query_symbols", query, result);
-        return result;
-    }
-
-    @Tool(
-            name = "query_methods",
-            description = "Get public methods of a specific class when needed for an exact call. Do not call recursively across multiple classes.")
-    public String query_methods(
-            @ToolParam(description = "Class name to get methods from") String className) {
-        String result = com.boris.context.SymbolQueryTool.findMethods(className);
-        notifyToolTokens("query_methods", className, result);
-        return result;
-    }
-
-    @Tool(
-            name = "list_classes",
-            description = "List indexed classes. Do NOT call this during bug fixes, file editing, or file creation tasks. Use targeted lookups instead.")
-    public String list_classes(
-            @ToolParam(description = "Filter by repo name (optional)") String repo) {
-        String result = com.boris.context.SymbolQueryTool.listClasses(repo);
-        notifyToolTokens("list_classes", repo != null ? repo : "", result);
-        return result;
-    }
-
-    @Tool(
-            name = "index_status",
-            description = "Show current indexing status: how many symbols are indexed and from which repos.")
-    public String index_status() {
-        String result = com.boris.context.SymbolQueryTool.indexStatus();
-        notifyToolTokens("index_status", "", result);
-        return result;
-    }
-
-    @Tool(
-            name = "query_framework_knowledge",
-            description = "Query persistent markdown knowledge card for a class in a framework/library (.boris/<framework>/<CLASE>.md). " +
-                         "ALWAYS use this BEFORE reading full raw source files or symbols when working with unfamiliar frameworks.")
-    public String query_framework_knowledge(
-            @ToolParam(description = "Framework, library or repo name (e.g., tambo-tui, lanterna)") String framework,
-            @ToolParam(description = "Class name to query (e.g., Color, Buffer, Frame, Widget)") String class_name,
-            @ToolParam(description = "Optional project root path (default: current project)") String project_path) {
-        String result = com.boris.knowledge.FrameworkKnowledgeTool.queryKnowledge(framework, class_name, project_path);
-        notifyToolTokens("query_framework_knowledge", framework + "/" + class_name, result);
-        return result;
-    }
-
-    @Tool(
-            name = "save_framework_knowledge",
-            description = "Save or update a markdown knowledge summary for a class in .boris/<framework>/<CLASE>.md so it can be reused in future tasks.")
-    public String save_framework_knowledge(
-            @ToolParam(description = "Framework, library or repo name (e.g., tambo-tui)") String framework,
-            @ToolParam(description = "Class name (e.g., Style, BarChart)") String class_name,
-            @ToolParam(description = "Concise markdown summary with purpose, key methods, and usage example") String content,
-            @ToolParam(description = "Optional project root path (default: current project)") String project_path) {
-        String result = com.boris.knowledge.FrameworkKnowledgeTool.saveKnowledge(framework, class_name, content, project_path);
-        notifyToolTokens("save_framework_knowledge", framework + "/" + class_name, result);
-        return result;
-    }
-
-    @Tool(
-            name = "list_framework_knowledge",
-            description = "List all classes cached in .boris/<framework>/ or list all known frameworks.")
-    public String list_framework_knowledge(
-            @ToolParam(description = "Optional framework name to filter classes (e.g., tambo-tui)") String framework,
-            @ToolParam(description = "Optional project root path (default: current project)") String project_path) {
-        String result = com.boris.knowledge.FrameworkKnowledgeTool.listKnowledge(framework, project_path);
-        notifyToolTokens("list_framework_knowledge", framework != null ? framework : "", result);
-        return result;
-    }
-
 }
+
 

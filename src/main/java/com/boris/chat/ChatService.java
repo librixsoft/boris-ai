@@ -655,8 +655,21 @@ public class ChatService {
             java.io.File parent = f.getParentFile();
             return parent != null && parent.exists() ? parent.getAbsolutePath() : null;
         }
-        if (!f.exists() && f.getParentFile() != null && f.getParentFile().isDirectory()) {
-            return f.getParentFile().getAbsolutePath();
+        if (!f.exists()) {
+            String lastSegment = f.getName();
+            boolean looksLikeFile = lastSegment.contains(".");
+            if (looksLikeFile) {
+                java.io.File parent = f.getParentFile();
+                if (parent == null) return null;
+                if (!parent.mkdirs() && !parent.isDirectory()) {
+                    throw new IllegalStateException("No se pudo crear la carpeta del proyecto: " + parent.getAbsolutePath());
+                }
+                return parent.getAbsolutePath();
+            }
+            if (!f.mkdirs() && !f.isDirectory()) {
+                throw new IllegalStateException("No se pudo crear la carpeta del proyecto: " + f.getAbsolutePath());
+            }
+            return f.getAbsolutePath();
         }
         return null;
     }

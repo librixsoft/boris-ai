@@ -10,6 +10,8 @@ public class ContentRepository {
 
     public record DocResult(String repo, String path, int chunkIndex, String title, String content) {}
 
+    public record FileEntry(String path, String extension, int chunks, int approxBytes) {}
+
     private static final String MEMORY_URL = "jdbc:sqlite::memory:";
     private static Connection connection;
     private static final Object LOCK = new Object();
@@ -39,13 +41,57 @@ public class ContentRepository {
         String indexRepo = "CREATE INDEX IF NOT EXISTS idx_docs_repo ON docs(repo)";
         String indexPath = "CREATE INDEX IF NOT EXISTS idx_docs_path ON docs(path)";
         String indexContent = "CREATE INDEX IF NOT EXISTS idx_docs_content ON docs(content)";
+        String createRepoPaths = """
+            CREATE TABLE IF NOT EXISTS repo_paths (
+                repo TEXT PRIMARY KEY,
+                cache_path TEXT NOT NULL
+            )
+            """;
 
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(createTable);
             stmt.execute(indexRepo);
             stmt.execute(indexPath);
             stmt.execute(indexContent);
+            stmt.execute(createRepoPaths);
         }
+    }
+
+    public static void saveRepoPath(String repo, String cachePath) {
+        if (repo == null || repo.isBlank() || cachePath == null || cachePath.isBlank()) {
+            throw new IllegalArgumentException("repo y cachePath son requeridos para registrar la ruta del cache");
+        }
+
+        String sql = "INSERT OR REPLACE INTO repo_paths (repo, cache_path) VALUES (?, ?)";
+        try (PreparedStatement ps = getConnection().prepareStatement(sql)) {
+            ps.setString(1, repo.toLowerCase());
+            ps.setString(2, cachePath);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Error guardando ruta de cache: " + e.getMessage(), e);
+        }
+    }
+
+    public static String repoPath(String repo) {
+        if (repo == null || repo.isBlank()) {
+            throw new IllegalArgumentException("repo es requerido para consultar la ruta del cache");
+        }
+
+        String sql = "SELECT cache_path FROM repo_paths WHERE repo = ? OR repo = ?";
+        List<String> paths = new ArrayList<>();
+        try (PreparedStatement ps = getConnection().prepareStatement(sql)) {
+            ps.setString(1, repo.toLowerCase());
+            String shortName = repo.toLowerCase();
+            int slash = shortName.indexOf('/');
+            ps.setString(2, slash > 0 && slash < shortName.length() - 1 ? shortName.substring(slash + 1) : shortName);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                paths.add(rs.getString("cache_path"));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error consultando ruta de cache: " + e.getMessage(), e);
+        }
+        return paths.isEmpty() ? null : paths.getFirst();
     }
 
     public static void saveBatch(List<DocChunk> chunks) {
@@ -146,6 +192,43 @@ public class ContentRepository {
             throw new RuntimeException("Error listing doc files: " + e.getMessage(), e);
         }
         return paths;
+    }
+
+    public static List<FileEntry> fileManifest(String repo) {
+        if (repo == null || repo.isBlank()) {
+            throw new IllegalArgumentException("repo es requerido para generar el manifiesto de archivos");
+        }
+
+        String sql = """
+            SELECT path, COUNT(*) AS chunk_count
+            FROM docs
+            WHERE LOWER(repo) = LOWER(?)
+            GROUP BY path
+            ORDER BY path
+            """;
+
+        List<FileEntry> entries = new ArrayList<>();
+        try (PreparedStatement ps = getConnection().prepareStatement(sql)) {
+            ps.setObject(1, repo);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                String path = rs.getString("path");
+                int chunks = rs.getInt("chunk_count");
+                entries.add(new FileEntry(path, extensionOf(path), chunks, chunks * 4000));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error generando manifiesto de archivos: " + e.getMessage(), e);
+        }
+        return entries;
+    }
+
+    private static String extensionOf(String path) {
+        String name = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
+        int dot = name.lastIndexOf('.');
+        if (dot < 0 || dot == name.length() - 1) {
+            return "";
+        }
+        return name.substring(dot + 1).toLowerCase();
     }
 
     public static boolean isIndexed(String repo) {

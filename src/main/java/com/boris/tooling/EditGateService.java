@@ -262,7 +262,7 @@ public final class EditGateService {
             + "indexadas ni tienen knowledge card: " + classes + ". "
             + "Dispara UNA SOLA VEZ github_repo(repo='owner/repo', version='main' o el tag correcto, "
             + "project_path='" + projectRoot + "') para indexar la librería (cache en .boris/repos), "
-            + "y luego query_symbols('Clase') para ver las signaturas o query_framework_knowledge si hay ficha. "
+            + "y luego github_repo(action='symbols', query='Clase') para ver las signaturas o github_repo(action='knowledge') si hay ficha. "
             + "NO uses list_files ni explores el disco para documentarte.";
     }
 }

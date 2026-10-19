@@ -41,11 +41,11 @@ public class SymbolQueryTool {
 
         // Retornar resultado cacheado si existe
         if (SEARCH_CACHE.containsKey(cacheKey)) {
-            ToolProgressNotifier.notify("query_symbols", "Cache hit: " + query);
+            ToolProgressNotifier.notify("github_repo", "Cache hit: " + query);
             return SEARCH_CACHE.get(cacheKey);
         }
 
-        ToolProgressNotifier.notify("query_symbols", "Buscando: " + query);
+        ToolProgressNotifier.notify("github_repo", "Buscando: " + query);
 
         SymbolType symbolType = null;
         if (type != null && !type.isBlank()) {
@@ -71,7 +71,7 @@ public class SymbolQueryTool {
             return error("className es requerido");
         }
 
-        ToolProgressNotifier.notify("query_symbols", "Métodos de: " + className);
+        ToolProgressNotifier.notify("github_repo", "Métodos de: " + className);
 
         List<CodeSymbol> results = SymbolRepository.findMethodsOfClass(className);
         autoSaveKnowledgeFromResults(results, null);
@@ -115,7 +115,7 @@ public class SymbolQueryTool {
     private static final int MAX_RESULTS = 40;
 
     public static String listClasses(String repo) {
-        ToolProgressNotifier.notify("query_symbols", "Listando clases" + (repo != null ? " de " + repo : ""));
+        ToolProgressNotifier.notify("github_repo", "Listando clases" + (repo != null ? " de " + repo : ""));
 
         List<CodeSymbol> results = SymbolRepository.findAllClasses(repo);
         if (results.size() > MAX_RESULTS) {
@@ -169,7 +169,7 @@ public class SymbolQueryTool {
         // Si ya está indexado, reportar
         if (SymbolRepository.isIndexed(repoName)) {
             int count = SymbolRepository.countByRepo(repoName);
-            return success(repoName + " ya indexado con " + count + " símbolos. Usa query_symbols para buscar.");
+            return success(repoName + " ya indexado con " + count + " símbolos. Usa github_repo(action='symbols') para buscar.");
         }
 
         try {
@@ -206,7 +206,7 @@ public class SymbolQueryTool {
                         java.nio.file.Path projectRoot = com.boris.knowledge.KnowledgeStorageService.resolveProjectRoot(null);
                         if (com.boris.knowledge.KnowledgeStorageService.hasKnowledge(projectRoot, s.getRepo(), s.getName())) {
                             sym.put("knowledge_available", true);
-                            sym.put("knowledge_hint", "Usa query_framework_knowledge(framework=\"" + s.getRepo()
+                            sym.put("knowledge_hint", "Usa github_repo(action='knowledge', framework=\"" + s.getRepo()
                                 + "\", class_name=\"" + s.getName() + "\") para leer la ficha técnica.");
                         }
                     }

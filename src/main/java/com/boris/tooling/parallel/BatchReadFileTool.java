@@ -124,7 +124,7 @@ public class BatchReadFileTool {
         if (ProjectContext.isInsideAgentWorkspace(path.toAbsolutePath())) {
             return new FileResult(pathStr, false, null,
                 "Access denied: .boris is agent internal workspace (index, dashboard, cached repos). "
-                    + "Use query_symbols for signatures and query_framework_knowledge(framework, class_name) for class summaries.", 0);
+                    + "Use github_repo(action='symbols') for signatures and github_repo(action='knowledge') for class summaries.", 0);
         }
 
         try {

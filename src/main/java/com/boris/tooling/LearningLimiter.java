@@ -43,7 +43,7 @@ public class LearningLimiter {
 
     /**
      * Mark that the agent has documented itself after compile errors.
-     * Called when query_framework_knowledge or similar learning tools are used.
+     * Called when github_repo(action='knowledge') or similar learning tools are used.
      */
     public static synchronized void markDocumented() {
         hasDocumentedSinceError = true;

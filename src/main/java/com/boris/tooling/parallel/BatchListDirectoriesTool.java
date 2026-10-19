@@ -48,7 +48,7 @@ public class BatchListDirectoriesTool {
             return formatError("Not a directory: " + pathStr);
         }
         if (ProjectContext.isInsideAgentWorkspace(dirPath.toAbsolutePath())) {
-            return formatError("Access denied: .boris is agent internal workspace. Use query_framework_knowledge(framework, class_name) for cached class summaries.");
+            return formatError("Access denied: .boris is agent internal workspace. Use github_repo(action='knowledge') for cached class summaries.");
         }
 
         try (var stream = Files.list(dirPath)) {

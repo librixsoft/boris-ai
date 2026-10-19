@@ -83,7 +83,7 @@ public class FrameworkKnowledgeTool {
         }
 
         return error("No hay ficha previa ni archivo fuente local para '" + className + "' en '" + framework + "'. " +
-            "Inspecciona el archivo puntual con batch_read_files o ejemplos, y guarda la ficha con save_framework_knowledge.");
+            "Inspecciona el archivo puntual con batch_read_files o ejemplos, y guarda la ficha con github_repo(action='knowledge_save').");
     }
 
     public static String saveKnowledge(String framework, String className, String content, String projectPath) {

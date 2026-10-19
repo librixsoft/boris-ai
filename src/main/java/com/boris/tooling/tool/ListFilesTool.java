@@ -83,7 +83,7 @@ public class ListFilesTool {
         if (ProjectContext.isInsideAgentWorkspace(absoluteBase)) {
             return formatOutput(false,
                 "Access to .boris (agent internal workspace: index, dashboard, cached repos) is denied. "
-                + "Use query_symbols for class signatures and query_framework_knowledge(framework, class_name) for class summaries.",
+                + "Use github_repo(action='symbols') for class signatures and github_repo(action='knowledge') for class summaries.",
                 null);
         }
 

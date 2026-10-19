@@ -9,6 +9,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.context.CodeIndexerService;
 import com.boris.context.ContentIndexerService;
@@ -24,7 +25,7 @@ import com.boris.tooling.LearningLimiter;
  * - Downloads ZIP once from GitHub
  * - Extracts and indexes Java files with JavaParser (symbols in SQLite RAM)
  * - Extracts and indexes any other text file (markdown, HTML, CSS, JS/TS, books, docs) as content registry
- * - Use query_symbols() for Java symbols and query_repo_content() for content of any kind
+ * - Use github_repo(action='symbols') for Java symbols and github_repo(action='search') for content of any kind
  */
 public class LibraryContextTool {
 
@@ -35,37 +36,103 @@ public class LibraryContextTool {
         Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
 
     public static ToolDefinition github_repo() {
+        var actionProp = Map.of("type", "string", "description",
+            "Operation mode: download (default), read_files, search, symbols, methods, classes, status, knowledge, knowledge_save, knowledge_list");
         var repoProp = Map.of("type", "string", "description",
-            "GitHub repository in format owner/repo (e.g., mabe02/lanterna)");
+            "download: repo in 'owner/repo' format. Other actions: registered repo name as filter (required for read_files/knowledge/knowledge_save, optional filter elsewhere)");
         var versionProp = Map.of("type", "string", "description",
-            "Library version or branch (e.g., 3.1.5 or main)");
+            "download only: version, tag or branch (default: main)");
         var projectPathProp = Map.of("type", "string", "description",
-            "Path to project where repo will be cached in .boris/repos/");
+            "download only: project path where repo is cached in .boris/repos/ (default: current project)");
         var forceProp = Map.of("type", "boolean", "description",
-            "Force re-download and re-index even if already indexed (default: false)");
+            "download only: force re-download and re-index (default: false)");
+        var pathsProp = Map.of("type", "array", "items", Map.of("type", "string"), "description",
+            "read_files only: file paths chosen from the github_repo 'files' manifest");
+        var targetDirProp = Map.of("type", "string", "description",
+            "read_files only: base directory in the project where files are copied exactly from cache (optional)");
+        var targetPathsProp = Map.of("type", "array", "items", Map.of("type", "string"), "description",
+            "read_files only: optional target names, parallel to paths (omit to keep relative paths)");
+        var queryProp = Map.of("type", "string", "description",
+            "search/symbols only: search term (optional for search if path is given)");
+        var pathProp = Map.of("type", "string", "description",
+            "search only: relative path inside the repo to read one full file (optional)");
+        var typeProp = Map.of("type", "string", "description",
+            "symbols only: filter CLASS, METHOD, CONSTRUCTOR, FIELD, INTERFACE or ENUM (optional)");
+        var classNameProp = Map.of("type", "string", "description",
+            "methods/knowledge only: class name");
+        var frameworkProp = Map.of("type", "string", "description",
+            "knowledge/knowledge_save/knowledge_list only: framework, library or repo name");
+        var contentProp = Map.of("type", "string", "description",
+            "knowledge_save only: concise markdown summary with purpose, key methods and usage example");
 
         var properties = new LinkedHashMap<String, Object>();
+        properties.put("action", actionProp);
         properties.put("repo", repoProp);
         properties.put("version", versionProp);
         properties.put("project_path", projectPathProp);
         properties.put("force", forceProp);
+        properties.put("paths", pathsProp);
+        properties.put("target_dir", targetDirProp);
+        properties.put("target_paths", targetPathsProp);
+        properties.put("query", queryProp);
+        properties.put("path", pathProp);
+        properties.put("type", typeProp);
+        properties.put("class_name", classNameProp);
+        properties.put("framework", frameworkProp);
+        properties.put("content", contentProp);
 
         var schema = new LinkedHashMap<String, Object>();
         schema.put("type", "object");
         schema.put("properties", properties);
-        schema.put("required", List.of("repo", "project_path"));
 
         return ToolDefinition.of(
             "github_repo",
-            "Downloads any GitHub repo (owner/repo) and indexes it into local registries so you can learn " +
-            "from it: Java repos via symbols, plus markdown, HTML, CSS, JS/TS, and other text files " +
-            "(landing pages, books, frontends, backends, docs, new libraries). " +
-            "After indexing, use query_symbols() for Java symbols and query_repo_content() to search and read " +
-            "the indexed content. Use force=true to re-download and re-index.",
+            "UNIFIED GitHub repo tool with actions. action='download' (default): download owner/repo and index it; " +
+            "the result includes the 'files' manifest so you can pick exactly which files you need. " +
+            "action='read_files': read selected files from the manifest (pass paths). With target_dir it ALSO copies them " +
+            "exactly from the repo cache into the project (recommended for large files and binary assets like images/fonts). " +
+            "action='search': search or read indexed content of any kind (query or path required). " +
+            "action='symbols': search Java class/method symbols by name. " +
+            "action='methods': public methods of one class (pass class_name). " +
+            "action='classes': list indexed classes. " +
+            "action='status': indexing status summary. " +
+            "action='knowledge': read a markdown knowledge card for a framework/class (framework + class_name). " +
+            "action='knowledge_save': save/update a knowledge card (framework + class_name + content). " +
+            "action='knowledge_list': list cached classes of a framework. " +
+            "Use once per repo when the project depends on something you do not know.",
             schema);
     }
 
     public static String execute(Map<String, Object> args) {
+        String action = (String) args.getOrDefault("action", "download");
+
+        // Dispatch based on action
+        switch (action) {
+            case "read_files":
+                return executeReadFiles(args);
+            case "search":
+                return executeSearch(args);
+            case "symbols":
+                return executeSymbols(args);
+            case "methods":
+                return executeMethods(args);
+            case "classes":
+                return executeClasses(args);
+            case "status":
+                return executeStatus(args);
+            case "knowledge":
+                return executeKnowledge(args);
+            case "knowledge_save":
+                return executeKnowledgeSave(args);
+            case "knowledge_list":
+                return executeKnowledgeList(args);
+            case "download":
+            default:
+                return executeDownload(args);
+        }
+    }
+
+    private static String executeDownload(Map<String, Object> args) {
         String repo = (String) args.getOrDefault("repo", "");
         String version = (String) args.getOrDefault("version", "main");
         String rawProjectPath = (String) args.getOrDefault("project_path", ".");
@@ -81,21 +148,26 @@ public class LibraryContextTool {
         // Check learning limits (library context is expensive)
         if (!force && !LearningLimiter.allowLearningCall(repo)) {
             return formatOutput(false,
-                "Límite de aprendizaje alcanzado. " + LearningLimiter.getStatus() + 
+                "Límite de aprendizaje alcanzado. " + LearningLimiter.getStatus() +
                 ". NO intentes descargar más repositorios. Corrige el código con la información que ya tienes.");
         }
 
         String repoKey = repo.toLowerCase();
         String repoName = repo.split("/")[1];
 
+        // Use global cache directory in ~/.boris/repos/ instead of project-specific
+        Path globalBorisDir = Paths.get(System.getProperty("user.home"), ".boris");
+        Path repoDir = globalBorisDir.resolve("repos").resolve(repoName);
+
         // Rate limit check
         if (!force && PROCESSED_REPOS.contains(repoKey)) {
             int count = SymbolRepository.countByRepo(repoName);
             ToolProgressNotifier.notify("github_repo",
                 "Already processed: " + repo + " (" + count + " symbols)");
-            return formatOutput(true,
+            return formatOutputWithFiles(true,
                 repo + " ya indexado con " + count + " símbolos. " +
-                "Usa query_repo_content() para buscar. NO vuelvas a llamar este tool.");
+                "Revisa el manifiesto 'files', elige los archivos que necesitas y leelos con read_repo_files(repo=\"" + repoName + "\"). " +
+                "NO vuelvas a llamar este tool.", repoName, repoDir);
         }
 
         // Check if already indexed
@@ -104,18 +176,12 @@ public class LibraryContextTool {
             PROCESSED_REPOS.add(repoKey);
             ToolProgressNotifier.notify("github_repo",
                 "Cache hit: " + repo + " (" + count + " symbols)");
-            return formatOutput(true,
+            return formatOutputWithFiles(true,
                 repo + " ya indexado con " + count + " símbolos. " +
-                "Usa query_repo_content() para buscar.");
+                "Revisa el manifiesto 'files', elige los archivos que necesitas y leelos con read_repo_files(repo=\"" + repoName + "\").", repoName, repoDir);
         }
 
-        Path borisDir = projectRoot.resolve(".boris");
-        Path repoDir = borisDir.resolve("repos").resolve(repoName);
-
         try {
-            // Ensure .boris is in .gitignore
-            ensureGitignore(projectRoot);
-
             // Download ZIP only if not exists locally
             if (force || !Files.exists(repoDir)) {
                 ToolProgressNotifier.notify("github_repo",
@@ -129,6 +195,8 @@ public class LibraryContextTool {
             ToolProgressNotifier.notify("github_repo",
                 "Indexing repo (Java symbols + content of any kind)...");
 
+            ContentRepository.saveRepoPath(repoName, repoDir.toAbsolutePath().toString());
+
             int count = CodeIndexerService.indexRepository(repoName, repoDir);
             int docCount = ContentIndexerService.indexRepository(repoName, repoDir);
 
@@ -137,25 +205,94 @@ public class LibraryContextTool {
             ToolProgressNotifier.notify("github_repo",
                 "Indexed " + count + " symbols and " + docCount + " content records from " + repo);
 
-            return formatOutput(true,
+            return formatOutputWithFiles(true,
                 "Indexado " + repo + " v" + version + " con " + count + " símbolos y " + docCount +
                 " registros de contenido. La repo queda registrada como \"" + repoName + "\" " +
                 "(cache en " + repoDir.toAbsolutePath() + "). " +
-                "Usa query_repo_content(\"término\", repo=\"" + repoName + "\") para buscar símbolos Java " +
-                "y contenido indexado (docs, código, HTML, etc.) en la misma llamada. " +
-                "Para leer HTML/código del repo NO uses list_files sobre el cache: usa query_repo_content(path=\"...\").");
+                "Revisa el manifiesto 'files', elige los archivos que necesitas para tu objetivo y leelos en batch " +
+                "con read_repo_files(repo=\"" + repoName + "\", paths=[...]). " +
+                "Para búsquedas por término usa github_repo(action='search', query=\"...\", repo=\"" + repoName + "\").",
+                repoName, repoDir);
 
         } catch (Exception e) {
             // If download fails but already indexed, use that
             if (SymbolRepository.isIndexed(repoName) || ContentRepository.isIndexed(repoName)) {
                 int count = SymbolRepository.countByRepo(repoName);
                 PROCESSED_REPOS.add(repoKey);
-                return formatOutput(true,
+                return formatOutputWithFiles(true,
                     "Error descargando " + repo + ": " + e.getMessage() +
-                    ". Usando índice existente (" + count + " símbolos).");
+                    ". Usando índice existente (" + count + " símbolos).",
+                    repoName, repoDir);
             }
             return formatOutput(false, "Error: " + e.getMessage());
         }
+    }
+
+    private static String executeReadFiles(Map<String, Object> args) {
+        String repo = (String) args.get("repo");
+        @SuppressWarnings("unchecked")
+        List<String> paths = (List<String>) args.get("paths");
+        String targetDir = (String) args.get("target_dir");
+        @SuppressWarnings("unchecked")
+        List<String> targetPaths = (List<String>) args.get("target_paths");
+
+        return com.boris.context.ContentQueryTool.readBatch(repo, paths, targetDir, targetPaths);
+    }
+
+    private static String executeSearch(Map<String, Object> args) {
+        String query = (String) args.get("query");
+        String repo = (String) args.get("repo");
+        String path = (String) args.get("path");
+
+        return com.boris.context.ContentQueryTool.search(query, repo, path);
+    }
+
+    private static String executeSymbols(Map<String, Object> args) {
+        String query = (String) args.get("query");
+        String type = (String) args.get("type");
+        String repo = (String) args.get("repo");
+
+        return com.boris.context.SymbolQueryTool.search(query, type, repo);
+    }
+
+    private static String executeMethods(Map<String, Object> args) {
+        String className = (String) args.get("class_name");
+
+        return com.boris.context.SymbolQueryTool.findMethods(className);
+    }
+
+    private static String executeClasses(Map<String, Object> args) {
+        String repo = (String) args.get("repo");
+
+        return com.boris.context.SymbolQueryTool.listClasses(repo);
+    }
+
+    private static String executeStatus(Map<String, Object> args) {
+        return com.boris.context.SymbolQueryTool.indexStatus();
+    }
+
+    private static String executeKnowledge(Map<String, Object> args) {
+        String framework = (String) args.get("framework");
+        String class_name = (String) args.get("class_name");
+        String project_path = (String) args.get("project_path");
+
+        return com.boris.knowledge.FrameworkKnowledgeTool.queryKnowledge(framework, class_name, project_path);
+    }
+
+    private static String executeKnowledgeSave(Map<String, Object> args) {
+        String framework = (String) args.get("framework");
+        String class_name = (String) args.get("class_name");
+        String content = (String) args.get("content");
+        String project_path = (String) args.get("project_path");
+
+        return com.boris.knowledge.FrameworkKnowledgeTool.saveKnowledge(framework, class_name, content, project_path);
+    }
+
+    private static String executeKnowledgeList(Map<String, Object> args) {
+        String framework = (String) args.get("framework");
+        String project_path = (String) args.get("project_path");
+
+        return com.boris.knowledge.FrameworkKnowledgeTool.listKnowledge(framework, project_path);
     }
 
     // === ZIP DOWNLOAD & EXTRACTION ===
@@ -311,24 +448,8 @@ public class LibraryContextTool {
     }
 
     private static void ensureGitignore(Path projectRoot) {
-        Path gitignore = projectRoot.resolve(".gitignore");
-        try {
-            String content = "";
-            if (Files.exists(gitignore)) {
-                content = Files.readString(gitignore);
-            }
-
-            if (!content.contains(".boris/")) {
-                String newContent = content;
-                if (!content.endsWith("\n") && !content.isEmpty()) {
-                    newContent += "\n";
-                }
-                newContent += "\n# Boris AI cached repos\n.boris/\n";
-                Files.writeString(gitignore, newContent);
-            }
-        } catch (IOException e) {
-            // Ignore gitignore errors
-        }
+        // No longer needed since we use global cache in ~/.boris/repos/
+        // The project's .gitignore doesn't need to track .boris/
     }
 
     private static String formatOutput(boolean success, String message) {
@@ -336,6 +457,31 @@ public class LibraryContextTool {
             ObjectNode node = MAPPER.createObjectNode();
             node.put("success", success);
             node.put("message", message);
+            return MAPPER.writeValueAsString(node);
+        } catch (IOException e) {
+            return "{\"success\":" + success + ",\"message\":\"" + message + "\"}";
+        }
+    }
+
+    private static String formatOutputWithFiles(boolean success, String message, String repoName, Path repoDir) {
+        try {
+            ObjectNode node = MAPPER.createObjectNode();
+            node.put("success", success);
+            node.put("message", message);
+            node.put("repo", repoName);
+            node.put("cache_path", repoDir.toAbsolutePath().toString());
+
+            var files = ContentRepository.fileManifest(repoName);
+            node.put("files_count", files.size());
+
+            ArrayNode filesArray = node.putArray("files");
+            for (ContentRepository.FileEntry entry : files) {
+                ObjectNode fileNode = filesArray.addObject();
+                fileNode.put("path", entry.path());
+                fileNode.put("ext", entry.extension());
+                fileNode.put("approx_bytes", entry.approxBytes());
+            }
+
             return MAPPER.writeValueAsString(node);
         } catch (IOException e) {
             return "{\"success\":" + success + ",\"message\":\"" + message + "\"}";
