@@ -158,22 +158,11 @@ public class LibraryContextTool {
         }
         Files.createDirectories(targetDir);
 
-        String zipUrl = "https://github.com/" + repo + "/archive/refs/heads/" + branch + ".zip";
+        String refPath = resolveRef(repo, branch);
+        ToolProgressNotifier.notify("create_library_context", "Resolved ref: " + refPath);
 
-        byte[] zipData;
-        try {
-            zipData = downloadUrl(zipUrl);
-        } catch (IOException e) {
-            // Try as tag
-            zipUrl = "https://github.com/" + repo + "/archive/refs/tags/" + branch + ".zip";
-            try {
-                zipData = downloadUrl(zipUrl);
-            } catch (IOException e2) {
-                // Try as tag with 'v' prefix
-                zipUrl = "https://github.com/" + repo + "/archive/refs/tags/v" + branch + ".zip";
-                zipData = downloadUrl(zipUrl);
-            }
-        }
+        String zipUrl = "https://codeload.github.com/" + repo + "/zip/" + refPath;
+        byte[] zipData = downloadUrl(zipUrl);
 
         try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipData))) {
             ZipEntry entry;
@@ -203,6 +192,67 @@ public class LibraryContextTool {
 
                 zis.closeEntry();
             }
+        }
+    }
+
+    private static String resolveRef(String repo, String version) throws IOException {
+        String defaultBranch = fetchDefaultBranch(repo);
+
+        if (version == null || version.isBlank()) {
+            return "refs/heads/" + defaultBranch;
+        }
+
+        String v = version.trim();
+        if (v.equalsIgnoreCase("main") || v.equalsIgnoreCase("master")
+            || v.equalsIgnoreCase("HEAD") || v.equalsIgnoreCase("default")) {
+            return "refs/heads/" + defaultBranch;
+        }
+
+        if (refExists(repo, "heads", v)) {
+            return "refs/heads/" + v;
+        }
+        if (refExists(repo, "tags", v)) {
+            return "refs/tags/" + v;
+        }
+
+        throw new IOException("La versión '" + v + "' no existe como branch ni tag en " + repo
+            + ". Branch por defecto del repo: '" + defaultBranch
+            + "'. Usa ese valor o un tag válido de https://github.com/" + repo + "/tags");
+    }
+
+    private static String fetchDefaultBranch(String repo) throws IOException {
+        byte[] data = downloadUrl("https://api.github.com/repos/" + repo);
+        String defaultBranch;
+        try {
+            defaultBranch = MAPPER.readTree(data).path("default_branch").asText(null);
+        } catch (IOException e) {
+            throw new IOException("Respuesta inválida de la API de GitHub para " + repo);
+        }
+        if (defaultBranch == null || defaultBranch.isBlank()) {
+            throw new IOException("La API de GitHub no retornó default_branch para " + repo);
+        }
+        return defaultBranch;
+    }
+
+    private static boolean refExists(String repo, String type, String ref) throws IOException {
+        URL url = new URL("https://api.github.com/repos/" + repo + "/git/refs/" + type + "/" + ref);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(30000);
+        conn.setReadTimeout(30000);
+        conn.setRequestProperty("User-Agent", "Boris-AI/1.0");
+        conn.setRequestProperty("Accept", "application/vnd.github+json");
+        try {
+            int status = conn.getResponseCode();
+            if (status == HttpURLConnection.HTTP_OK) {
+                return true;
+            }
+            if (status == HttpURLConnection.HTTP_NOT_FOUND) {
+                return false;
+            }
+            throw new IOException("HTTP " + status + " consultando ref " + type + "/" + ref + " de " + repo);
+        } finally {
+            conn.disconnect();
         }
     }
 
