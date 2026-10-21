@@ -222,6 +222,12 @@ public class ToolCallingConfig {
             return "{\"success\":false,\"error\":\"" + writeGateError + "\"}";
         }
 
+        com.boris.tooling.CloneGateService.Verdict writeCloneVerdict =
+            com.boris.tooling.CloneGateService.checkContent(content != null ? content : "", true);
+        if (writeCloneVerdict != null && writeCloneVerdict.blocked()) {
+            return "{\"success\":false,\"error\":\"" + writeCloneVerdict.message() + "\"}";
+        }
+
         // Clear compile error flag and reset learning limits when agent starts writing
         com.boris.tooling.LearningLimiter.clearCompileErrors();
         com.boris.tooling.LearningLimiter.reset();
@@ -326,6 +332,12 @@ public class ToolCallingConfig {
             path, (old_text != null ? old_text : "") + "\n" + (new_text != null ? new_text : ""));
         if (applyGateError != null) {
             return "{\"success\":false,\"error\":\"" + applyGateError + "\"}";
+        }
+
+        com.boris.tooling.CloneGateService.Verdict editCloneVerdict =
+            com.boris.tooling.CloneGateService.checkContent(new_text != null ? new_text : "", false);
+        if (editCloneVerdict != null && editCloneVerdict.blocked()) {
+            return "{\"success\":false,\"error\":\"" + editCloneVerdict.message() + "\"}";
         }
 
         // Clear compile error flag and reset learning limits when agent starts editing

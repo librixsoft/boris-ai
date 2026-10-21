@@ -305,6 +305,13 @@ public class StreamingFileWriter {
         }
         int shownLines = lineNumber;
 
+        com.boris.tooling.CloneGateService.Verdict cloneVerdict =
+            com.boris.tooling.CloneGateService.checkContent(content, true);
+        if (cloneVerdict != null && cloneVerdict.blocked()) {
+            DiffLineNotifier.notify("⛔ " + cloneVerdict.message());
+            return;
+        }
+
         if (saveFunction != null) {
             try {
                 saveFunction.save(targetPath, content, shownLines);
@@ -341,6 +348,21 @@ public class StreamingFileWriter {
             Path filePath = Paths.get(currentFilePath);
             if (!Files.exists(filePath)) {
                 DiffLineNotifier.notify("⚠ Archivo no existe: " + currentFilePath);
+                return;
+            }
+
+            StringBuilder replaceAll = new StringBuilder();
+            for (SearchReplaceBlock edit : pendingEdits) {
+                if (replaceAll.length() > 0) {
+                    replaceAll.append("\n");
+                }
+                replaceAll.append(edit.replace());
+            }
+
+            com.boris.tooling.CloneGateService.Verdict cloneVerdict =
+                com.boris.tooling.CloneGateService.checkContent(replaceAll.toString(), false);
+            if (cloneVerdict != null && cloneVerdict.blocked()) {
+                DiffLineNotifier.notify("⛔ " + cloneVerdict.message());
                 return;
             }
 

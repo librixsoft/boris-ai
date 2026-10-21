@@ -214,6 +214,7 @@ public class LibraryContextTool {
                 ToolProgressNotifier.notify("github_repo",
                     "Downloading " + repo + " v" + version + " to " + repoDir + "...");
                 downloadAndExtractZip(repo, version, repoDir);
+                com.boris.tooling.CloneGateService.invalidate(repoName);
             } else {
                 ToolProgressNotifier.notify("github_repo",
                     "Using cached repo at " + repoDir + " (no download)");

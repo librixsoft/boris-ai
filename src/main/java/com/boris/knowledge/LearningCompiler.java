@@ -14,9 +14,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -66,8 +68,9 @@ public final class LearningCompiler {
         List<String> keyApis = extractKeyApis(repoShort, focus);
         List<String> examplePaths = extractExamplePaths(analysis);
         List<String> usageExamples = loadUsageExamples(examplePaths, repoShort);
+        RepoStack stack = extractStack(analysis);
 
-        String markdown = renderLearningMarkdown(repoShort, focus, patterns, keyApis, usageExamples);
+        String markdown = renderLearningMarkdown(repoShort, focus, patterns, keyApis, usageExamples, stack);
         Path saved = KnowledgeStorageService.saveLearningCard(projectRoot, repoShort, focus, markdown);
 
         List<String> saveErrors = new ArrayList<>();
@@ -81,7 +84,7 @@ public final class LearningCompiler {
         List<String> autoCards = autoSaveKnowledgeCards(projectRoot, repoShort, keyApis, saveErrors);
         LearningLimiter.markRepoLearned(repoShort);
 
-        return buildJson(repoShort, focus, patterns, keyApis, usageExamples, saved, saveErrors, autoCards);
+        return buildJson(repoShort, focus, patterns, keyApis, usageExamples, saved, saveErrors, autoCards, stack);
     }
 
     private static String shortName(String repo) {
@@ -91,19 +94,65 @@ public final class LearningCompiler {
 
     private static List<String> extractPatterns(String analysis, String focus) {
         List<String> patterns = new ArrayList<>();
-        String hierarchy = section(analysis, "## Arquitectura");
-        if (!hierarchy.isBlank()) {
-            Matcher matcher = Pattern.compile("(?m)^\\s{2,4}[-] (.+)$").matcher(hierarchy);
+        Set<String> seen = new HashSet<>();
+        String focusNorm = focus.toLowerCase(Locale.ROOT);
+        List<String> sections = List.of("## Arquitectura", "## Patrones de Uso Detectados", "## Stack y Estructura");
+        for (String heading : sections) {
+            String body = section(analysis, heading);
+            if (body.isBlank()) {
+                continue;
+            }
+            Matcher matcher = Pattern.compile("(?m)^\\s{0,6}[-] (.+)$").matcher(body);
             while (matcher.find() && patterns.size() < MAX_PATTERNS) {
                 String line = matcher.group(1).strip();
-                String focusNorm = focus.toLowerCase(Locale.ROOT);
-                if (line.toLowerCase(Locale.ROOT).contains(focusNorm)
-                    && (line.contains("extends") || line.contains("implements") || line.contains("("))) {
-                    patterns.add("Patrón detectado: " + line);
+                String lineNorm = line.toLowerCase(Locale.ROOT);
+                if (!lineNorm.contains(focusNorm) || !isMeaningfulPatternLine(line)) {
+                    continue;
+                }
+                String dedupeKey = normalizeLine(lineNorm);
+                if (seen.add(dedupeKey)) {
+                    patterns.add("Patrón detectado (" + heading.substring(3) + "): " + line);
                 }
             }
         }
         return patterns;
+    }
+
+    private static boolean isMeaningfulPatternLine(String line) {
+        return line.contains("extends") || line.contains("implements")
+            || line.contains("(") || line.contains(":") || line.contains("=");
+    }
+
+    private static String normalizeLine(String line) {
+        return line.replaceAll("\\s+", " ");
+    }
+
+    private record RepoStack(String buildSystem, String mainLanguage, List<String> dependencies) {}
+
+    private static RepoStack extractStack(String analysis) {
+        String body = section(analysis, "## Stack y Estructura");
+        String build = firstMatch(body, "Build system: (.+)");
+        String language = firstMatch(body, "Lenguaje principal: (.+)");
+        List<String> deps = new ArrayList<>();
+        int depsIndex = body.indexOf("Dependencias clave:");
+        if (depsIndex >= 0) {
+            String depsBlock = blockUntilBlankLine(body.substring(depsIndex));
+            Matcher depMatcher = Pattern.compile("(?m)^\\s{2,4}[-] (.+)$").matcher(depsBlock);
+            while (depMatcher.find() && deps.size() < 10) {
+                deps.add(depMatcher.group(1).strip());
+            }
+        }
+        return new RepoStack(build, language, deps);
+    }
+
+    private static String blockUntilBlankLine(String block) {
+        int blank = block.indexOf("\n\n");
+        return blank >= 0 ? block.substring(0, blank) : block;
+    }
+
+    private static String firstMatch(String body, String regex) {
+        Matcher matcher = Pattern.compile(regex).matcher(body);
+        return matcher.find() ? matcher.group(1).strip() : null;
     }
 
     private static String section(String markdown, String heading) {
@@ -233,7 +282,8 @@ public final class LearningCompiler {
     }
 
     private static String renderLearningMarkdown(String repoShort, String focus, List<String> patterns,
-                                                 List<String> keyApis, List<String> usageExamples) {
+                                                 List<String> keyApis, List<String> usageExamples,
+                                                 RepoStack stack) {
         StringBuilder sb = new StringBuilder();
         sb.append("# Learning: ").append(repoShort).append(" / ").append(focus).append("\n\n");
 
@@ -260,12 +310,28 @@ public final class LearningCompiler {
         if (usageExamples.isEmpty()) {
             sb.append("- Sin ejemplos ejecutables detectados.\n");
         }
+        sb.append("\n");
+
+        sb.append("## Contrato de adaptación (para el proyecto actual)\n");
+        sb.append("- Stack del repo: build=").append(stack.buildSystem() != null ? stack.buildSystem() : "no-detectado")
+            .append(", lenguaje=").append(stack.mainLanguage() != null ? stack.mainLanguage() : "no-detectado").append("\n");
+        if (stack.dependencies().isEmpty()) {
+            sb.append("- Dependencias clave del repo: no-detectado\n");
+        } else {
+            sb.append("- Dependencias clave del repo:\n");
+            for (String dep : stack.dependencies()) {
+                sb.append("  - ").append(dep).append("\n");
+            }
+        }
+        sb.append("La implementación debe usar las convenciones del proyecto actual (paquetes, imports,\n");
+        sb.append("estilos y coexistencia con los módulos ya presentes). El sistema bloquea mediante\n");
+        sb.append("detección de clonación cualquier escritura casi idéntica a un archivo del repo indexado.\n\n");
         return sb.toString();
     }
 
     private static String buildJson(String repoShort, String focus, List<String> patterns, List<String> keyApis,
                                     List<String> usageExamples, Path saved, List<String> saveErrors,
-                                    List<String> autoCards) {
+                                    List<String> autoCards, RepoStack stack) {
         try {
             ObjectNode root = MAPPER.createObjectNode();
             root.put("success", true);
@@ -280,9 +346,20 @@ public final class LearningCompiler {
             ArrayNode autoCardsArray = root.putArray("knowledge_cards_generated");
             autoCards.forEach(autoCardsArray::add);
             root.put("saved_as", saved.toAbsolutePath().toString());
+
+            ObjectNode adaptation = root.putObject("adaptation");
+            adaptation.put("build_system", stack.buildSystem() != null ? stack.buildSystem() : "no-detectado");
+            adaptation.put("main_language", stack.mainLanguage() != null ? stack.mainLanguage() : "no-detectado");
+            ArrayNode depsArray = adaptation.putArray("key_dependencies");
+            stack.dependencies().forEach(depsArray::add);
+            adaptation.put("requirement",
+                "Implementaciones propias con convenciones del proyecto actual. La escritura de código "
+                + "casi-idéntico a archivos del repo indexado será bloqueada por detección de clonación.");
+
             root.put("next_step",
-                "Ya podés escribir tu propia implementación basada en estos patrones. "
-                + "Usá github_repo(action='search'|'symbols') para consultar detalles puntuales.");
+                "Escribi tu propia implementación adaptando estos patrones a las convenciones del proyecto actual. "
+                + "No repliques archivos del repo. Usá github_repo(action='search'|'symbols') para consultar "
+                + "detalles puntuales.");
             if (!saveErrors.isEmpty()) {
                 ArrayNode errorsArray = root.putArray("side_errors");
                 saveErrors.forEach(errorsArray::add);
