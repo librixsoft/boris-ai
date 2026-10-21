@@ -186,6 +186,28 @@ public class SymbolRepository {
         return repo != null ? executeQuery(sql, List.of(repo)) : executeQuery(sql, List.of());
     }
 
+    public static java.util.Map<String, Integer> methodCountByClass(String repo) {
+        String sql = """
+            SELECT parent, COUNT(*) AS method_count
+            FROM symbols
+            WHERE repo = ? AND type = 'METHOD' AND parent IS NOT NULL
+            GROUP BY parent
+            ORDER BY method_count DESC
+            LIMIT 10
+            """;
+        java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
+        try (PreparedStatement ps = getConnection().prepareStatement(sql)) {
+            ps.setString(1, repo);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                counts.put(rs.getString("parent"), rs.getInt("method_count"));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error contando métodos por clase: " + e.getMessage(), e);
+        }
+        return counts;
+    }
+
     public static boolean isIndexed(String repo) {
         String sql = "SELECT COUNT(*) FROM symbols WHERE repo = ?";
         try (PreparedStatement ps = getConnection().prepareStatement(sql)) {

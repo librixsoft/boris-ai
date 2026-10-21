@@ -225,6 +225,7 @@ public final class EditGateService {
                         ToolProgressNotifier.notify("github_repo",
                             "Indexando " + repoName + " desde cache .boris/repos...");
                         CodeIndexerService.indexRepository(repoName, repoDir);
+                        LearningLimiter.markRepoPendingLearn(repoName);
                     }
                 } catch (Exception ignored) {
                 } finally {
@@ -262,7 +263,9 @@ public final class EditGateService {
             + "indexadas ni tienen knowledge card: " + classes + ". "
             + "Dispara UNA SOLA VEZ github_repo(repo='owner/repo', version='main' o el tag correcto, "
             + "project_path='" + projectRoot + "') para indexar la librería (cache en .boris/repos), "
-            + "y luego github_repo(action='symbols', query='Clase') para ver las signaturas o github_repo(action='knowledge') si hay ficha. "
-            + "NO uses list_files ni explores el disco para documentarte.";
+            + "y luego github_repo(action='learn', repo=\"<nombre-registrado>\", focus='<dominio>') para "
+            + "sintetizar patrones; github_repo(action='symbols', query='Clase') para ver las signaturas "
+            + "y github_repo(action='knowledge') si hay ficha. NO uses list_files ni explores el disco para "
+            + "documentarte, y NO copies archivos al proyecto: generá tu propia implementación.";
     }
 }

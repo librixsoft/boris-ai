@@ -98,17 +98,7 @@ public class ContentIndexerService {
     }
 
     private static List<DocChunk> buildChunks(String repo, String path, String content) {
-        List<DocChunk> chunks = new ArrayList<>();
-        String title = extractTitle(content, path);
-
-        int chunkIndex = 0;
-        for (int start = 0; start < content.length(); start += CHUNK_SIZE) {
-            int end = Math.min(start + CHUNK_SIZE, content.length());
-            chunks.add(new DocChunk(repo, path, chunkIndex, title, content.substring(start, end)));
-            chunkIndex++;
-        }
-
-        return chunks;
+        return SmartChunker.chunk(repo, path, content);
     }
 
     private static String extractTitle(String content, String path) {

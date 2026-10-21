@@ -3,12 +3,15 @@ package com.boris.knowledge;
 import com.boris.context.CodeSymbol;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.body.*;
 
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -21,6 +24,12 @@ public class KnowledgeExtractorService {
     );
 
     private static final int MAX_KEY_METHODS = 20;
+    private static final int MAX_DEPENDENCY_IMPORTS = 15;
+    private static final int MAX_JAVADOC_EXAMPLE_LINES = 25;
+
+    private static final Pattern COMMENT_LINE_PATTERN = Pattern.compile("^\\s*/?\\*+\\s?|\\s*\\*/\\s*$");
+    private static final Pattern HTML_TAG_PATTERN = Pattern.compile("<[^>]{1,200}>");
+    private static final Pattern INLINE_CODE_TAG_PATTERN = Pattern.compile("\\{@code ([^}]{1,200})\\}");
 
     public static String extractFromJavaFile(Path file, String framework) {
         try {
@@ -35,6 +44,17 @@ public class KnowledgeExtractorService {
         try {
             CompilationUnit cu = StaticJavaParser.parse(sourceCode);
             String pkg = cu.getPackageDeclaration().map(p -> p.getNameAsString()).orElse("");
+
+            List<String> externalImports = new ArrayList<>();
+            for (ImportDeclaration imp : cu.getImports()) {
+                String name = imp.getNameAsString();
+                if (!name.startsWith("java.") && !name.startsWith("javax.") && !name.startsWith("jakarta.")) {
+                    externalImports.add(name);
+                }
+            }
+            if (externalImports.size() > MAX_DEPENDENCY_IMPORTS) {
+                externalImports = externalImports.subList(0, MAX_DEPENDENCY_IMPORTS);
+            }
 
             Optional<TypeDeclaration<?>> primaryType = cu.getPrimaryType();
             if (primaryType.isEmpty() && !cu.getTypes().isEmpty()) {
@@ -64,7 +84,14 @@ public class KnowledgeExtractorService {
                     String params = method.getParameters().stream()
                         .map(p -> p.getTypeAsString() + " " + p.getNameAsString())
                         .collect(Collectors.joining(", "));
-                    methods.add("`" + method.getTypeAsString() + " " + method.getNameAsString() + "(" + params + ")`");
+                    String line = "`" + method.getTypeAsString() + " " + method.getNameAsString() + "(" + params + ")`";
+                    String desc = method.getJavadocComment()
+                        .map(j -> firstJavadocSentence(j.getContent()))
+                        .orElse(null);
+                    if (desc != null && !desc.isBlank()) {
+                        line += " — " + desc;
+                    }
+                    methods.add(line);
                 }
             }
 
@@ -78,8 +105,13 @@ public class KnowledgeExtractorService {
             }
 
             String javadoc = type.getJavadocComment()
-                .map(j -> j.parse().toText().trim())
+                .map(j -> j.getContent())
+                .map(KnowledgeExtractorService::stripJavadocMarkup)
                 .filter(t -> !t.isBlank())
+                .orElse(null);
+
+            String usageExample = type.getJavadocComment()
+                .map(j -> extractJavadocExample(j.getContent()))
                 .orElse(null);
 
             return buildMarkdown(
@@ -92,8 +124,9 @@ public class KnowledgeExtractorService {
                 constructors,
                 methods,
                 fields,
+                usageExample,
                 null,
-                null
+                externalImports
             );
 
         } catch (Exception e) {
@@ -142,6 +175,7 @@ public class KnowledgeExtractorService {
             methods,
             fields,
             null,
+            null,
             null
         );
     }
@@ -157,7 +191,8 @@ public class KnowledgeExtractorService {
             List<String> methods,
             List<String> fields,
             String usageExample,
-            String gotchas) {
+            String gotchas,
+            List<String> dependencyImports) {
 
         StringBuilder sb = new StringBuilder();
         sb.append("# [").append(framework).append("] ").append(className).append("\n\n");
@@ -173,6 +208,14 @@ public class KnowledgeExtractorService {
             sb.append(purpose).append("\n\n");
         } else {
             sb.append("Componente principal de `").append(framework).append("` para operaciones de `").append(className).append("`.\n\n");
+        }
+
+        if (dependencyImports != null && !dependencyImports.isEmpty()) {
+            sb.append("## Dependencias\n");
+            for (String imp : dependencyImports) {
+                sb.append("- `").append(imp).append("`\n");
+            }
+            sb.append("\n");
         }
 
         if (constructors != null && !constructors.isEmpty()) {
@@ -226,5 +269,59 @@ public class KnowledgeExtractorService {
         }
 
         return sb.toString();
+    }
+
+    private static String stripJavadocMarkup(String rawComment) {
+        if (rawComment == null) {
+            return "";
+        }
+        String text = INLINE_CODE_TAG_PATTERN.matcher(rawComment).replaceAll("$1");
+        text = HTML_TAG_PATTERN.matcher(text).replaceAll(" ");
+        StringBuilder result = new StringBuilder();
+        for (String line : text.split("\n", -1)) {
+            Matcher m = COMMENT_LINE_PATTERN.matcher(line);
+            result.append(m.replaceAll("")).append("\n");
+        }
+        return result.toString().trim();
+    }
+
+    private static String firstJavadocSentence(String rawComment) {
+        String text = stripJavadocMarkup(rawComment);
+        if (text.isBlank()) {
+            return "";
+        }
+        String[] tokens = text.split("\\.", 2);
+        String sentence = tokens[0].trim();
+        if (tokens.length > 1 && sentence.isBlank()) {
+            sentence = text.trim();
+        }
+        if (sentence.isBlank()) {
+            return "";
+        }
+        return sentence.length() > 160 ? sentence.substring(0, 160) : sentence;
+    }
+
+    private static String extractJavadocExample(String rawComment) {
+        if (rawComment == null || rawComment.isBlank()) {
+            return null;
+        }
+        Pattern prePattern = Pattern.compile("(?s)<(?:pre|code)[^>]*>(.*?)</(?:pre|code)>");
+        Matcher matcher = prePattern.matcher(rawComment);
+        String raw = null;
+        while (matcher.find()) {
+            String candidate = stripJavadocMarkup(matcher.group(1));
+            if (candidate.lines().anyMatch(l -> l.contains("(") || l.contains("=") || l.contains("new "))) {
+                raw = candidate;
+                break;
+            }
+            if (raw == null) {
+                raw = candidate;
+            }
+        }
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        List<String> lines = raw.lines().limit(MAX_JAVADOC_EXAMPLE_LINES).toList();
+        return String.join("\n", lines);
     }
 }

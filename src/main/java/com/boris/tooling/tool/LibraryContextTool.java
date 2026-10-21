@@ -62,6 +62,10 @@ public class LibraryContextTool {
             "methods/knowledge only: class name");
         var frameworkProp = Map.of("type", "string", "description",
             "knowledge/knowledge_save/knowledge_list only: framework, library or repo name");
+        var focusProp = Map.of("type", "string", "description",
+            "learn only: domain to learn from the indexed repo (e.g. routing, components, api, setup)");
+        var chunkTypeProp = Map.of("type", "string", "description",
+            "search only: optional filter by chunk_type (class, method, section, example, analysis, learning, raw)");
         var contentProp = Map.of("type", "string", "description",
             "knowledge_save only: concise markdown summary with purpose, key methods and usage example");
 
@@ -74,6 +78,8 @@ public class LibraryContextTool {
         properties.put("paths", pathsProp);
         properties.put("target_dir", targetDirProp);
         properties.put("target_paths", targetPathsProp);
+        properties.put("focus", focusProp);
+        properties.put("chunk_type", chunkTypeProp);
         properties.put("query", queryProp);
         properties.put("path", pathProp);
         properties.put("type", typeProp);
@@ -88,10 +94,15 @@ public class LibraryContextTool {
         return ToolDefinition.of(
             "github_repo",
             "UNIFIED GitHub repo tool with actions. action='download' (default): download owner/repo and index it; " +
-            "the result includes the 'files' manifest so you can pick exactly which files you need. " +
-            "action='read_files': read selected files from the manifest (pass paths). With target_dir it ALSO copies them " +
-            "exactly from the repo cache into the project (recommended for large files and binary assets like images/fonts). " +
-            "action='search': search or read indexed content of any kind (query or path required). " +
+            "the result includes the 'files' manifest and REQUIRES a learning step before writing library code: " +
+            "call github_repo(action='learn', repo, focus) right after download. DO NOT copy source files " +
+            "(java/js/ts/py/etc) from the repo into the project with read_files+target_dir: those files are for " +
+            "READING and pattern extraction only; the system blocks their copy. target_dir is ONLY for assets " +
+            "(images, fonts, media) and data files (json/xml/yml/csv). Always generate your own implementation " +
+            "adapted to the current project based on learned patterns. action='learn' (repo + focus): required " +
+            "synthesis of patterns, key APIs and usage examples from the repo. " +
+            "action='read_files': read selected files from the manifest (pass paths); with target_dir copies only " +
+            "allowed assets. action='search': search or read indexed content of any kind (query or path required); " +
             "action='symbols': search Java class/method symbols by name. " +
             "action='methods': public methods of one class (pass class_name). " +
             "action='classes': list indexed classes. " +
@@ -99,7 +110,7 @@ public class LibraryContextTool {
             "action='knowledge': read a markdown knowledge card for a framework/class (framework + class_name). " +
             "action='knowledge_save': save/update a knowledge card (framework + class_name + content). " +
             "action='knowledge_list': list cached classes of a framework. " +
-            "Use once per repo when the project depends on something you do not know.",
+            "Use once per repo when the project depends on something you do not know: download once, learn once, never explore for curiosity.",
             schema);
     }
 
@@ -126,9 +137,23 @@ public class LibraryContextTool {
                 return executeKnowledgeSave(args);
             case "knowledge_list":
                 return executeKnowledgeList(args);
+            case "learn":
+                return executeLearn(args);
             case "download":
             default:
                 return executeDownload(args);
+        }
+    }
+
+    private static String executeLearn(Map<String, Object> args) {
+        String repo = (String) args.get("repo");
+        String focus = (String) args.get("focus");
+        String project_path = (String) args.get("project_path");
+
+        try {
+            return com.boris.knowledge.LearningCompiler.compile(repo, focus, project_path);
+        } catch (com.boris.knowledge.LearningException e) {
+            return formatOutput(false, e.getMessage());
         }
     }
 
@@ -164,9 +189,10 @@ public class LibraryContextTool {
             ToolProgressNotifier.notify("github_repo",
                 "Already processed: " + repo + " (" + count + " symbols)");
             return formatOutputWithFiles(true,
-                repo + " ya indexado con " + count + " símbolos. " +
-                "Revisa el manifiesto 'files', elige los archivos que necesitas y leelos con read_repo_files(repo=\"" + repoName + "\"). " +
-                "NO vuelvas a llamar este tool.", repoName, repoDir);
+                repo + " ya procesado (" + count + " símbolos). "
+                + "Si todavía no lo hiciste, corré github_repo(action='learn', repo=\"" + repoName
+                + "\", focus=\"<dominio>\") antes de escribir código; read_files es solo para lecturas puntuales.",
+                repoName, repoDir);
         }
 
         // Check if already indexed
@@ -176,8 +202,10 @@ public class LibraryContextTool {
             ToolProgressNotifier.notify("github_repo",
                 "Cache hit: " + repo + " (" + count + " symbols)");
             return formatOutputWithFiles(true,
-                repo + " ya indexado con " + count + " símbolos. " +
-                "Revisa el manifiesto 'files', elige los archivos que necesitas y leelos con read_repo_files(repo=\"" + repoName + "\").", repoName, repoDir);
+                repo + " ya indexado (" + count + " símbolos). "
+                + "Si todavía no lo hiciste, corré github_repo(action='learn', repo=\"" + repoName
+                + "\", focus=\"<dominio>\") antes de escribir código; read_files es solo para lecturas puntuales.",
+                repoName, repoDir);
         }
 
         try {
@@ -200,24 +228,28 @@ public class LibraryContextTool {
             int docCount = ContentIndexerService.indexRepository(repoName, repoDir);
 
             PROCESSED_REPOS.add(repoKey);
+            LearningLimiter.markRepoPendingLearn(repoName);
 
             ToolProgressNotifier.notify("github_repo",
                 "Indexed " + count + " symbols and " + docCount + " content records from " + repo);
 
-            return formatOutputWithFiles(true,
-                "Indexado " + repo + " v" + version + " con " + count + " símbolos y " + docCount +
-                " registros de contenido. La repo queda registrada como \"" + repoName + "\" " +
-                "(cache en " + repoDir.toAbsolutePath() + "). " +
-                "Revisa el manifiesto 'files', elige los archivos que necesitas para tu objetivo y leelos en batch " +
-                "con read_repo_files(repo=\"" + repoName + "\", paths=[...]). " +
-                "Para búsquedas por término usa github_repo(action='search', query=\"...\", repo=\"" + repoName + "\").",
-                repoName, repoDir);
+            com.boris.knowledge.RepoAnalysisService.RepoAnalysis analysis =
+                com.boris.knowledge.RepoAnalysisService.analyzeAndPersist(repoName, repoDir, projectRoot);
+
+            String summary = "Indexado y analizado " + repo + " v" + version + " (" + count + " símbolos, "
+                + docCount + " registros, cache en " + repoDir.toAbsolutePath() + "). "
+                + "La repo queda registrada como \"" + repoName + "\". "
+                + "PASO OBLIGATORIO antes de escribir código: github_repo(action='learn', repo=\"" + repoName
+                + "\", focus=\"<dominio>\") para sintetizar patrones. read_files sirve para lecturas puntuales; "
+                + "NO copies archivos fuente al proyecto (solo assets con target_dir).";
+            return formatOutputWithFilesWithAnalysis(true, summary, repoName, repoDir, analysis);
 
         } catch (Exception e) {
             // If download fails but already indexed, use that
             if (SymbolRepository.isIndexed(repoName) || ContentRepository.isIndexed(repoName)) {
                 int count = SymbolRepository.countByRepo(repoName);
                 PROCESSED_REPOS.add(repoKey);
+                LearningLimiter.markRepoPendingLearn(repoName);
                 return formatOutputWithFiles(true,
                     "Error descargando " + repo + ": " + e.getMessage() +
                     ". Usando índice existente (" + count + " símbolos).",
@@ -242,8 +274,9 @@ public class LibraryContextTool {
         String query = (String) args.get("query");
         String repo = (String) args.get("repo");
         String path = (String) args.get("path");
+        String chunkType = (String) args.get("chunk_type");
 
-        return com.boris.context.ContentQueryTool.search(query, repo, path);
+        return com.boris.context.ContentQueryTool.search(query, repo, path, chunkType);
     }
 
     private static String executeSymbols(Map<String, Object> args) {
@@ -476,6 +509,12 @@ public class LibraryContextTool {
     }
 
     private static String formatOutputWithFiles(boolean success, String message, String repoName, Path repoDir) {
+        return formatOutputWithFilesWithAnalysis(success, message, repoName, repoDir, null);
+    }
+
+    private static String formatOutputWithFilesWithAnalysis(boolean success, String message, String repoName,
+                                                            Path repoDir,
+                                                            com.boris.knowledge.RepoAnalysisService.RepoAnalysis analysis) {
         try {
             ObjectNode node = MAPPER.createObjectNode();
             node.put("success", success);
@@ -492,6 +531,13 @@ public class LibraryContextTool {
                 fileNode.put("path", entry.path());
                 fileNode.put("ext", entry.extension());
                 fileNode.put("approx_bytes", entry.approxBytes());
+            }
+
+            if (analysis != null) {
+                node.put("next_action", LearningLimiter.isPendingLearn(repoName) ? "learn" : "search");
+                node.put("analysis_summary",
+                    "Build: " + analysis.buildSystem() + ", lenguaje: " + analysis.mainLanguage());
+                node.put("analysis_examples_count", analysis.exampleFiles().size());
             }
 
             return MAPPER.writeValueAsString(node);

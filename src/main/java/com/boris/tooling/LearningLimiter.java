@@ -20,6 +20,8 @@ public class LearningLimiter {
     private static int learningCallsDuringErrorFix = 0;
     private static boolean hasIssuedUnknownLibraryRedirect = false;
     private static final java.util.Set<String> reviewedClassesDuringErrorFix = new java.util.HashSet<>();
+    private static final java.util.Set<String> REPOS_PENDING_LEARN =
+        java.util.concurrent.ConcurrentHashMap.newKeySet();
     
     /**
      * Mark that the agent has compile errors and should stop learning.
@@ -125,6 +127,7 @@ public class LearningLimiter {
         hasCompileErrors = false;
         hasDocumentedSinceError = false;
         hasIssuedUnknownLibraryRedirect = false;
+        REPOS_PENDING_LEARN.clear();
     }
 
     /**
@@ -150,7 +153,27 @@ public class LearningLimiter {
     public static synchronized void markUnknownLibraryRedirectIssued() {
         hasIssuedUnknownLibraryRedirect = true;
     }
-    
+
+    public static synchronized void markRepoPendingLearn(String repo) {
+        if (repo != null && !repo.isBlank()) {
+            REPOS_PENDING_LEARN.add(normalizeRepo(repo));
+        }
+    }
+
+    public static synchronized void markRepoLearned(String repo) {
+        if (repo != null && !repo.isBlank()) {
+            REPOS_PENDING_LEARN.remove(normalizeRepo(repo));
+        }
+    }
+
+    public static synchronized boolean isPendingLearn(String repo) {
+        return repo != null && !repo.isBlank() && REPOS_PENDING_LEARN.contains(normalizeRepo(repo));
+    }
+
+    private static String normalizeRepo(String repo) {
+        return repo.toLowerCase(java.util.Locale.ROOT).trim();
+    }
+
     /**
      * Get status message for the user.
      */

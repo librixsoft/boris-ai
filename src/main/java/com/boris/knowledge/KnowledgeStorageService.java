@@ -112,6 +112,75 @@ public class KnowledgeStorageService {
         }
     }
 
+    public static Path saveRepoAnalysis(Path projectRoot, String framework, String content) {
+        if (projectRoot == null) {
+            throw new RepoAnalysisException("projectRoot es requerido para guardar el análisis del repo");
+        }
+        if (framework == null || framework.isBlank()) {
+            throw new RepoAnalysisException("framework es requerido para guardar el análisis del repo");
+        }
+        if (content == null || content.isBlank()) {
+            throw new RepoAnalysisException("content es requerido para guardar el análisis del repo");
+        }
+        String cleanFw = cleanFrameworkName(framework);
+        Path frameworkDir = projectRoot.resolve(".boris").resolve(cleanFw);
+        try {
+            Files.createDirectories(frameworkDir);
+            ensureGitignore(projectRoot);
+            Path file = frameworkDir.resolve("_repo_analysis.md");
+            Files.writeString(file, content, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            return file;
+        } catch (IOException e) {
+            throw new RepoAnalysisException("No se pudo guardar el análisis del repo en " + frameworkDir + ": " + e.getMessage(), e);
+        }
+    }
+
+    public static Path saveLearningCard(Path projectRoot, String framework, String focus, String content) {
+        if (projectRoot == null) {
+            throw new LearningException("projectRoot es requerido para guardar la learning card");
+        }
+        if (framework == null || framework.isBlank()) {
+            throw new LearningException("framework es requerido para guardar la learning card");
+        }
+        if (focus == null || focus.isBlank()) {
+            throw new LearningException("focus es requerido para guardar la learning card");
+        }
+        if (content == null || content.isBlank()) {
+            throw new LearningException("content es requerido para guardar la learning card");
+        }
+        String cleanFw = cleanFrameworkName(framework);
+        Path frameworkDir = projectRoot.resolve(".boris").resolve(cleanFw);
+        try {
+            Files.createDirectories(frameworkDir);
+            ensureGitignore(projectRoot);
+            Path file = frameworkDir.resolve("_learning_" + sanitizeName(focus) + ".md");
+            Files.writeString(file, content, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            return file;
+        } catch (IOException e) {
+            throw new LearningException("No se pudo guardar la learning card en " + frameworkDir + ": " + e.getMessage(), e);
+        }
+    }
+
+    public static String readRepoAnalysis(Path projectRoot, String framework) {
+        if (projectRoot == null || framework == null || framework.isBlank()) {
+            return null;
+        }
+        String cleanFw = cleanFrameworkName(framework);
+        Path file = projectRoot.resolve(".boris").resolve(cleanFw).resolve("_repo_analysis.md");
+        if (!Files.isRegularFile(file)) {
+            Path raw = projectRoot.resolve(".boris").resolve(sanitizeName(framework)).resolve("_repo_analysis.md");
+            file = raw;
+        }
+        if (!Files.isRegularFile(file)) {
+            return null;
+        }
+        try {
+            return Files.readString(file, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RepoAnalysisException("No se pudo leer el análisis del repo en " + file + ": " + e.getMessage(), e);
+        }
+    }
+
     /**
      * Ingesta automática a nivel código: cuando se lee un archivo Java en el proyecto o un repo descargado,
      * genera y persiste la ficha técnica en .boris/<framework>/<CLASE>.md directamente en disco.

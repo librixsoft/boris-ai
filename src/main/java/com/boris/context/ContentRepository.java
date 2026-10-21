@@ -6,9 +6,9 @@ import java.util.List;
 
 public class ContentRepository {
 
-    public record DocChunk(String repo, String path, int chunkIndex, String title, String content) {}
+    public record DocChunk(String repo, String path, int chunkIndex, String title, String content, String chunkType) {}
 
-    public record DocResult(String repo, String path, int chunkIndex, String title, String content) {}
+    public record DocResult(String repo, String path, int chunkIndex, String title, String content, String chunkType) {}
 
     public record FileEntry(String path, String extension, int chunks, int approxBytes) {}
 
@@ -34,7 +34,8 @@ public class ContentRepository {
                 path TEXT NOT NULL,
                 chunk_index INTEGER NOT NULL,
                 title TEXT,
-                content TEXT NOT NULL
+                content TEXT NOT NULL,
+                chunk_type TEXT NOT NULL DEFAULT 'raw'
             )
             """;
 
@@ -98,8 +99,8 @@ public class ContentRepository {
         if (chunks.isEmpty()) return;
 
         String sql = """
-            INSERT INTO docs (repo, path, chunk_index, title, content)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO docs (repo, path, chunk_index, title, content, chunk_type)
+            VALUES (?, ?, ?, ?, ?, ?)
             """;
 
         try (PreparedStatement ps = getConnection().prepareStatement(sql)) {
@@ -111,6 +112,7 @@ public class ContentRepository {
                 ps.setInt(3, chunk.chunkIndex());
                 ps.setString(4, chunk.title());
                 ps.setString(5, chunk.content());
+                ps.setString(6, normalizeChunkType(chunk.chunkType()));
                 ps.addBatch();
             }
 
@@ -122,9 +124,20 @@ public class ContentRepository {
         }
     }
 
+    private static String normalizeChunkType(String chunkType) {
+        if (chunkType == null || chunkType.isBlank()) {
+            throw new IllegalArgumentException("chunk_type es requerido para cada chunk indexado");
+        }
+        return chunkType.toLowerCase();
+    }
+
     public static List<DocResult> search(String query, String repo) {
+        return search(query, repo, null);
+    }
+
+    public static List<DocResult> search(String query, String repo, String chunkType) {
         StringBuilder sql = new StringBuilder("""
-            SELECT repo, path, chunk_index, title, content
+            SELECT repo, path, chunk_index, title, content, chunk_type
             FROM docs
             WHERE LOWER(content) LIKE LOWER(?) OR LOWER(title) LIKE LOWER(?)
             """);
@@ -132,6 +145,11 @@ public class ContentRepository {
         List<Object> params = new ArrayList<>();
         params.add("%" + query + "%");
         params.add("%" + query + "%");
+
+        if (chunkType != null && !chunkType.isBlank()) {
+            sql.append(" AND LOWER(chunk_type) = LOWER(?)");
+            params.add(chunkType);
+        }
 
         if (repo != null && !repo.isBlank()) {
             sql.append(filterFor(repo));
@@ -153,7 +171,7 @@ public class ContentRepository {
 
     public static List<DocResult> readByPath(String repo, String path) {
         String sql = """
-            SELECT repo, path, chunk_index, title, content
+            SELECT repo, path, chunk_index, title, content, chunk_type
             FROM docs
             WHERE LOWER(path) = LOWER(?)
             """ + (repo != null && !repo.isBlank() ? filterFor(repo) : "") + """
@@ -306,7 +324,8 @@ public class ContentRepository {
                     rs.getString("path"),
                     rs.getInt("chunk_index"),
                     rs.getString("title"),
-                    rs.getString("content")
+                    rs.getString("content"),
+                    rs.getString("chunk_type")
                 ));
             }
         } catch (SQLException e) {

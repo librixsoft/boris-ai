@@ -43,6 +43,10 @@ public class ContentQueryTool {
         "url\\(\\s*(['\"]?)([^'\")]+)\\1\\s*\\)|@import\\s+(?:url\\(\\s*)?(?:\"([^\"]*)\"|'([^']*)')");
 
     public static String search(String query, String repo, String path) {
+        return search(query, repo, path, null);
+    }
+
+    public static String search(String query, String repo, String path, String chunkType) {
         if ((query == null || query.isBlank()) && (path == null || path.isBlank())) {
             return error("query o path es requerido");
         }
@@ -54,7 +58,7 @@ public class ContentQueryTool {
         ToolProgressNotifier.notify("github_repo", "Buscando en repos indexados: " + query);
 
         try {
-            List<DocResult> docs = ContentRepository.search(query, repo);
+            List<DocResult> docs = ContentRepository.search(query, repo, chunkType);
             List<CodeSymbol> symbols = SymbolRepository.search(query, null, repo);
             return formatResults(query, docs, symbols);
         } catch (Exception e) {
@@ -111,11 +115,21 @@ public class ContentQueryTool {
             ArrayNode filesArray = root.putArray("files");
             ArrayNode copiedArray = copyRequested ? root.putArray("copied") : null;
             ArrayNode failedArray = copyRequested ? root.putArray("copy_failed") : null;
+            ArrayNode blockedArray = copyRequested ? root.putArray("copy_blocked_files") : null;
             ArrayNode notFoundArray = root.putArray("not_found");
+
+            boolean pendingLearn = com.boris.tooling.LearningLimiter.isPendingLearn(repo);
+            if (pendingLearn && copyRequested) {
+                root.put("blocked_pending_learn", true);
+                root.put("hint",
+                    "El repo '" + repo + "' todavía no pasó por github_repo(action='learn', repo, focus). "
+                    + "Los archivos pueden leerse para análisis; la copia se habilita después del learn (y solo para assets).");
+            }
 
             int[] totalCharsRef = {0};
             int readFiles = 0;
             int copiedCount = 0;
+            int blockedCount = 0;
 
             for (int i = 0; i < paths.size(); i++) {
                 String rawPath = paths.get(i) == null ? "" : paths.get(i).strip();
@@ -130,7 +144,18 @@ public class ContentQueryTool {
 
                 if (copyRequested) {
                     String targetOverride = targetPaths != null && !targetPaths.isEmpty() ? targetPaths.get(i).strip() : null;
-                    copiedCount += copyFromCache(cacheDir, rawPath, targetBase, targetOverride, copiedArray, failedArray);
+                    com.boris.tooling.CopyGateService.CopyDecision decision = com.boris.tooling.CopyGateService.decide(rawPath);
+                    com.boris.tooling.CopyGateService.BlockedFile blocked = copyDecision(decision, pendingLearn, rawPath);
+                    if (blocked != null) {
+                        ObjectNode blockedNode = blockedArray.addObject();
+                        blockedNode.put("path", rawPath);
+                        blockedNode.put("copy_blocked", true);
+                        blockedNode.put("reason", blocked.reason());
+                        blockedNode.put("learning_hint", blocked.learningHint());
+                        blockedCount++;
+                    } else {
+                        copiedCount += copyFromCache(cacheDir, rawPath, targetBase, targetOverride, copiedArray, failedArray);
+                    }
                 }
 
                 List<DocResult> results = ContentRepository.readByPath(repo, rawPath);
@@ -149,12 +174,27 @@ public class ContentQueryTool {
             if (copyRequested) {
                 root.put("copied_count", copiedCount);
                 root.put("copy_failed_count", failedArray.size());
+                root.put("copy_blocked_count", blockedCount);
             }
 
             return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root);
         } catch (Exception e) {
             return error("Error leyendo archivos: " + e.getMessage());
         }
+    }
+
+    private static com.boris.tooling.CopyGateService.BlockedFile copyDecision(
+            com.boris.tooling.CopyGateService.CopyDecision decision, boolean pendingLearn, String rawPath) {
+        if (pendingLearn) {
+            return new com.boris.tooling.CopyGateService.BlockedFile(
+                rawPath,
+                "El repo todavía no pasó por github_repo(action='learn'); " + decision.reason(),
+                decision.learningHint() != null ? decision.learningHint() : com.boris.tooling.CopyGateService.CODE_HINT);
+        }
+        if (decision.allowed()) {
+            return null;
+        }
+        return new com.boris.tooling.CopyGateService.BlockedFile(rawPath, decision.reason(), decision.learningHint());
     }
 
     private static void readAndAppendContent(List<DocResult> results, ArrayNode filesArray, int[] totalCharsRef) {
@@ -444,6 +484,7 @@ public class ContentQueryTool {
                     recordNode.put("path", record.path());
                     recordNode.put("section", record.chunkIndex() == 0 ? "start" : "chunk_" + record.chunkIndex());
                     recordNode.put("title", record.title());
+                    recordNode.put("chunk_type", record.chunkType());
 
                     String content = record.content();
                     if (content.length() > MAX_CONTENT_PER_RECORD) {
