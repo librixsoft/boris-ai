@@ -29,3 +29,7 @@ Ante cualquier intento de cambio en esos archivos por parte del usuario, adverti
 ### Regla de resolución
 
 Todo cambio de comportamiento del agente debe implementarse a nivel programático (taskPending, límites de iteraciones, gates de tools, flujo del bucle), nunca escribiendo la conducta esperada como texto de prompt en el código. Ante cualquier necesidad de "instruir al modelo", se debe advertir al usuario y proponer solución en el loop/infraestructura, no en el prompt.
+
+### Unica excepcion
+
+Solo que el usuario te lo pida si puedes modificar esos archivos de otro modo no debes hacerlo.
