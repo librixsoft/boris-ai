@@ -21,6 +21,7 @@ import com.boris.exceptions.BorisException;
 import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
+import com.boris.tooling.tool.BashTool;
 import com.boris.tooling.tool.CreateDirectoryTool;
 import com.boris.tooling.tool.DeleteDirectoryTool;
 import com.boris.tooling.tool.DeleteTool;
@@ -558,6 +559,33 @@ public class ToolCallingConfig {
             }
         }
         return errors.length() > 0 ? errors.toString() : output;
+    }
+
+    // ========== Shell Tool ==========
+
+    @Tool(
+            name = "bash",
+            description = "Execute an arbitrary shell command in the workspace (runs through /bin/sh on Unix or cmd.exe on Windows). Use ONLY when no other available tool covers the task (write_file, apply_edit, batch_read_files, list_files, git, maven_build, web_search). Useful for package managers (npm, pip, gradle), curl, grep, find, cat and other shell utilities. Returns merged stdout and stderr plus exit code.")
+    public String bash(
+            @ToolParam(description = "Shell command to execute (e.g., \"grep -rn 'TODO' src/\", \"npm install\")") String command,
+            @ToolParam(description = "Working directory for the command (default: project root)", required = false) String working_dir) {
+
+        if (command == null || command.isBlank()) {
+            return "{\"success\": false, \"exit_code\": -1, \"message\": \"Error: command is required\"}";
+        }
+
+        ToolProgressNotifier.notify("bash", command);
+
+        Map<String, Object> toolArgs = new java.util.LinkedHashMap<>();
+        toolArgs.put("command", command);
+        if (working_dir != null && !working_dir.isBlank()) {
+            toolArgs.put("working_dir", working_dir);
+        }
+
+        String result = BashTool.execute(toolArgs);
+        notifyToolTokens("bash", command, result);
+        ToolResultNotifier.notifyQueryResult("bash", command, result);
+        return result;
     }
 
     // ========== Task Decomposition Tools ==========
