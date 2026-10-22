@@ -12,12 +12,10 @@ import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
-import com.boris.tooling.tool.LibraryContextTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
 
 import com.boris.tooling.parallel.BatchListDirectoriesTool;
-import com.boris.tooling.parallel.BatchGitHubSearchTool;
 import com.boris.tooling.parallel.ParallelSearchTool;
 import com.boris.task.decomposition.TaskPlannerTool;
 
@@ -69,11 +67,6 @@ public class ToolConfiguration {
         return new TaskPlannerTool();
     }
 
-    @Bean
-    public LibraryContextTool libraryContextTool() {
-        return new LibraryContextTool();
-    }
-
     // Parallel tools
     @Bean
     public BatchReadFileTool batchReadFileTool() {
@@ -88,11 +81,6 @@ public class ToolConfiguration {
     @Bean
     public BatchListDirectoriesTool batchListDirectoriesTool() {
         return new BatchListDirectoriesTool();
-    }
-
-    @Bean
-    public BatchGitHubSearchTool batchGitHubSearchTool() {
-        return new BatchGitHubSearchTool();
     }
 
     @Bean

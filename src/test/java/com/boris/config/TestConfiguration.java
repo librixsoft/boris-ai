@@ -23,7 +23,6 @@ import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
 
 import com.boris.tooling.parallel.BatchListDirectoriesTool;
-import com.boris.tooling.parallel.BatchGitHubSearchTool;
 import com.boris.tooling.parallel.ParallelSearchTool;
 import com.boris.task.decomposition.TaskPlannerTool;
 import com.boris.tooling.integration.ToolCallingConfig;
@@ -128,11 +127,6 @@ public class TestConfiguration {
     @Bean
     public BatchListDirectoriesTool batchListDirectoriesTool() {
         return new BatchListDirectoriesTool();
-    }
-
-    @Bean
-    public BatchGitHubSearchTool batchGitHubSearchTool() {
-        return new BatchGitHubSearchTool();
     }
 
     @Bean

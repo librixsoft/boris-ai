@@ -31,12 +31,11 @@ import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
-import com.boris.tooling.tool.LibraryContextTool;
 import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
 
-// BatchGitHubSearchTool ELIMINADO - usar github_repo
+// BatchGitHubSearchTool ELIMINADO
 // ParallelSearchTool ELIMINADO
 import com.boris.tooling.ToolProgressNotifier;
 import com.boris.context.ProjectContext;
@@ -197,7 +196,7 @@ public class ToolCallingConfig {
     /*
     @Tool(
             name = "bulk_edit",
-            description = "Create or replace a file with streaming visual feedback. Validates classes against indexed symbols BEFORE writing. Shows each line as it writes (green diff). Use github_repo(action='symbols') first to verify classes exist.")
+            description = "Create or replace a file with streaming visual feedback. Shows each line as it writes (green diff).")
     public String bulk_edit(
             @ToolParam(description = "Path for the file to create/overwrite") String path,
             @ToolParam(description = "Complete file content") String content) {
@@ -217,21 +216,6 @@ public class ToolCallingConfig {
     public String write_file(
             @ToolParam(description = "Absolute or relative file path") String path,
             @ToolParam(description = "Content to write to the file") String content) {
-        String writeGateError = com.boris.tooling.EditGateService.checkEditAllowed(path, content != null ? content : "");
-        if (writeGateError != null) {
-            return "{\"success\":false,\"error\":\"" + writeGateError + "\"}";
-        }
-
-        com.boris.tooling.CloneGateService.Verdict writeCloneVerdict =
-            com.boris.tooling.CloneGateService.checkContent(content != null ? content : "", true);
-        if (writeCloneVerdict != null && writeCloneVerdict.blocked()) {
-            return "{\"success\":false,\"error\":\"" + writeCloneVerdict.message() + "\"}";
-        }
-
-        // Clear compile error flag and reset learning limits when agent starts writing
-        com.boris.tooling.LearningLimiter.clearCompileErrors();
-        com.boris.tooling.LearningLimiter.reset();
-
         ToolProgressNotifier.notify("write_file", "Escribiendo: " + path);
         String result = WriteTool.execute(Map.of("path", path, "content", content != null ? content : ""));
         notifyToolTokens("write_file", path + "\n" + content, result);
@@ -328,22 +312,6 @@ public class ToolCallingConfig {
     public String apply_edit(@ToolParam(description = "Absolute or relative file path") String path,
                              @ToolParam(description = "Exact text copied VERBATIM from the file content, including a few surrounding lines to make it unique. Same indentation, spaces and newlines. Never paraphrased and never written from memory.") String old_text,
                              @ToolParam(description = "Replacement text, keeping the same indentation level as the replaced block") String new_text) {
-        String applyGateError = com.boris.tooling.EditGateService.checkEditAllowed(
-            path, (old_text != null ? old_text : "") + "\n" + (new_text != null ? new_text : ""));
-        if (applyGateError != null) {
-            return "{\"success\":false,\"error\":\"" + applyGateError + "\"}";
-        }
-
-        com.boris.tooling.CloneGateService.Verdict editCloneVerdict =
-            com.boris.tooling.CloneGateService.checkContent(new_text != null ? new_text : "", false);
-        if (editCloneVerdict != null && editCloneVerdict.blocked()) {
-            return "{\"success\":false,\"error\":\"" + editCloneVerdict.message() + "\"}";
-        }
-
-        // Clear compile error flag and reset learning limits when agent starts editing
-        com.boris.tooling.LearningLimiter.clearCompileErrors();
-        com.boris.tooling.LearningLimiter.reset();
-
         ToolProgressNotifier.notify("apply_edit", "Editando archivo: " + path);
         String inputText = path + "\n" + old_text + "\n" + new_text;
         String result = EditTool.apply_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
@@ -570,9 +538,6 @@ public class ToolCallingConfig {
                 resultMap.put("message", "mvn " + normalizedGoal + " completado OK");
                 return mapper.writeValueAsString(resultMap);
             } else {
-                // Mark that there are compile errors - block further learning
-                com.boris.tooling.LearningLimiter.markCompileErrors();
-                
                 String errors = extractCompileErrors(output);
                 resultMap.put("success", false);
                 resultMap.put("exit_code", exitCode);
@@ -681,61 +646,6 @@ public class ToolCallingConfig {
         return "{\"error\": \"Use text format ```java:path instead of this tool\"}";
     }
     */
-
-    // ========== Code Symbol Query Tools ==========
-
-    @Tool(
-            name = "github_repo",
-            description = "UNIFIED GitHub repo tool with actions. action='download' (default): download owner/repo and index it; " +
-                         "the result includes the 'files' manifest so you can pick exactly which files you need. " +
-                         "action='read_files': read selected files from the manifest (pass paths). With target_dir it ALSO copies them " +
-                         "exactly from the repo cache into the project (recommended for large files and binary assets like images/fonts). " +
-                         "action='search': search or read indexed content of any kind (query or path required). " +
-                         "action='symbols': search Java class/method symbols by name. " +
-                         "action='methods': public methods of one class (pass class_name). " +
-                         "action='classes': list indexed classes. " +
-                         "action='status': indexing status summary. " +
-                         "action='knowledge': read a markdown knowledge card for a framework/class (framework + class_name). " +
-                         "action='knowledge_save': save/update a knowledge card (framework + class_name + content). " +
-                         "action='knowledge_list': list cached classes of a framework. " +
-                         "Use once per repo when the project depends on something you do not know.")
-    public String github_repo(
-            @ToolParam(description = "Operation mode: download (default), read_files, search, symbols, methods, classes, status, knowledge, knowledge_save, knowledge_list", required = false) String action,
-            @ToolParam(description = "download: repo in 'owner/repo' format. Other actions: registered repo name as filter (required for read_files/knowledge/knowledge_save, optional filter elsewhere)", required = false) String repo,
-            @ToolParam(description = "download only: version, tag or branch (default: main)", required = false) String version,
-            @ToolParam(description = "download only: project path where repo is cached in .boris/repos/ (default: current project) (optional)", required = false) String project_path,
-            @ToolParam(description = "download only: force re-download and re-index (default: false)", required = false) Boolean force,
-            @ToolParam(description = "read_files only: file paths chosen from the github_repo 'files' manifest", required = false) java.util.List<String> paths,
-            @ToolParam(description = "read_files only: base directory in the project where files are copied exactly from cache (optional)", required = false) String target_dir,
-            @ToolParam(description = "read_files only: optional target names, parallel to paths (omit to keep relative paths)", required = false) java.util.List<String> target_paths,
-            @ToolParam(description = "search/symbols only: search term (optional for search if path is given)", required = false) String query,
-            @ToolParam(description = "search only: relative path inside the repo to read one full file (optional)", required = false) String path,
-            @ToolParam(description = "symbols only: filter CLASS, METHOD, CONSTRUCTOR, FIELD, INTERFACE or ENUM (optional)", required = false) String type,
-            @ToolParam(description = "methods/knowledge only: class name", required = false) String class_name,
-            @ToolParam(description = "knowledge/knowledge_save/knowledge_list only: framework, library or repo name", required = false) String framework,
-            @ToolParam(description = "knowledge_save only: concise markdown summary with purpose, key methods and usage example", required = false) String content) {
-
-        Map<String, Object> args = new java.util.LinkedHashMap<>();
-        if (action != null) args.put("action", action);
-        if (repo != null) args.put("repo", repo);
-        if (version != null) args.put("version", version);
-        if (project_path != null) args.put("project_path", project_path);
-        if (force != null) args.put("force", force);
-        if (paths != null) args.put("paths", paths);
-        if (target_dir != null) args.put("target_dir", target_dir);
-        if (target_paths != null) args.put("target_paths", target_paths);
-        if (query != null) args.put("query", query);
-        if (path != null) args.put("path", path);
-        if (type != null) args.put("type", type);
-        if (class_name != null) args.put("class_name", class_name);
-        if (framework != null) args.put("framework", framework);
-        if (content != null) args.put("content", content);
-
-        String actionLabel = (action != null ? action : "download");
-        String result = LibraryContextTool.execute(args);
-        notifyToolTokens("github_repo", actionLabel + " " + (repo != null ? repo : "") + " " + (query != null ? query : ""), result);
-        return result;
-    }
 }
 
 

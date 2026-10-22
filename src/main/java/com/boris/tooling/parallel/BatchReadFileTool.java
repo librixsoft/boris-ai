@@ -123,8 +123,7 @@ public class BatchReadFileTool {
         }
         if (ProjectContext.isInsideAgentWorkspace(path.toAbsolutePath())) {
             return new FileResult(pathStr, false, null,
-                "Access denied: .boris is agent internal workspace (index, dashboard, cached repos). "
-                    + "Use github_repo(action='symbols') for signatures and github_repo(action='knowledge') for class summaries.", 0);
+                "Access denied: .boris is agent internal workspace (index, dashboard).", 0);
         }
 
         try {
@@ -134,11 +133,6 @@ public class BatchReadFileTool {
                 lines = lines.subList(0, maxLines);
             }
 
-            // Ingesta automática a nivel código: registrar ficha técnica de lo aprendido
-            if (resolvedPath.endsWith(".java")) {
-                com.boris.knowledge.KnowledgeStorageService.autoRecordJavaFile(path, Paths.get(projectPath));
-            }
-
             return new FileResult(pathStr, true, String.join("\n", lines), null, count);
         } catch (Exception e) {
             return new FileResult(pathStr, false, null, e.getMessage(), 0);
@@ -146,6 +140,5 @@ public class BatchReadFileTool {
     }
 
     public void shutdown() {
-        // No hay recursos que liberar (ya no usa executor)
     }
 }

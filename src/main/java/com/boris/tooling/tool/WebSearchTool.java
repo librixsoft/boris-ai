@@ -99,7 +99,7 @@ public class WebSearchTool {
         if (currentCount > MAX_CALLS) {
             String msg = "Límite de búsquedas web alcanzado (máximo " + MAX_CALLS + " llamada por consulta). "
                     + "No intentes más búsquedas web con queries diferentes. "
-                    + "Utiliza las herramientas locales del proyecto como github_repo, list_files, batch_read_files o responde con la información disponible.";
+                    + "Utiliza las herramientas locales del proyecto como list_files o batch_read_files, o responde con la información disponible.";
             ToolProgressNotifier.notify("web_search", "Límite alcanzado (máx " + MAX_CALLS + " llamada por consulta)");
             return formatError(msg);
         }

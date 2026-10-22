@@ -59,7 +59,7 @@ class MarkdownLineRendererTest {
         String line = "●  <thinking>Let me think</thinking> Here is the answer";
         List<MarkdownLineRenderer.TextSegment> segments = MarkdownLineRenderer.parseLineSegments(line, false);
         assertEquals(3, segments.size());
-        assertEquals("● ", segments.get(0).getText());
+        assertEquals("●  ", segments.get(0).getText());
         assertFalse(segments.get(0).isThinking());
         assertEquals("Let me think", segments.get(1).getText());
         assertTrue(segments.get(1).isThinking());
