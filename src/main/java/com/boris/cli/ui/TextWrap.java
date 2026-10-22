@@ -218,6 +218,9 @@ public final class TextWrap {
         return result;
     }
 
+    private static final java.util.regex.Pattern THINK_TAG_ATOMS =
+            java.util.regex.Pattern.compile("(?i)(</?(?:think|thinking|thought|reasoning)>)");
+
     private static int findWordBreak(String text, int maxWidth) {
         if (text.length() <= maxWidth) {
             return text.length();
@@ -243,6 +246,8 @@ public final class TextWrap {
 
     public static List<String> wrapLine(String line, int width) {
         List<String> result = new ArrayList<>();
+        String spaced = THINK_TAG_ATOMS.matcher(line).replaceAll(" $1 ");
+        line = spaced;
         if (line.length() <= width) {
             result.add(line);
             return result;

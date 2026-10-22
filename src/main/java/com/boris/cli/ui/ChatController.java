@@ -291,6 +291,10 @@ public class ChatController implements InputArea.InputListener {
             transcript.rerender();
             return;
         }
+        if (lower.equals("/chain")) {
+            handleChainCommand();
+            return;
+        }
         if (lower.equals("/effort") || lower.startsWith("/effort ") || lower.equals("/esfuerzo") || lower.startsWith("/esfuerzo ")) {
             handleEffortCommand(trimmed);
             return;
@@ -432,7 +436,7 @@ public class ChatController implements InputArea.InputListener {
 
     private boolean isBuiltinCommand(String cmd) {
         return cmd.equals("exit") || cmd.equals("quit") || cmd.equals("clear") ||
-               cmd.equals("thinking") || cmd.equals("think") || cmd.equals("reasoning") ||
+               cmd.equals("thinking") || cmd.equals("think") || cmd.equals("reasoning") || cmd.equals("chain") ||
                cmd.equals("skills") || cmd.equals("effort") || cmd.equals("esfuerzo") ||
                cmd.equals("model") || cmd.equals("models");
     }
@@ -553,6 +557,21 @@ public class ChatController implements InputArea.InputListener {
         });
         skillThread.setDaemon(true);
         skillThread.start();
+    }
+
+    private void handleChainCommand() {
+        String trace = chatService.getLastThinkingContent();
+        if (trace == null || trace.isBlank()) {
+            transcript.appendLine("[!] No hay cadena de razonamiento almacenada. Activa /thinking y envia un mensaje.");
+            transcript.rerender();
+            return;
+        }
+        transcript.appendAssistantPrefix();
+        for (String line : trace.trim().split("\n", -1)) {
+            transcript.appendChunk(line + "\n");
+        }
+        transcript.endAssistantResponse();
+        transcript.rerender();
     }
 
     private void handleEffortCommand(String text) {

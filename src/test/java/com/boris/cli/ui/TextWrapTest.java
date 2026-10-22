@@ -72,4 +72,30 @@ class TextWrapTest {
         // The marker uses zero-width space, should not affect visible length
         assertEquals(2, TextWrap.DIFF_CONT_MARKER.length());
     }
+
+    @Test
+    void wrapDoesNotSplitThinkTags() {
+        String line = "<thinking>The user said hello and the agent is about to decide how to respond properly";
+        String result = TextWrap.wrap(line, 30);
+
+        for (String row : result.split("\n")) {
+            String withoutTags = row.replaceAll("(?i)</?(?:think|thinking)>", "");
+            assertFalse(withoutTags.contains("<th"), "Open tag fragment leaked: " + row);
+            assertFalse(withoutTags.contains("</t"), "Close tag fragment leaked: " + row);
+        }
+        assertTrue(result.contains("<thinking>"), "Open tag preserved whole");
+    }
+
+    @Test
+    void wrapGluedTagPairsKeepsTagsAtomic() {
+        String line = "<thinking>One</thinking><thinking>Two Three Four Five Six Seven Eight Nine Ten</thinking>";
+        String result = TextWrap.wrap(line, 25);
+
+        for (String row : result.split("\n")) {
+            String withoutTags = row.replaceAll("(?i)</?(?:think|thinking)>", "");
+            assertFalse(withoutTags.contains("<th"), "Open tag fragment leaked: " + row);
+            assertFalse(withoutTags.contains("</t"), "Close tag fragment leaked: " + row);
+        }
+        assertTrue(result.contains("Seven Eight Nine Ten"), "Content preserved");
+    }
 }

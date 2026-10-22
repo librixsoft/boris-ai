@@ -14,6 +14,7 @@ import java.util.function.Supplier;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.boris.exceptions.ChatException;
 import com.boris.exceptions.ChatException.ErrorType;
@@ -53,6 +54,8 @@ public class BorisLlmClient {
     private final String apiKey;
     private final HttpClient httpClient;
     private final Duration timeout;
+    private final java.util.concurrent.ConcurrentHashMap<String, Boolean> thinkingCapabilityCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     public BorisLlmClient(String baseUrl) {
         this(baseUrl, "ollama", Duration.ofMinutes(5));
@@ -219,6 +222,8 @@ public class BorisLlmClient {
 
         StringBuilder content = new StringBuilder();
         StringBuilder reasoning = new StringBuilder();
+        StringBuilder reasoningLine = new StringBuilder();
+        boolean[] reasoningStarted = {false};
         var accumulators = new java.util.LinkedHashMap<Integer, ToolCallAccumulator>();
         WriteArgsPreviewStreamer previewStreamer = new WriteArgsPreviewStreamer();
 
@@ -234,9 +239,29 @@ public class BorisLlmClient {
 
             if (delta.reasoningContent() != null && !delta.reasoningContent().isEmpty()) {
                 reasoning.append(delta.reasoningContent());
+                reasoningLine.append(delta.reasoningContent());
+                reasoningStarted[0] = true;
+                if (onChunk != null) {
+                    int newlineIndex;
+                    while ((newlineIndex = reasoningLine.indexOf("\n")) >= 0) {
+                        String line = reasoningLine.substring(0, newlineIndex);
+                        reasoningLine.delete(0, newlineIndex + 1);
+                        if (!line.isBlank()) {
+                            onChunk.accept("<thinking>" + line + "</thinking>\n");
+                        }
+                    }
+                }
             }
 
             if (delta.content() != null && !delta.content().isEmpty()) {
+                if (onChunk != null && reasoningStarted[0]) {
+                    reasoningStarted[0] = false;
+                    String pendingLine = reasoningLine.toString();
+                    reasoningLine.setLength(0);
+                    if (!pendingLine.isBlank()) {
+                        onChunk.accept("<thinking>" + pendingLine + "</thinking>\n");
+                    }
+                }
                 content.append(delta.content());
                 if (onChunk != null) {
                     onChunk.accept(delta.content());
@@ -260,6 +285,14 @@ public class BorisLlmClient {
                 }
             }
         }, null, null, isAborted);
+
+        if (onChunk != null && reasoningStarted[0] && reasoningLine.length() > 0) {
+            String pendingLine = reasoningLine.toString().stripTrailing();
+            reasoningLine.setLength(0);
+            if (!pendingLine.isBlank()) {
+                onChunk.accept("<thinking>" + pendingLine + "</thinking>\n");
+            }
+        }
 
         List<ToolCall> nativeToolCalls = new ArrayList<>();
         List<Integer> nativeCallIndexes = new ArrayList<>();
@@ -343,7 +376,7 @@ public class BorisLlmClient {
                 if (onChunk != null) {
                     emitText(capWarning, onChunk);
                 }
-                String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
+                String thinkingResult = buildThinkingResult(totalThinking);
                 return new ChatTurn(capWarning.trim(), thinkingResult);
             }
             iterationCount++;
@@ -355,9 +388,16 @@ public class BorisLlmClient {
                     .tools(toolsSchema)
                     .parallelToolCalls(false);
 
-            if (thinkMode != null && !thinkMode.isBlank()) {
+            boolean thinkingRequested = thinkMode != null && !thinkMode.isBlank()
+                    && !"none".equalsIgnoreCase(thinkMode) && !"off".equalsIgnoreCase(thinkMode);
+
+            if (thinkingRequested) {
+                if (!isModelThinkingCapable(model)) {
+                    throw new ChatException("\"" + model + "\" does not support thinking. Usa /effort off",
+                            ErrorType.UNKNOWN);
+                }
                 reqBuilder.reasoningEffort(thinkMode);
-                reqBuilder.think(thinkMode);
+                reqBuilder.think(true);
             } else {
                 reqBuilder.reasoningEffort("none");
                 reqBuilder.think(false);
@@ -388,7 +428,7 @@ public class BorisLlmClient {
                     if (onChunk != null) {
                         emitText(warningMsg, onChunk);
                     }
-                    String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
+                    String thinkingResult = buildThinkingResult(totalThinking);
                     return new ChatTurn(warningMsg.trim(), thinkingResult);
                 }
                 break;
@@ -420,7 +460,7 @@ public class BorisLlmClient {
                     if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
                         emitText(cleanContent, onChunk);
                     }
-                    String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
+                    String thinkingResult = buildThinkingResult(totalThinking);
                     return new ChatTurn(cleanContent, thinkingResult);
                 }
 
@@ -431,7 +471,7 @@ public class BorisLlmClient {
                 if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
                     emitText(cleanContent, onChunk);
                 }
-                String thinkingResult = totalThinking.length() > 0 ? totalThinking.toString().trim() : null;
+                String thinkingResult = buildThinkingResult(totalThinking);
                 return new ChatTurn(cleanContent, thinkingResult);
             }
 
@@ -483,7 +523,7 @@ public class BorisLlmClient {
         }
 
         TaskStateNotifier.setState(hasModified ? TaskExecutionState.COMPLETED : TaskExecutionState.IDLE);
-        return new ChatTurn("", totalThinking.length() > 0 ? totalThinking.toString().trim() : null);
+        return new ChatTurn("", buildThinkingResult(totalThinking));
     }
 
     private void emitText(String text, Consumer<String> onChunk) {
@@ -496,6 +536,14 @@ public class BorisLlmClient {
 
     public record ChatTurn(String response, String thinking) {}
 
+    private static String buildThinkingResult(StringBuilder totalThinking) {
+        if (totalThinking.length() == 0) {
+            return null;
+        }
+        String cleaned = ORPHAN_THINK_TAGS.matcher(totalThinking.toString().trim()).replaceAll("").trim();
+        return cleaned.isEmpty() ? null : cleaned;
+    }
+
     private HttpRequest buildHttpRequest(String path, byte[] body) {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))
@@ -507,6 +555,55 @@ public class BorisLlmClient {
         }
 
         return builder.POST(HttpRequest.BodyPublishers.ofByteArray(body)).build();
+    }
+
+    /**
+     * Consulta /api/show de Ollama para determinar si el modelo emite cadena de razonamiento.
+     */
+    public boolean isModelThinkingCapable(String model) {
+        if (model == null || model.isBlank()) {
+            throw new ChatException("Model es requerido para consultar capability thinking", ErrorType.UNKNOWN);
+        }
+        return thinkingCapabilityCache.computeIfAbsent(model, this::probeThinkingCapability);
+    }
+
+    private boolean probeThinkingCapability(String model) {
+        try {
+            JsonNode capabilities = requestModelInfo(model).get("capabilities");
+            if (capabilities == null || !capabilities.isArray()) {
+                throw new ChatException("Ollama /api/show no devolvio capabilities para el modelo " + model,
+                        ErrorType.UNKNOWN);
+            }
+            for (JsonNode cap : capabilities) {
+                if (cap.isTextual() && "thinking".equals(cap.asText())) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (java.io.IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw new ChatException("No se pudo consultar /api/show de Ollama (base " + baseUrl + "): " + e.getMessage(),
+                    e, ErrorType.CONNECTION_ERROR);
+        }
+    }
+
+    private JsonNode requestModelInfo(String model) throws IOException, InterruptedException {
+        byte[] body = MAPPER.writeValueAsBytes(java.util.Map.of("model", model));
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/api/show"))
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(30))
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            throw new ChatException("Ollama /api/show devolvio HTTP " + response.statusCode() + " para el modelo "
+                    + model + ": " + response.body(), ErrorType.UNKNOWN);
+        }
+        return MAPPER.readTree(response.body());
     }
 
     public static String normalizeBaseUrl(String baseUrl) {

@@ -2,6 +2,7 @@ package com.boris.llm.client;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -34,7 +35,9 @@ public record ChatChunk(
     public record Delta(
             String role,
             String content,
-            @JsonProperty("reasoning_content") String reasoningContent,
+            @JsonProperty("reasoning_content")
+            @JsonAlias({"reasoning", "thinking", "reasoning_text", "thought"})
+            String reasoningContent,
             @JsonProperty("tool_calls") List<ToolCallChunk> toolCalls
     ) {}
 

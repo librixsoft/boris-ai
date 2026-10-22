@@ -154,19 +154,28 @@ public class MarkdownLineRenderer {
                     addSegment(segments, line.substring(segStart, nextOpen), false);
                 }
                 int tagLen = getOpenTagLengthAt(lower, nextOpen);
-                addSegment(segments, line.substring(nextOpen, nextOpen + tagLen), true);
                 segStart = nextOpen + tagLen;
                 idx = segStart;
                 currentThinking = true;
             } else if (currentThinking && nextClose != -1 && (nextOpen == -1 || nextClose < nextOpen)) {
                 int tagLen = getCloseTagLengthAt(lower, nextClose);
                 int tagEnd = nextClose + tagLen;
-                if (tagEnd > segStart) {
-                    addSegment(segments, line.substring(segStart, tagEnd), true);
+                if (nextClose > segStart) {
+                    addSegment(segments, line.substring(segStart, nextClose), true);
                 }
                 segStart = tagEnd;
                 idx = segStart;
                 currentThinking = false;
+            } else if (currentThinking && nextOpen != -1 && (nextClose == -1 || nextOpen < nextClose)) {
+                if (nextOpen > segStart) {
+                    addSegment(segments, line.substring(segStart, nextOpen), true);
+                }
+                int tagLen = getOpenTagLengthAt(lower, nextOpen);
+                segStart = nextOpen + tagLen;
+                idx = segStart;
+            } else if (!currentThinking && nextClose != -1) {
+                idx = nextClose + getCloseTagLengthAt(lower, nextClose);
+                segStart = Math.max(segStart, idx);
             } else {
                 idx++;
             }

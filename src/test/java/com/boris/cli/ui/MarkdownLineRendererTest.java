@@ -56,12 +56,12 @@ class MarkdownLineRendererTest {
 
     @Test
     void testParseLineSegmentsMixedLine() {
-        String line = "● <think>Let me think</think> Here is the answer";
+        String line = "●  <thinking>Let me think</thinking> Here is the answer";
         List<MarkdownLineRenderer.TextSegment> segments = MarkdownLineRenderer.parseLineSegments(line, false);
         assertEquals(3, segments.size());
         assertEquals("● ", segments.get(0).getText());
         assertFalse(segments.get(0).isThinking());
-        assertEquals("<think>Let me think</think>", segments.get(1).getText());
+        assertEquals("Let me think", segments.get(1).getText());
         assertTrue(segments.get(1).isThinking());
         assertEquals(" Here is the answer", segments.get(2).getText());
         assertFalse(segments.get(2).isThinking());

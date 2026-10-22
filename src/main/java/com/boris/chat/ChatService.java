@@ -221,10 +221,16 @@ public class ChatService {
                             return;
                         }
                         if (chunk != null && !chunk.isEmpty()) {
-                            fullResponse.append(chunk);
-                            String chatText = fileWriter.processChunk(chunk);
-                            if (chatText != null && !chatText.isEmpty() && onChunk != null) {
-                                onChunk.accept(chatText);
+                            if (isThinkingChunk(chunk)) {
+                                if (onChunk != null) {
+                                    onChunk.accept(chunk);
+                                }
+                            } else {
+                                fullResponse.append(chunk);
+                                String chatText = fileWriter.processChunk(chunk);
+                                if (chatText != null && !chatText.isEmpty() && onChunk != null) {
+                                    onChunk.accept(chatText);
+                                }
                             }
                         }
                     },
@@ -600,6 +606,10 @@ public class ChatService {
         }
         String clean = THINKING_PATTERN.matcher(response).replaceAll("").trim();
         return ORPHAN_THINK_TAGS.matcher(clean).replaceAll("").trim();
+    }
+
+    private boolean isThinkingChunk(String chunk) {
+        return chunk != null && chunk.contains("<thinking>");
     }
 
     public String getLastThinkingContent() {
