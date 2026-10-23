@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -17,6 +18,7 @@ public class BashTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final int TIMEOUT_SECONDS = 120;
+    private static final ReentrantLock SHELL_LOCK = new ReentrantLock();
 
     public static String execute(Map<String, Object> args) {
         String command = (String) args.get("command");
@@ -41,6 +43,7 @@ public class BashTool {
         pb.directory(workDir);
         pb.redirectErrorStream(true);
 
+        SHELL_LOCK.lock();
         try {
             Process process = pb.start();
             StringBuilder output = new StringBuilder();
@@ -73,6 +76,8 @@ public class BashTool {
                 Thread.currentThread().interrupt();
             }
             throw new BorisException("Error executing bash command: " + command, e);
+        } finally {
+            SHELL_LOCK.unlock();
         }
     }
 

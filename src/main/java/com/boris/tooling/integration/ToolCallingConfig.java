@@ -563,15 +563,66 @@ public class ToolCallingConfig {
 
     // ========== Shell Tool ==========
 
+    private static final Map<String, String> SHELL_NATIVE_TOOL_DUPLICATES = Map.ofEntries(
+            Map.entry("ls", "list_files"),
+            Map.entry("dir", "list_files"),
+            Map.entry("find", "list_files"),
+            Map.entry("cat", "batch_read_files"),
+            Map.entry("type", "batch_read_files"),
+            Map.entry("head", "batch_read_files"),
+            Map.entry("tail", "batch_read_files"),
+            Map.entry("mkdir", "create_directory"),
+            Map.entry("rm", "delete_file"),
+            Map.entry("rmdir", "delete_directory"),
+            Map.entry("git", "git"),
+            Map.entry("mvn", "maven_build"),
+            Map.entry("mvnw", "maven_build"),
+            Map.entry("./mvnw", "maven_build"),
+            Map.entry("curl", "web_fetch"),
+            Map.entry("wget", "web_fetch")
+    );
+
+    private String resolveDuplicateNativeTool(String command) {
+        String normalized = command == null ? "" : command.strip();
+        boolean stripped = true;
+        while (!normalized.isEmpty() && stripped) {
+            stripped = false;
+            if (normalized.toLowerCase().startsWith("sudo ")) {
+                normalized = normalized.substring(5).strip();
+                stripped = true;
+            }
+            if (normalized.toLowerCase().startsWith("cd ") || normalized.toLowerCase().startsWith("cd\t")) {
+                int separatorIndex = normalized.indexOf("&&");
+                if (separatorIndex < 0) separatorIndex = normalized.indexOf(";");
+                if (separatorIndex > 0) {
+                    normalized = normalized.substring(separatorIndex + 1).strip();
+                    stripped = true;
+                }
+            }
+        }
+        String firstToken = normalized.split("\\s+", 2)[0].toLowerCase();
+        if (firstToken.length() > 1 && (firstToken.startsWith("'") || firstToken.startsWith("\""))) {
+            firstToken = firstToken.substring(1);
+        }
+        return SHELL_NATIVE_TOOL_DUPLICATES.get(firstToken);
+    }
+
     @Tool(
             name = "bash",
-            description = "Execute an arbitrary shell command in the workspace (runs through /bin/sh on Unix or cmd.exe on Windows). Use ONLY when no other available tool covers the task (write_file, apply_edit, batch_read_files, list_files, git, maven_build, web_search). Useful for package managers (npm, pip, gradle), curl, grep, find, cat and other shell utilities. Returns merged stdout and stderr plus exit code.")
+            description = "Execute an arbitrary shell command in the workspace (runs through /bin/sh on Unix or cmd.exe on Windows). Use ONLY when no other available tool covers the task (write_file, apply_edit, batch_read_files, list_files, git, maven_build, web_search, web_fetch, create_directory, delete_file). Commands that duplicate a native tool (ls, cat, head, tail, find, mkdir, rm, git, mvn, curl) are BLOCKED at runtime and rejected. Useful for package managers (npm, pip, gradle), grep, sed, cp, chmod and other shell utilities without a dedicated tool. Returns merged stdout and stderr plus exit code.")
     public String bash(
             @ToolParam(description = "Shell command to execute (e.g., \"grep -rn 'TODO' src/\", \"npm install\")") String command,
             @ToolParam(description = "Working directory for the command (default: project root)", required = false) String working_dir) {
 
         if (command == null || command.isBlank()) {
             return "{\"success\": false, \"exit_code\": -1, \"message\": \"Error: command is required\"}";
+        }
+
+        String duplicateTool = resolveDuplicateNativeTool(command);
+        if (duplicateTool != null) {
+            return "{\"success\": false, \"exit_code\": -1, \"message\": \"Command blocked: '" + command
+                    + "' duplicates the native tool '" + duplicateTool
+                    + "'. Use the registered '" + duplicateTool + "' tool instead of bash.\"}";
         }
 
         ToolProgressNotifier.notify("bash", command);
