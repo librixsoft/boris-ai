@@ -21,6 +21,7 @@ import com.boris.exceptions.ChatException.ErrorType;
 import com.boris.task.TaskExecutionState;
 import com.boris.task.TaskStateNotifier;
 import com.boris.tooling.ToolProgressNotifier;
+import com.boris.tooling.ToolBlockProtocol;
 import com.boris.tooling.WriteArgsPreviewStreamer;
 import com.boris.tooling.engine.ToolRegistry;
 
@@ -351,11 +352,6 @@ public class BorisLlmClient {
             fullMessages.addAll(conversation);
         }
 
-        List<Map<String, Object>> toolsSchema = toolRegistry != null ? toolRegistry.getOpenAiToolsSchema() : null;
-        if (toolsSchema != null && toolsSchema.isEmpty()) {
-            toolsSchema = null;
-        }
-
         StringBuilder totalThinking = new StringBuilder();
         int iterationCount = 0;
         final int MAX_TOOL_ITERATIONS = 50;
@@ -385,7 +381,6 @@ public class BorisLlmClient {
                     .model(model)
                     .messages(fullMessages)
                     .temperature(temperature)
-                    .tools(toolsSchema)
                     .parallelToolCalls(false);
 
             boolean thinkingRequested = thinkMode != null && !thinkMode.isBlank()
@@ -453,8 +448,50 @@ public class BorisLlmClient {
             }
 
             List<ToolCall> toolCalls = assistantMsg.toolCalls();
+            List<ToolBlockProtocol.ToolBlock> textToolBlocks =
+                    (toolCalls == null || toolCalls.isEmpty()) && toolRegistry != null && !cleanContent.isBlank()
+                            ? ToolBlockProtocol.parse(cleanContent)
+                            : java.util.List.of();
 
             if (toolCalls == null || toolCalls.isEmpty() || toolRegistry == null) {
+                if (!textToolBlocks.isEmpty()) {
+                    if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
+                        emitText(cleanContent + "\n", onChunk);
+                    }
+
+                    fullMessages.add(ChatMessage.assistant(cleanContent));
+
+                    StringBuilder resultsPayload = new StringBuilder("[TOOL_RESULTS]\n");
+                    for (ToolBlockProtocol.ToolBlock block : textToolBlocks) {
+                        if (isAborted != null && Boolean.TRUE.equals(isAborted.get())) {
+                            TaskStateNotifier.setState(TaskExecutionState.IDLE);
+                            return new ChatTurn("", null);
+                        }
+
+                        String toolResult;
+                        try {
+                            toolResult = toolRegistry.execute(block.toolName(), block.jsonArguments());
+                        } catch (Exception e) {
+                            toolResult = "Error ejecutando " + block.toolName() + ": " + e.getMessage();
+                        }
+
+                        taskPending = true;
+                        TaskStateNotifier.setState(TaskExecutionState.TASK_IN_PROGRESS);
+
+                        if (isModificationResult(block.toolName(), toolResult)) {
+                            hasModified = true;
+                        }
+
+                        resultsPayload.append("<tool name=\"").append(block.toolName()).append("\">\n")
+                                .append(toolResult)
+                                .append("\n</tool>\n");
+                    }
+                    resultsPayload.append("[/TOOL_RESULTS]");
+
+                    fullMessages.add(ChatMessage.user(resultsPayload.toString()));
+                    continue;
+                }
+
                 // Caso A: Chat normal (nunca se activó ninguna herramienta) o sin registry
                 if (!taskPending || toolRegistry == null) {
                     if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
