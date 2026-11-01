@@ -631,7 +631,7 @@ public class ChatService {
         if (message == null) return new String[]{message, null};
 
         Matcher m = PROJECT_PATH_PATTERN.matcher(message);
-        if (m.matches()) {
+        if (m.matches() && !isForbiddenProjectRoot(m.group(1))) {
             String path = resolveAndValidatePath(m.group(1));
             if (path != null) {
                 return new String[]{m.group(2).trim(), path};
@@ -639,7 +639,7 @@ public class ChatService {
         }
 
         Matcher inlineMatcher = INLINE_PATH_PATTERN.matcher(message);
-        if (inlineMatcher.find()) {
+        if (inlineMatcher.find() && !isForbiddenProjectRoot(inlineMatcher.group(1))) {
             String path = resolveAndValidatePath(inlineMatcher.group(1));
             if (path != null) {
                 return new String[]{message, path};
@@ -756,22 +756,6 @@ public class ChatService {
         if (f.exists() && f.isFile()) {
             java.io.File parent = f.getParentFile();
             return parent != null && parent.exists() ? parent.getAbsolutePath() : null;
-        }
-        if (!f.exists()) {
-            String lastSegment = f.getName();
-            boolean looksLikeFile = lastSegment.contains(".");
-            if (looksLikeFile) {
-                java.io.File parent = f.getParentFile();
-                if (parent == null) return null;
-                if (!parent.mkdirs() && !parent.isDirectory()) {
-                    throw new IllegalStateException("No se pudo crear la carpeta del proyecto: " + parent.getAbsolutePath());
-                }
-                return parent.getAbsolutePath();
-            }
-            if (!f.mkdirs() && !f.isDirectory()) {
-                throw new IllegalStateException("No se pudo crear la carpeta del proyecto: " + f.getAbsolutePath());
-            }
-            return f.getAbsolutePath();
         }
         return null;
     }

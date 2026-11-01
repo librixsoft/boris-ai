@@ -84,7 +84,7 @@ class ChatServiceTest {
         String prompt = com.boris.tooling.integration.ToolCallingConfig.loadSystemPrompt(null);
         assertNotNull(prompt);
         assertTrue(prompt.contains("maven_build"));
-        assertTrue(prompt.contains("REGLA OBLIGATORIA DE TOOL CALLING"));
+        assertTrue(prompt.contains("PROTOCOLO DE HERRAMIENTAS"));
     }
 
     @Test

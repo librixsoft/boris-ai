@@ -47,6 +47,15 @@ public class ProjectContext {
             projectPath = System.getProperty("user.dir");
         }
         if (projectPath != null && !projectPath.isBlank()) {
+            Path base = Paths.get(projectPath);
+            Path relative = Paths.get(pathStr);
+            if (base.getNameCount() > 0 && relative.getNameCount() > 0) {
+                String baseLastSegment = base.getName(base.getNameCount() - 1).toString();
+                String relativeFirstSegment = relative.getName(0).toString();
+                if (baseLastSegment.equals(relativeFirstSegment) && relative.getNameCount() > 1) {
+                    pathStr = relative.subpath(1, relative.getNameCount()).toString();
+                }
+            }
             return Paths.get(projectPath, pathStr).normalize().toString();
         }
         return pathStr;
