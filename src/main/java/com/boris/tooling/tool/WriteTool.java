@@ -47,6 +47,18 @@ public class WriteTool {
             content = "";
         }
 
+        // Garantiza que existan las carpetas padre antes de escribir (el modelo que escribe
+        // el archivo, ya sea el principal o el drafter pequeño, no debe depender de que
+        // el destino ya exista).
+        try {
+            var parent = java.nio.file.Paths.get(pathStr).getParent();
+            if (parent != null) {
+                java.nio.file.Files.createDirectories(parent);
+            }
+        } catch (java.io.IOException ignored) {
+            // Ruta sin padre (raiz) o invalida: no hay nada que crear.
+        }
+
         try {
             var streamedPreview = com.boris.tooling.WriteArgsPreviewStreamer.takeLivePreview();
             Integer streamedLines = streamedPreview != null && pathStr.equals(streamedPreview.path())
@@ -63,17 +75,28 @@ public class WriteTool {
 
     public static String sanitizeTargetPath(String rawPath) {
         String trimmed = rawPath.trim();
+
+        // Elimina un posible prefijo de lenguaje de bloque de código, p.ej. "html:/ruta/archivo.ext",
+        // para no interpretar "html:" como parte de una ruta relativa y evitar prependear el workspace.
+        // Solo se aplica cuando tras los dos puntos viene una ruta absoluta (empieza con /).
+        if (trimmed.matches("^[A-Za-z]+:/.*")) {
+            int colon = trimmed.indexOf(':');
+            trimmed = trimmed.substring(colon + 1);
+        }
+
         if (!trimmed.matches("(?s).*\\s.*")) {
             return trimmed;
         }
         String[] tokens = trimmed.split("[\\r\\n\\t ]+");
+        String candidate = null;
         for (int i = tokens.length - 1; i >= 0; i--) {
             String token = tokens[i].trim();
             if (token.matches(".+\\.[a-zA-Z0-9]{1,10}$") && (token.startsWith("/") || token.startsWith("~") || token.startsWith("."))) {
-                return token;
+                candidate = token;
+                break;
             }
         }
-        return trimmed;
+        return candidate != null ? candidate : trimmed;
     }
 
     private static String formatOutput(boolean success, String message) {

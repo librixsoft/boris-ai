@@ -63,4 +63,31 @@ class WriteToolTest {
         assertTrue(props.containsKey("path"));
         assertTrue(props.containsKey("content"));
     }
+
+    @Test
+    void writesFileToAbsolutePathOutsideProjectAndCreatesParentDirs() throws Exception {
+        Path target = tempDir.resolve("subdir/landing/index.html");
+        String content = "<h1>Landing</h1>";
+
+        String result = WriteTool.execute(java.util.Map.of(
+                "path", target.toString(),
+                "content", content));
+
+        assertTrue(result.contains("\"success\":true"), "Expected success, got: " + result);
+        assertTrue(java.nio.file.Files.exists(target), "File should be created at the absolute path: " + target);
+        assertEquals(content, java.nio.file.Files.readString(target));
+        assertTrue(java.nio.file.Files.isDirectory(target.getParent()), "Parent directory should be created");
+    }
+
+    @Test
+    void sanitizeTargetPathKeepsAbsolutePathAsIs() {
+        String abs = "/Users/lastprophet/Downloads/index.html";
+        assertEquals(abs, WriteTool.sanitizeTargetPath(abs));
+    }
+
+    @Test
+    void sanitizeTargetPathStripsLanguagePrefix() {
+        String result = WriteTool.sanitizeTargetPath("html:/Users/lastprophet/Downloads/index.html");
+        assertEquals("/Users/lastprophet/Downloads/index.html", result);
+    }
 }
