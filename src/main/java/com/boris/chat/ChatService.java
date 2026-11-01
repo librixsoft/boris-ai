@@ -135,7 +135,10 @@ public class ChatService {
                 trimHistory();
             }
             if (thinkingContent != null && !thinkingContent.isEmpty()) {
-                return "*%s*\n<thinking>\n%s\n</thinking>\n%s".formatted(botName, thinkingContent, finalResponse != null ? finalResponse : "");
+                // Keep the outer thinking block intact; only nested reasoning tags
+                // inside the content are removed for display.
+                String thinkingDisplay = sanitizeThinkingTags(thinkingContent);
+                return "*%s*\n<thinking>\n%s\n</thinking>\n%s".formatted(botName, thinkingDisplay, finalResponse != null ? finalResponse : "");
             }
             return "*%s* %s".formatted(botName, finalResponse != null ? finalResponse : "");
         } catch (Exception e) {
@@ -597,6 +600,18 @@ public class ChatService {
         return null;
     }
 
+    /**
+     * Removes reasoning tag markup (think, thinking, thought, reasoning) from the
+     * content of a thinking block while keeping the text. Used only for display:
+     * the outer <thinking>...</thinking> wrapper is preserved intact.
+     */
+     private String sanitizeThinkingTags(String content) {
+         if (content == null) {
+             return null;
+         }
+         return content.replaceAll("(?i)</?(think|thinking|thought|reasoning)>", "").trim();
+     }
+
     private String extractFinalResponse(String response) {
         if (response == null) {
             return null;
@@ -606,7 +621,12 @@ public class ChatService {
     }
 
     private boolean isThinkingChunk(String chunk) {
-        return chunk != null && chunk.contains("<thinking>");
+        if (chunk == null || chunk.isEmpty()) {
+            return false;
+        }
+        String lower = chunk.toLowerCase();
+        return lower.contains("<thinking>") || lower.contains("<think>") ||
+               lower.contains("<thought>") || lower.contains("<reasoning>");
     }
 
     public String getLastThinkingContent() {

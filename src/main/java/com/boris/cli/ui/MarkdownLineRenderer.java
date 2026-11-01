@@ -155,6 +155,11 @@ public class MarkdownLineRenderer {
                 }
                 int tagLen = getOpenTagLengthAt(lower, nextOpen);
                 segStart = nextOpen + tagLen;
+                if (segments.isEmpty() || segments.get(segments.size() - 1).getText().endsWith(" ")) {
+                    while (segStart < line.length() && line.charAt(segStart) == ' ') {
+                        segStart++;
+                    }
+                }
                 idx = segStart;
                 currentThinking = true;
             } else if (currentThinking && nextClose != -1 && (nextOpen == -1 || nextClose < nextOpen)) {
@@ -255,7 +260,7 @@ public class MarkdownLineRenderer {
         }
 
         if (segments.size() == 1) {
-            renderSingleSegmentLine(graphics, line, row, contentWidth, segments.get(0).isThinking());
+            renderSingleSegmentLine(graphics, segments.get(0).getText(), row, contentWidth, segments.get(0).isThinking());
             return;
         }
 

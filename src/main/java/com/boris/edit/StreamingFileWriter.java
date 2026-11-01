@@ -124,19 +124,27 @@ public class StreamingFileWriter {
         String trimmed = line.trim();
 
         // Filtrar tags y contenido de pensamiento
+        // Detectar apertura de bloque thinking
         if (trimmed.matches("(?i)^`*<(?:think|thinking|thought|reasoning)\\b.*")) {
             inThinkingBlock = true;
+            // Si el tag de cierre está en la misma línea, verificar si todo el contenido está dentro
             if (trimmed.matches("(?i).*</(?:think|thinking|thought|reasoning)>`*$")) {
                 inThinkingBlock = false;
+                return null; // Línea completa con opening y closing tags, filtrar todo
             }
+            // Línea solo con opening tag, filtrar pero mantener estado inThinkingBlock
             return null;
         }
+        
+        // Dentro de bloque thinking: filtrar todo hasta encontrar cierre
         if (inThinkingBlock) {
             if (trimmed.matches("(?i).*</(?:think|thinking|thought|reasoning)>`*$")) {
                 inThinkingBlock = false;
             }
-            return null;
+            return null; // Filtrar todo mientras esté en thinking block
         }
+        
+        // Detectar tag de cierre sin estar en bloque (caso de tag huérfano)
         if (trimmed.matches("(?i)^`*</(?:think|thinking|thought|reasoning)>`*$") || THINK_TAG_PATTERN.matcher(trimmed).matches()) {
             inThinkingBlock = false;
             return null;

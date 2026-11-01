@@ -248,7 +248,11 @@ public class BorisLlmClient {
                         String line = reasoningLine.substring(0, newlineIndex);
                         reasoningLine.delete(0, newlineIndex + 1);
                         if (!line.isBlank()) {
-                            onChunk.accept("<thinking>" + line + "</thinking>\n");
+                            // Sanitizar cualquier tag de thinking existente en el contenido y recortar espacios sobrantes
+                            String sanitizedLine = line.replaceAll("(?i)</?(think|thinking|thought|reasoning)>", "").trim();
+                            if (!sanitizedLine.isBlank()) {
+                                onChunk.accept("<thinking>" + sanitizedLine + "</thinking>\n");
+                            }
                         }
                     }
                 }
@@ -260,7 +264,11 @@ public class BorisLlmClient {
                     String pendingLine = reasoningLine.toString();
                     reasoningLine.setLength(0);
                     if (!pendingLine.isBlank()) {
-                        onChunk.accept("<thinking>" + pendingLine + "</thinking>\n");
+                        // Sanitizar cualquier tag de thinking existente en el contenido y recortar espacios sobrantes
+                        String sanitizedLine = pendingLine.replaceAll("(?i)</?(think|thinking|thought|reasoning)>", "").trim();
+                        if (!sanitizedLine.isBlank()) {
+                            onChunk.accept("<thinking>" + sanitizedLine + "</thinking>\n");
+                        }
                     }
                 }
                 content.append(delta.content());
@@ -288,10 +296,13 @@ public class BorisLlmClient {
         }, null, null, isAborted);
 
         if (onChunk != null && reasoningStarted[0] && reasoningLine.length() > 0) {
-            String pendingLine = reasoningLine.toString().stripTrailing();
+            String pendingLine = reasoningLine.toString().trim();
             reasoningLine.setLength(0);
             if (!pendingLine.isBlank()) {
-                onChunk.accept("<thinking>" + pendingLine + "</thinking>\n");
+                String sanitizedLine = pendingLine.replaceAll("(?i)</?(think|thinking|thought|reasoning)>", "").trim();
+                if (!sanitizedLine.isBlank()) {
+                    onChunk.accept("<thinking>" + sanitizedLine + "</thinking>\n");
+                }
             }
         }
 

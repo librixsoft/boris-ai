@@ -246,7 +246,8 @@ public final class TextWrap {
 
     public static List<String> wrapLine(String line, int width) {
         List<String> result = new ArrayList<>();
-        String spaced = THINK_TAG_ATOMS.matcher(line).replaceAll(" $1 ");
+        String spaced = line.replaceAll("(?i)(?<!^|\\s)(</?(?:think|thinking|thought|reasoning)>)", " $1")
+                            .replaceAll("(?i)(</?(?:think|thinking|thought|reasoning)>)(?!$|\\s)", "$1 ");
         line = spaced;
         if (line.length() <= width) {
             result.add(line);

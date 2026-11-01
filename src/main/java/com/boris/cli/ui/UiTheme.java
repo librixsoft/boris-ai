@@ -18,9 +18,9 @@ public final class UiTheme {
     public static final TextColor SELECT_FG = new TextColor.RGB(190, 155, 85);
     public static final TextColor SELECT_HIGHLIGHT_BG = new TextColor.RGB(0, 210, 0);
     public static final TextColor SELECT_HIGHLIGHT_FG = new TextColor.RGB(0, 0, 0);
-    public static final TextColor THINKING = new TextColor.RGB(180, 180, 180);
-    public static final TextColor THINKING_BOLD = new TextColor.RGB(210, 210, 210);
-    public static final TextColor THINKING_MUTED = new TextColor.RGB(140, 140, 140);
+    public static final TextColor THINKING = new TextColor.RGB(100, 100, 100);
+    public static final TextColor THINKING_BOLD = new TextColor.RGB(150, 150, 150);
+    public static final TextColor THINKING_MUTED = new TextColor.RGB(70, 70, 70);
     public static final TextColor QUEUED = new TextColor.RGB(0, 210, 210);
     public static final TextColor DIFF_ADD = new TextColor.RGB(80, 220, 80);
     public static final TextColor DIFF_REMOVE = new TextColor.RGB(220, 80, 80);

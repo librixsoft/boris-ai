@@ -131,4 +131,40 @@ class MarkdownLineRendererTest {
         renderer.render(graphics, "<think>Full thinking line</think>", 0, 40, false, false);
         verify(graphics, never()).setForegroundColor(UiTheme.THINKING);
     }
+
+    @Test
+    void testRenderSingleSegmentThinkingLineStripsTags() {
+        renderer.render(graphics, "<thinking> I am Boris</thinking>", 0, 40, false, true);
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(graphics).putString(eq(0), eq(0), captor.capture());
+        assertFalse(captor.getValue().contains("<thinking>"));
+        assertFalse(captor.getValue().contains("</thinking>"));
+        assertTrue(captor.getValue().contains("I am Boris"));
+    }
+
+    @Test
+    void testRenderOpeningTagLineStripsTag() {
+        renderer.render(graphics, "<thinking>Start of thinking", 0, 40, false, true);
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(graphics).putString(eq(0), eq(0), captor.capture());
+        assertFalse(captor.getValue().contains("<thinking>"));
+        assertTrue(captor.getValue().contains("Start of thinking"));
+    }
+
+    @Test
+    void testRenderClosingTagLineStripsTag() {
+        renderer.render(graphics, "End of thinking</thinking>", 0, 40, true, true);
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(graphics).putString(eq(0), eq(0), captor.capture());
+        assertFalse(captor.getValue().contains("</thinking>"));
+        assertTrue(captor.getValue().contains("End of thinking"));
+    }
+
+    @Test
+    void testRenderAssistantPrefixWithThinkingNoDoubleSpace() {
+        List<MarkdownLineRenderer.TextSegment> segs = MarkdownLineRenderer.parseLineSegments(":: <thinking> El usuario", false);
+        assertEquals(2, segs.size());
+        assertEquals(":: ", segs.get(0).getText());
+        assertEquals("El usuario", segs.get(1).getText());
+    }
 }
