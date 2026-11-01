@@ -111,6 +111,9 @@ public class StreamingFileWriter {
             String pending = buffer.toString();
             if (pending.matches("(?i).*`*</?(?:think|thinking|thought|reasoning)>`*.*")) {
                 buffer.setLength(0);
+            } else if (looksLikePartialThinkTag(pending)) {
+                // No emitir ni limpiar: retener el fragmento hasta que llegue más texto
+                // y se pueda confirmar si es un tag de thinking partido entre chunks.
             } else if (!pending.startsWith("`")) {
                 nonCodeOutput.append(pending);
                 buffer.setLength(0);
@@ -118,6 +121,27 @@ public class StreamingFileWriter {
         }
 
         return nonCodeOutput.toString();
+    }
+
+    /**
+     * Detecta si el texto pendiente podría ser el inicio de un tag de thinking
+     * que fue partido entre chunks del stream. En ese caso se retiene en el buffer
+     * hasta que llegue más texto para confirmar si es un tag completo o texto normal.
+     */
+    private boolean looksLikePartialThinkTag(String text) {
+        String lower = text.toLowerCase().trim();
+        String[] partialPrefixes = {
+            "<t", "<th", "<thi", "<thin", "<think", "<thinki", "<thinkin", "<thinking",
+            "</t", "</th", "</thi", "</thin", "</think", "</thinki", "</thinkin", "</thinking",
+            "<r", "<re", "<rea", "<reas", "<reaso", "<reason", "<reasoni", "<reasonin", "<reasoning",
+            "</r", "</re", "</rea", "</reas", "</reaso", "</reason", "</reasoni", "</reasonin", "</reasoning"
+        };
+        for (String prefix : partialPrefixes) {
+            if (lower.endsWith(prefix) || lower.equals(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String processLine(String line) {
@@ -386,7 +410,26 @@ public class StreamingFileWriter {
         searchLines.clear();
         replaceLines.clear();
         pendingEdits.clear();
-        inThinkingBlock = false;
+    }
+
+    private void resetFileState() {
+        currentFilePath = null;
+        currentLanguage = null;
+        contentLines.clear();
+        lineNumber = 0;
+        inCodeBlock = false;
+        isEditMode = false;
+        inSearchBlock = false;
+        inReplaceBlock = false;
+        searchLines.clear();
+        replaceLines.clear();
+        pendingEdits.clear();
+    }
+
+    public void reset() {
+        buffer.setLength(0);
+        resetFileState();
+        inThinkingBlock = false; // Solo se resetea en reset completo (inicio de nueva conversación)
     }
 
     public void finish() {
@@ -398,11 +441,6 @@ public class StreamingFileWriter {
         if (inCodeBlock) {
             endBlock();
         }
-    }
-
-    public void reset() {
-        buffer.setLength(0);
-        resetState();
     }
 
     public boolean isWritingFile() {

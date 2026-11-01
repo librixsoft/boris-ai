@@ -271,9 +271,16 @@ public class BorisLlmClient {
                         }
                     }
                 }
-                content.append(delta.content());
+                String contentText = delta.content();
+                content.append(contentText);
                 if (onChunk != null) {
-                    onChunk.accept(delta.content());
+                    // Sanitizar tags de thinking que el modelo pueda haber emitido en content
+                    // (el modelo puede ponerlos en content en vez de reasoningContent,
+                    // especialmente tras resultados de tools)
+                    String sanitizedContent = contentText.replaceAll("(?i)</?(?:think|thinking|thought|reasoning)>", "");
+                    if (!sanitizedContent.isEmpty()) {
+                        onChunk.accept(sanitizedContent);
+                    }
                 }
             }
 
