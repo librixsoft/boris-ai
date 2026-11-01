@@ -21,6 +21,7 @@ import com.boris.exceptions.BorisException;
 import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
+import com.boris.drafter.DrafterService;
 import com.boris.tooling.tool.BashTool;
 import com.boris.tooling.tool.CreateDirectoryTool;
 import com.boris.tooling.tool.DeleteDirectoryTool;
@@ -68,7 +69,7 @@ public class ToolCallingConfig {
         return TOKEN_ENCODING.countTokens(text);
     }
 
-    private static void notifyToolTokens(String toolName, String input, String output) {
+    public static void notifyToolTokens(String toolName, String input, String output) {
         int inputTokens = countTokens(input);
         int outputTokens = countTokens(output);
         if (inputTokens > 0 || outputTokens > 0) {
@@ -171,7 +172,11 @@ public class ToolCallingConfig {
 
     public static ToolRegistry buildToolRegistry(Settings settings) {
         ToolCallingConfig config = createDefaultConfig(settings);
-        return ToolRegistry.from(config);
+        ToolRegistry registry = ToolRegistry.from(config);
+        if (DrafterService.isDrafterAvailable(settings)) {
+            registry.register(new DrafterService(settings));
+        }
+        return registry;
     }
 
     private static ToolCallingConfig createDefaultConfig(Settings settings) {
@@ -217,7 +222,9 @@ public class ToolCallingConfig {
     public String write_file(
             @ToolParam(description = "Absolute or relative file path") String path,
             @ToolParam(description = "Content to write to the file") String content) {
-        ToolProgressNotifier.notify("write_file", "Escribiendo: " + path);
+        String mainModelName = settings != null && settings.getModel() != null && settings.getModel().getName() != null
+                ? settings.getModel().getName() : "main";
+        ToolProgressNotifier.notify("write_file", "Escribiendo con " + mainModelName + " (flujo normal): " + path);
         String result = WriteTool.execute(Map.of("path", path, "content", content != null ? content : ""));
         notifyToolTokens("write_file", path + "\n" + content, result);
         return result;

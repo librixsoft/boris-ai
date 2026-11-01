@@ -112,6 +112,62 @@ public class SettingsManager {
     }
 
     /**
+     * Update the drafter model name under the "drafter" block at the default path.
+     */
+    public void updateDrafterModelName(String name) throws IOException {
+        updateDrafterModelName(DEFAULT_SETTINGS_PATH, name);
+    }
+
+    /**
+     * Update the drafter enabled flag under the "drafter" block at the default path.
+     */
+    public void updateDrafterEnabled(Boolean enabled) throws IOException {
+        updateDrafterEnabled(DEFAULT_SETTINGS_PATH, enabled);
+    }
+
+    public void updateDrafterModelName(String path, String name) throws IOException {
+        Path settingsFile = Paths.get(path);
+        ensureExists(path);
+        java.io.File settingsFileObj = settingsFile.toFile();
+        JsonNode root = MAPPER.readTree(settingsFileObj);
+        if (root instanceof ObjectNode objectNode) {
+            ObjectNode drafter = ensureDrafterBlock(objectNode);
+            drafter.put("name", name);
+            MAPPER.writeValue(settingsFileObj, objectNode);
+        }
+    }
+
+    public void updateDrafterEnabled(String path, Boolean enabled) throws IOException {
+        Path settingsFile = Paths.get(path);
+        ensureExists(path);
+        java.io.File settingsFileObj = settingsFile.toFile();
+        JsonNode root = MAPPER.readTree(settingsFileObj);
+        if (root instanceof ObjectNode objectNode) {
+            ObjectNode drafter = ensureDrafterBlock(objectNode);
+            drafter.put("enabled", enabled);
+            MAPPER.writeValue(settingsFileObj, objectNode);
+        }
+    }
+
+    private ObjectNode ensureDrafterBlock(ObjectNode root) {
+        if (root.get("drafter") instanceof ObjectNode existing) {
+            if (existing.get("model") instanceof ObjectNode legacyModel) {
+                if (existing.get("name") == null && legacyModel.get("name") != null) {
+                    existing.put("name", legacyModel.get("name").asText());
+                }
+                existing.remove("model");
+            }
+            return existing;
+        }
+        ObjectNode drafter = MAPPER.createObjectNode();
+        drafter.put("enabled", true);
+        drafter.put("temperature", 0.2);
+        drafter.put("maxTokens", 16384);
+        root.set("drafter", drafter);
+        return drafter;
+    }
+
+    /**
      * Update the model name in a specific settings file.
      * Preserves all other fields (baseUrl, options, env, etc.).
      */

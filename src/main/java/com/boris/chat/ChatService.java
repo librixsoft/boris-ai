@@ -20,6 +20,7 @@ import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.llm.think.ThinkContextHolder;
 import com.boris.tooling.ToolResultNotifier;
 import com.boris.tooling.DiffLineNotifier;
+import com.boris.tooling.ToolProgressNotifier;
 import com.boris.tooling.WriteArgsPreviewStreamer;
 import com.boris.tooling.engine.ToolRegistry;
 import com.boris.tooling.integration.ToolCallingConfig;
@@ -285,15 +286,15 @@ public class ChatService {
             throw new IllegalStateException("saveBlockViaWriteFileTool requiere la tool write_file registrada");
         }
         try {
-            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            String json = mapper.writeValueAsString(java.util.Map.of(
-                    "path", blockPath != null ? blockPath : "",
-                    "content", blockContent != null ? blockContent : ""));
-
             WriteArgsPreviewStreamer.setLivePreview(new WriteArgsPreviewStreamer.PreviewInfo(blockPath, shownLines));
             String result;
             try {
-                result = registry.execute("write_file", json);
+                ToolProgressNotifier.notify("write_file", "Escribiendo: " + blockPath);
+                result = com.boris.tooling.tool.WriteTool.execute(java.util.Map.of(
+                        "path", blockPath != null ? blockPath : "",
+                        "content", blockContent != null ? blockContent : ""));
+                ToolCallingConfig.notifyToolTokens("write_file",
+                        (blockPath != null ? blockPath : "") + "\n" + (blockContent != null ? blockContent : ""), result);
             } finally {
                 WriteArgsPreviewStreamer.clearLivePreview();
             }
@@ -631,7 +632,7 @@ public class ChatService {
         if (message == null) return new String[]{message, null};
 
         Matcher m = PROJECT_PATH_PATTERN.matcher(message);
-        if (m.matches()) {
+        if (m.matches() && !isForbiddenProjectRoot(m.group(1))) {
             String path = resolveAndValidatePath(m.group(1));
             if (path != null) {
                 return new String[]{m.group(2).trim(), path};
@@ -639,7 +640,7 @@ public class ChatService {
         }
 
         Matcher inlineMatcher = INLINE_PATH_PATTERN.matcher(message);
-        if (inlineMatcher.find()) {
+        if (inlineMatcher.find() && !isForbiddenProjectRoot(inlineMatcher.group(1))) {
             String path = resolveAndValidatePath(inlineMatcher.group(1));
             if (path != null) {
                 return new String[]{message, path};
@@ -756,22 +757,6 @@ public class ChatService {
         if (f.exists() && f.isFile()) {
             java.io.File parent = f.getParentFile();
             return parent != null && parent.exists() ? parent.getAbsolutePath() : null;
-        }
-        if (!f.exists()) {
-            String lastSegment = f.getName();
-            boolean looksLikeFile = lastSegment.contains(".");
-            if (looksLikeFile) {
-                java.io.File parent = f.getParentFile();
-                if (parent == null) return null;
-                if (!parent.mkdirs() && !parent.isDirectory()) {
-                    throw new IllegalStateException("No se pudo crear la carpeta del proyecto: " + parent.getAbsolutePath());
-                }
-                return parent.getAbsolutePath();
-            }
-            if (!f.mkdirs() && !f.isDirectory()) {
-                throw new IllegalStateException("No se pudo crear la carpeta del proyecto: " + f.getAbsolutePath());
-            }
-            return f.getAbsolutePath();
         }
         return null;
     }

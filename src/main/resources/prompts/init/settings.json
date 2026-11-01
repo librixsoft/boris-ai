@@ -9,6 +9,12 @@
   "env": {
     "OLLAMA_API_KEY": "ollama"
   },
+  "drafter": {
+    "enabled": true,
+    "name": "qwen2.5:3b",
+    "temperature": 0.2,
+    "maxTokens": 16384
+  },
   "maxHistorySize": 20,
   "enableHistory": true,
   "enforceSequentialExecution": true,
