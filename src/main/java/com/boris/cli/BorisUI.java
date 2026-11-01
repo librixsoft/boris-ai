@@ -143,7 +143,11 @@ public class BorisUI {
 
         // Create HeaderBar and SettingsManager upfront so we can wire them to ChatController
         String modelName = this.settings != null && this.settings.getModel() != null ? this.settings.getModel().getName() : null;
-        HeaderBar headerBar = new HeaderBar(modelName);
+        String drafterModelName = this.settings != null
+                && this.settings.getDrafter() != null
+                ? this.settings.getDrafter().getName() : null;
+        Boolean drafterEnabledFlag = this.settings != null && this.settings.getDrafter() != null ? this.settings.getDrafter().getEnabled() : null;
+        HeaderBar headerBar = new HeaderBar(modelName, drafterModelName, drafterEnabledFlag);
         SettingsManager settingsManager = new SettingsManager();
 
         ChatController controller = new ChatController(

@@ -1,15 +1,19 @@
 package com.boris.cli.ui;
 
 import com.boris.chat.ChatService;
+import com.boris.drafter.DrafterService;
 import com.boris.exceptions.ChatException;
 import com.boris.llm.ollama.OllamaModelService;
 import com.boris.queue.ChatMessage;
 import com.boris.queue.MessageQueueService;
 import com.boris.settings.SettingsManager;
+import com.boris.settings.Settings;
+import com.boris.settings.DrafterConfig;
 import com.boris.skill.Skill;
 import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
 import com.boris.tooling.ToolResultNotifier;
+import com.boris.tooling.integration.ToolCallingConfig;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -307,6 +311,10 @@ public class ChatController implements InputArea.InputListener {
             handleModelCommand(trimmed);
             return;
         }
+        if (lower.equals("/drafter") || lower.startsWith("/drafter ")) {
+            handleDrafterCommand(trimmed);
+            return;
+        }
         if (isValidCommand(trimmed)) {
             String skillCmd = trimmed.substring(1);
             String skillName = skillCmd.split("\\s+")[0];
@@ -438,7 +446,7 @@ public class ChatController implements InputArea.InputListener {
         return cmd.equals("exit") || cmd.equals("quit") || cmd.equals("clear") ||
                cmd.equals("thinking") || cmd.equals("think") || cmd.equals("reasoning") || cmd.equals("chain") ||
                cmd.equals("skills") || cmd.equals("effort") || cmd.equals("esfuerzo") ||
-               cmd.equals("model") || cmd.equals("models");
+               cmd.equals("model") || cmd.equals("models") || cmd.equals("drafter");
     }
 
     /**
@@ -462,9 +470,7 @@ public class ChatController implements InputArea.InputListener {
         }
 
         // 3. Update HeaderBar visually
-        if (headerBar != null) {
-            headerBar.updateModel(selectedModel);
-        }
+        refreshHeaderBar();
 
         // 4. Persist to ~/.boris/settings.json
         try {
@@ -530,6 +536,116 @@ public class ChatController implements InputArea.InputListener {
             }
         }
         transcript.rerender();
+    }
+
+    private void handleDrafterCommand(String text) {
+        String arg = text.trim().substring("/drafter".length()).trim();
+        if (arg.isEmpty()) {
+            showDrafterStatus();
+            return;
+        }
+        String lowerArg = arg.toLowerCase();
+        if (lowerArg.equals("on") || lowerArg.equals("activar")) {
+            setDrafterEnabled(true);
+            return;
+        }
+        if (lowerArg.equals("off") || lowerArg.equals("desactivar")) {
+            setDrafterEnabled(false);
+            return;
+        }
+        setDrafterModel(arg);
+    }
+
+    private void showDrafterStatus() {
+        transcript.appendLine("Modelos activos:");
+        transcript.appendLine("  main    : " + (chatService.getModelName() != null ? chatService.getModelName() : "desconocido"));
+        DrafterConfig drafter = chatService.getSettings() != null ? chatService.getSettings().getDrafter() : null;
+        if (drafter != null && drafter.getName() != null) {
+            boolean enabled = Boolean.TRUE.equals(drafter.getEnabled());
+            transcript.appendLine("  drafter : " + (enabled ? drafter.getName() : drafter.getName() + " (desactivado)"));
+        } else {
+            transcript.appendLine("  drafter : no configurado, usá /drafter <nombre>");
+        }
+        transcript.rerender();
+    }
+
+    private void setDrafterEnabled(boolean on) {
+        Settings settings = chatService.getSettings();
+        DrafterConfig drafter = settings != null ? settings.getDrafter() : null;
+        if (drafter == null) {
+            transcript.appendLine("[x] No hay bloque drafter en settings.json. Usá /drafter <nombre> para crearlo.");
+            transcript.rerender();
+            return;
+        }
+        drafter.setEnabled(on);
+        try {
+            rebuildDrafterRegistry(settings);
+        } catch (Exception e) {
+            transcript.appendLine("[x] Error al reconstruir el registro de tools: " + e.getMessage());
+            transcript.rerender();
+            return;
+        }
+        try {
+            settingsManager.updateDrafterEnabled(on);
+        } catch (Exception e) {
+            transcript.appendLine("[!] Advertencia: No se pudo guardar en settings.json: " + e.getMessage());
+        }
+        refreshHeaderBar();
+        transcript.appendLine("[✓] Drafter " + (on ? "activado" : "desactivado"));
+        transcript.rerender();
+    }
+
+    private void setDrafterModel(String requestedModel) {
+        Settings settings = chatService.getSettings();
+        if (settings == null || settings.getModel() == null) {
+            transcript.appendLine("[x] Settings no disponibles: se requiere el bloque model con baseUrl.");
+            transcript.rerender();
+            return;
+        }
+        String baseUrl = settings.getModel().getBaseUrl();
+
+        DrafterConfig drafter = settings.getDrafter();
+        if (drafter == null) {
+            settings.setDrafter(new DrafterConfig(true, requestedModel, 0.2, 16384));
+        } else {
+            drafter.setName(requestedModel);
+        }
+
+        try {
+            rebuildDrafterRegistry(settings);
+        } catch (Exception e) {
+            transcript.appendLine("[x] Error al reconstruir el registro de tools: " + e.getMessage());
+            transcript.rerender();
+            return;
+        }
+        try {
+            settingsManager.updateDrafterModelName(requestedModel);
+        } catch (Exception e) {
+            transcript.appendLine("[!] Advertencia: No se pudo guardar en settings.json: " + e.getMessage());
+        }
+        if (!DrafterService.isModelAvailable(baseUrl, requestedModel)) {
+            transcript.appendLine("[!] El modelo " + requestedModel + " no está disponible en " + baseUrl
+                    + ". Boris seguirá el flujo normal sin drafter hasta que esté.");
+        }
+        refreshHeaderBar();
+        transcript.appendLine("[✓] Modelo drafter cambiado a: " + requestedModel);
+        transcript.rerender();
+    }
+
+    private void rebuildDrafterRegistry(Settings settings) {
+        chatService.setToolRegistry(ToolCallingConfig.buildToolRegistry(settings));
+    }
+
+    private void refreshHeaderBar() {
+        if (headerBar == null) {
+            return;
+        }
+        Settings settings = chatService.getSettings();
+        String mainModel = settings != null && settings.getModel() != null ? settings.getModel().getName() : chatService.getModelName();
+        DrafterConfig drafter = settings != null ? settings.getDrafter() : null;
+        String drafterName = drafter != null ? drafter.getName() : null;
+        Boolean drafterEnabled = drafter != null ? drafter.getEnabled() : null;
+        headerBar.updateModels(mainModel, drafterName, drafterEnabled);
     }
 
     private void listSkills() {

@@ -20,6 +20,7 @@ import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.llm.think.ThinkContextHolder;
 import com.boris.tooling.ToolResultNotifier;
 import com.boris.tooling.DiffLineNotifier;
+import com.boris.tooling.ToolProgressNotifier;
 import com.boris.tooling.WriteArgsPreviewStreamer;
 import com.boris.tooling.engine.ToolRegistry;
 import com.boris.tooling.integration.ToolCallingConfig;
@@ -285,15 +286,15 @@ public class ChatService {
             throw new IllegalStateException("saveBlockViaWriteFileTool requiere la tool write_file registrada");
         }
         try {
-            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            String json = mapper.writeValueAsString(java.util.Map.of(
-                    "path", blockPath != null ? blockPath : "",
-                    "content", blockContent != null ? blockContent : ""));
-
             WriteArgsPreviewStreamer.setLivePreview(new WriteArgsPreviewStreamer.PreviewInfo(blockPath, shownLines));
             String result;
             try {
-                result = registry.execute("write_file", json);
+                ToolProgressNotifier.notify("write_file", "Escribiendo: " + blockPath);
+                result = com.boris.tooling.tool.WriteTool.execute(java.util.Map.of(
+                        "path", blockPath != null ? blockPath : "",
+                        "content", blockContent != null ? blockContent : ""));
+                ToolCallingConfig.notifyToolTokens("write_file",
+                        (blockPath != null ? blockPath : "") + "\n" + (blockContent != null ? blockContent : ""), result);
             } finally {
                 WriteArgsPreviewStreamer.clearLivePreview();
             }
