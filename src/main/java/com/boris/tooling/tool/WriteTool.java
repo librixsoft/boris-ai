@@ -48,8 +48,7 @@ public class WriteTool {
         }
 
         // Garantiza que existan las carpetas padre antes de escribir (el modelo que escribe
-        // el archivo, ya sea el principal o el drafter pequeño, no debe depender de que
-        // el destino ya exista).
+        // el archivo no debe depender de que el destino ya exista).
         try {
             var parent = java.nio.file.Paths.get(pathStr).getParent();
             if (parent != null) {

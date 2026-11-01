@@ -7,7 +7,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Settings {
     private ModelConfig model;
-    private DrafterConfig drafter;
     private Map<String, String> env;
     private String systemPrompt;
     private Integer maxHistorySize;
@@ -34,8 +33,6 @@ public class Settings {
 
     public ModelConfig getModel() { return model; }
     public void setModel(ModelConfig model) { this.model = model; }
-    public DrafterConfig getDrafter() { return drafter; }
-    public void setDrafter(DrafterConfig drafter) { this.drafter = drafter; }
     public Map<String, String> getEnv() { return env; }
     public void setEnv(Map<String, String> env) { this.env = env; }
 

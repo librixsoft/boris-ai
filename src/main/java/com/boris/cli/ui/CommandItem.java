@@ -56,7 +56,6 @@ public class CommandItem {
         list.add(new CommandItem("/effort", "Nivel de esfuerzo (high/medium/low/off)", List.of("/esfuerzo")));
         list.add(new CommandItem("/skills", "Listar skills disponibles", Collections.emptyList()));
         list.add(new CommandItem("/model", "Seleccionar modelo principal de Ollama", List.of("/models")));
-        list.add(new CommandItem("/drafter", "Seleccionar modelo drafter (escritor rapido)", List.of("/drafter on", "/drafter off")));
         list.add(new CommandItem("/chain", "Mostrar la ultima cadena de razonamiento", Collections.emptyList()));
         return list;
     }

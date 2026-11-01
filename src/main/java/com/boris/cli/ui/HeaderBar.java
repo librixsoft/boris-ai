@@ -7,12 +7,7 @@ public class HeaderBar extends Label {
     private static final String VERSION = "2.2.0";
 
     public HeaderBar(String modelName) {
-        super(render(modelName, null, null));
-        setForegroundColor(UiTheme.ACCENT);
-    }
-
-    public HeaderBar(String mainModel, String drafterModel, Boolean drafterEnabled) {
-        super(render(mainModel, drafterModel, drafterEnabled));
+        super(render(modelName));
         setForegroundColor(UiTheme.ACCENT);
     }
 
@@ -32,28 +27,16 @@ public class HeaderBar extends Label {
         return clean;
     }
 
-    private static String render(String mainModel, String drafterModel, Boolean drafterEnabled) {
-        String main = compactName(mainModel);
+    private static String render(String modelName) {
+        String main = compactName(modelName);
         if (main == null) {
             main = "unknown";
         }
-        String drafter;
-        if (drafterEnabled != null && drafterEnabled) {
-            String compactDrafter = compactName(drafterModel);
-            drafter = compactDrafter != null ? compactDrafter : "sin configurar";
-        } else {
-            drafter = "off";
-        }
-        return " boris  ·  " + main + "  ·  drafter: " + drafter + "  [v" + VERSION + "]";
+        return " boris  ·  " + main + "  [v" + VERSION + "]";
     }
 
     public void updateModel(String modelName) {
-        setText(render(modelName, null, null));
-        invalidate();
-    }
-
-    public void updateModels(String mainModel, String drafterModel, Boolean drafterEnabled) {
-        setText(render(mainModel, drafterModel, drafterEnabled));
+        setText(render(modelName));
         invalidate();
     }
 }

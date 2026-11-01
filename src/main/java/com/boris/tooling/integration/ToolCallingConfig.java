@@ -21,7 +21,6 @@ import com.boris.exceptions.BorisException;
 import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
-import com.boris.drafter.DrafterService;
 import com.boris.tooling.tool.BashTool;
 import com.boris.tooling.tool.CreateDirectoryTool;
 import com.boris.tooling.tool.DeleteDirectoryTool;
@@ -173,9 +172,6 @@ public class ToolCallingConfig {
     public static ToolRegistry buildToolRegistry(Settings settings) {
         ToolCallingConfig config = createDefaultConfig(settings);
         ToolRegistry registry = ToolRegistry.from(config);
-        if (DrafterService.isDrafterAvailable(settings)) {
-            registry.register(new DrafterService(settings));
-        }
         return registry;
     }
 
