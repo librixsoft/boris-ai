@@ -52,7 +52,7 @@ class ToolBlockProtocolTest {
 
     @Test
     void doesNotConfuseOtherFencedBlocks() {
-        String content = "```java:src/App.java\npublic class App {}\n```\n```edit:src/App.java\n<<<<<<< SEARCH\n```\n";
+        String content = "```java:src/App.java\npublic class App {}\n```\n```json\n{\"foo\": \"bar\"}\n```\n";
 
         assertTrue(ToolBlockProtocol.parse(content).isEmpty());
     }

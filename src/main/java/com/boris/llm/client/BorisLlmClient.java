@@ -175,7 +175,7 @@ public class BorisLlmClient {
     private static final java.util.regex.Pattern ORPHAN_THINK_TAGS =
             java.util.regex.Pattern.compile("(?i)</?(?:think|thinking|thought|reasoning)>");
     private static final java.util.regex.Pattern STREAMING_EDIT_PATTERN =
-            java.util.regex.Pattern.compile("```(?:edit:|\\w+:[^\\n]+)");
+            java.util.regex.Pattern.compile("```\\w+:[^\\n]+");
 
     private boolean isModificationResult(String toolName, String toolResult) {
         if (toolResult == null || toolResult.isBlank()) {
