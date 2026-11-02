@@ -180,6 +180,7 @@ public class Transcript {
     private String buildRawContent() {
         StringBuilder sb = new StringBuilder();
         boolean showDetails = showToolDetails.get();
+        boolean skippingToolBlock = false;
         for (Entry e : entries) {
             if (e.type() == EntryType.TOOL_DETAIL && !showDetails) {
                 continue;
@@ -199,7 +200,26 @@ public class Transcript {
                     sb.append("[tool]").append(lines[i]);
                 }
             } else {
-                sb.append(e.content());
+                // Filtrar bloques ```tool: residuales en entradas NORMAL
+                // (respuestas no-streamed o blocks que escaparon al streaming)
+                String[] lines = e.content().split("\n", -1);
+                for (String line : lines) {
+                    String trimmedLine = line.trim();
+                    if (trimmedLine.startsWith("```tool:")) {
+                        skippingToolBlock = true;
+                        continue;
+                    }
+                    if (skippingToolBlock) {
+                        if (trimmedLine.equals("```")) {
+                            skippingToolBlock = false;
+                        }
+                        continue;
+                    }
+                    if (sb.length() > 0 && !sb.toString().endsWith("\n")) {
+                        sb.append("\n");
+                    }
+                    sb.append(line);
+                }
             }
         }
         return sb.toString();

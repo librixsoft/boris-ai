@@ -50,6 +50,15 @@ public class StreamingFileWriter {
     private int lineNumber = 0;
     private boolean inCodeBlock = false;
     private boolean inThinkingBlock = false;
+
+    // Patrón para TOOL: ```tool:nombre_herramienta
+    private static final Pattern TOOL_BLOCK_START = Pattern.compile("^```tool:([a-zA-Z0-9_-]+).*$");
+
+    // Estado para bloques de herramienta
+    private boolean inToolBlock = false;
+    private String currentToolName = null;
+    private final StringBuilder toolArgsBuffer = new StringBuilder();
+
     private FileSaver saveFunction;
 
     public interface FileSaver {
@@ -144,6 +153,31 @@ public class StreamingFileWriter {
         if (trimmed.matches("(?i)^`*</(?:think|thinking|thought|reasoning)>`*$") || THINK_TAG_PATTERN.matcher(trimmed).matches()) {
             inThinkingBlock = false;
             return null;
+        }
+
+        // ¿Inicio de bloque TOOL? (interceptar antes de CREATE/EDIT)
+        Matcher toolMatcher = TOOL_BLOCK_START.matcher(trimmed);
+        if (toolMatcher.matches()) {
+            if (inCodeBlock) {
+                endBlock();
+            }
+            inToolBlock = true;
+            currentToolName = toolMatcher.group(1);
+            toolArgsBuffer.setLength(0);
+            return null; // Silenciar: no enviar ```tool:... al chat
+        }
+
+        // Si estamos dentro de un bloque TOOL, acumular sin emitir
+        if (inToolBlock) {
+            if (BLOCK_END.matcher(trimmed).matches()) {
+                inToolBlock = false;
+                emitToolSummaryLine(currentToolName, toolArgsBuffer.toString().trim());
+                toolArgsBuffer.setLength(0);
+                currentToolName = null;
+                return null; // Silenciar el cierre ```
+            }
+            toolArgsBuffer.append(line).append("\n");
+            return null; // Silenciar el JSON de argumentos
         }
 
         // ¿Inicio de bloque CREATE?
@@ -258,6 +292,9 @@ public class StreamingFileWriter {
         contentLines.clear();
         lineNumber = 0;
         inCodeBlock = false;
+        inToolBlock = false;
+        currentToolName = null;
+        toolArgsBuffer.setLength(0);
     }
 
     private void resetFileState() {
@@ -266,18 +303,31 @@ public class StreamingFileWriter {
         contentLines.clear();
         lineNumber = 0;
         inCodeBlock = false;
+        inToolBlock = false;
+        currentToolName = null;
+        toolArgsBuffer.setLength(0);
     }
 
     public void reset() {
         buffer.setLength(0);
         resetFileState();
         inThinkingBlock = false; // Solo se resetea en reset completo (inicio de nueva conversación)
+        inToolBlock = false;
+        currentToolName = null;
+        toolArgsBuffer.setLength(0);
     }
 
     public void finish() {
         if (buffer.length() > 0) {
             processLine(buffer.toString());
             buffer.setLength(0);
+        }
+
+        if (inToolBlock) {
+            inToolBlock = false;
+            emitToolSummaryLine(currentToolName, toolArgsBuffer.toString().trim());
+            toolArgsBuffer.setLength(0);
+            currentToolName = null;
         }
 
         if (inCodeBlock) {
@@ -323,5 +373,121 @@ public class StreamingFileWriter {
         Files.createDirectories(parentOrCurrent(filePath));
         Files.writeString(filePath, content);
         DiffLineNotifier.notify(String.format("─── +%d ✓ %s guardado ───", streamedLines, pathStr));
+    }
+
+    /**
+     * Emite una línea limpia con emoji y detalle del tool (por ejemplo:
+     * "📂 batch_read_files /Users/.../index.html") mediante DiffLineNotifier.
+     * Va por el mismo camino que las líneas de código, por lo que se muestra
+     * siempre al usuario (tipo NORMAL del transcript).
+     */
+    private void emitToolSummaryLine(String toolName, String jsonArgs) {
+        if (toolName == null || toolName.isBlank()) {
+            return;
+        }
+
+        String emoji = switch (toolName) {
+            case "batch_read_files" -> "📂";
+            case "list_files" -> "📁";
+            case "write_file", "bulk_edit" -> "📝";
+            case "apply_edit" -> "✏️";
+            case "revert_edit" -> "↩️";
+            case "delete_file", "delete_directory" -> "🗑️";
+            case "create_directory" -> "📁";
+            case "git" -> "🌿";
+            case "maven_build" -> "🔨";
+            case "web_search" -> "🔍";
+            case "web_fetch" -> "🌐";
+            case "bash" -> "💻";
+            case "get_system_info" -> "ℹ️";
+            case "generate_pdf" -> "📄";
+            case "create_office_document" -> "📊";
+            case "plan_task", "get_plan", "complete_microtask", "list_active_plans" -> "📋";
+            case "streaming_line_start", "streaming_line_write", "streaming_line_end" -> "✍️";
+            default -> "🔧";
+        };
+
+        String detail = extractToolDetail(toolName, jsonArgs);
+        String line = detail.isEmpty()
+                ? emoji + " " + toolName
+                : emoji + " " + toolName + " " + detail;
+
+        DiffLineNotifier.notify(line);
+    }
+
+    private String extractToolDetail(String toolName, String json) {
+        if (json == null || json.isBlank()) {
+            return "";
+        }
+        try {
+            return switch (toolName) {
+                case "batch_read_files" -> extractJsonStringArray(json, "paths");
+                case "list_files" -> extractJsonString(json, "path");
+                case "write_file", "bulk_edit" -> extractJsonString(json, "path");
+                case "apply_edit", "revert_edit" -> extractJsonString(json, "path");
+                case "delete_file", "delete_directory" -> extractJsonString(json, "path");
+                case "create_directory" -> extractJsonString(json, "path");
+                case "bash" -> extractJsonString(json, "command");
+                case "web_search" -> extractJsonString(json, "query");
+                case "web_fetch" -> extractJsonString(json, "urls");
+                case "git" -> extractJsonString(json, "command");
+                case "generate_pdf" -> extractJsonString(json, "outputPath");
+                case "create_office_document" -> extractJsonString(json, "documentType");
+                default -> "";
+            };
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private String extractJsonString(String json, String key) {
+        String search = "\"" + key + "\"";
+        int keyIdx = json.indexOf(search);
+        if (keyIdx == -1) {
+            return "";
+        }
+        int colon = json.indexOf(':', keyIdx + search.length());
+        if (colon == -1) {
+            return "";
+        }
+        // Buscar el primer valor después del colon
+        int afterColon = colon + 1;
+        while (afterColon < json.length() && json.charAt(afterColon) == ' ') {
+            afterColon++;
+        }
+        if (afterColon >= json.length()) {
+            return "";
+        }
+        if (json.charAt(afterColon) == '"') {
+            int endQuote = json.indexOf('"', afterColon + 1);
+            if (endQuote == -1) {
+                return "";
+            }
+            return json.substring(afterColon + 1, endQuote);
+        }
+        // Valor no-string (array, number, etc.)
+        int end = json.indexOf(',', afterColon);
+        if (end == -1) {
+            end = json.indexOf('}', afterColon);
+        }
+        if (end == -1) {
+            end = json.length();
+        }
+        return json.substring(afterColon, end).trim();
+    }
+
+    private String extractJsonStringArray(String json, String key) {
+        String search = "\"" + key + "\"";
+        int keyIdx = json.indexOf(search);
+        if (keyIdx == -1) {
+            return "";
+        }
+        int bracketStart = json.indexOf('[', keyIdx);
+        int bracketEnd = json.indexOf(']', bracketStart);
+        if (bracketStart == -1 || bracketEnd == -1) {
+            return "";
+        }
+        String inner = json.substring(bracketStart + 1, bracketEnd).trim();
+        return inner.replace("\"", "").replace(",", " ").replaceAll("\\s+", " ").trim();
     }
 }

@@ -335,6 +335,67 @@ class StreamingFileWriterTest {
     }
 
     @Test
+    void testFiltersToolBlockAndEmitsEmoji() {
+        String input = "Texto antes\n"
+                       + "```tool:batch_read_files\n"
+                       + "{\"paths\": [\"test.txt\"]}\n"
+                       + "```\n"
+                       + "Texto después\n";
+
+        String result = writer.processChunk(input);
+        writer.finish();
+
+        assertTrue(result.contains("Texto antes"), "Debería contener texto antes del tool block");
+        assertTrue(result.contains("Texto después"), "Debería contener texto después del tool block");
+        assertFalse(result.contains("```tool:"), "No debería contener bloque tool crudo");
+        assertFalse(result.contains("{\"paths\""), "No debería contener JSON crudo");
+        assertTrue(notifications.stream().anyMatch(n -> n.contains("📂") && n.contains("batch_read_files")),
+                "Debería emitir notificación con emoji 📂");
+    }
+
+    @Test
+    void testFiltersMultipleToolBlocks() {
+        String input = "```tool:get_system_info\n{}\n```\n"
+                       + "```tool:list_files\n{\"path\": \".\"}\n```\n";
+
+        String result = writer.processChunk(input);
+        writer.finish();
+
+        assertFalse(result.contains("```tool:"), "No debería contener bloques tool crudos");
+        assertTrue(notifications.stream().anyMatch(n -> n.contains("ℹ️") && n.contains("get_system_info")),
+                "Debería emitir emoji para get_system_info");
+        assertTrue(notifications.stream().anyMatch(n -> n.contains("📁") && n.contains("list_files")),
+                "Debería emitir emoji para list_files");
+    }
+
+    @Test
+    void testToolBlockWithoutClosingIsHandledInFinish() {
+        writer.processChunk("```tool:web_search\n");
+        writer.processChunk("{\"query\": \"spring boot\"}\n");
+        // No cierre ``` — se maneja en finish()
+        writer.finish();
+
+        assertTrue(notifications.stream().anyMatch(n -> n.contains("🔍") && n.contains("web_search")),
+                "Debería emitir emoji para tool sin cerrar al finish()");
+    }
+
+    @Test
+    void testToolBlockDoesNotInterfereWithCreateBlock() throws IOException {
+        Path targetFile = tempDir.resolve("tool-mix/App.java");
+
+        String input = "```tool:get_system_info\n{}\n```\n"
+                       + "```java:" + targetFile + "\n"
+                       + "public class App {}\n"
+                       + "```\n";
+
+        writer.processChunk(input);
+        writer.finish();
+
+        assertTrue(Files.exists(targetFile), "El archivo create debería existir");
+        assertFalse(writer.processChunk("").contains("```tool:"), "No debería filtrar tool blocks al output");
+    }
+
+    @Test
     void testFiltersThinkingWithBackticks() {
         String input = "`<thinking>pensamiento</thinking>`\nTexto normal";
 
