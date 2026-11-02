@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.boris.cli.ui.BorisTerminalFactory;
+
 import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.gui2.Border;
 import com.googlecode.lanterna.gui2.BorderLayout;
@@ -18,7 +20,6 @@ import com.googlecode.lanterna.gui2.Window;
 import com.googlecode.lanterna.gui2.WindowListenerAdapter;
 import com.googlecode.lanterna.screen.Screen;
 import com.googlecode.lanterna.screen.TerminalScreen;
-import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 import com.googlecode.lanterna.terminal.MouseCaptureMode;
 import com.googlecode.lanterna.terminal.Terminal;
 
@@ -84,10 +85,7 @@ public class BorisUI {
     }
 
     public void start() throws Exception {
-        DefaultTerminalFactory factory = new DefaultTerminalFactory();
-        factory.setMouseCaptureMode(MouseCaptureMode.CLICK_RELEASE_DRAG_MOVE);
-
-        Terminal terminal = factory.createTerminal();
+        Terminal terminal = BorisTerminalFactory.create();
         if (terminal instanceof com.googlecode.lanterna.terminal.ExtendedTerminal) {
             ((com.googlecode.lanterna.terminal.ExtendedTerminal) terminal)
                     .setMouseCaptureMode(MouseCaptureMode.CLICK_RELEASE_DRAG_MOVE);
