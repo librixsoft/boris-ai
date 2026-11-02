@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.boris.cli.ui.RenderUtils.SCROLLBAR_WIDTH;
-import static com.boris.cli.ui.RenderUtils.padOrTruncate;
+import static com.boris.cli.ui.RenderUtils.padOrTruncateByDisplayWidth;
 
 public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
 
@@ -91,7 +91,7 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
                     isHeader = false;
                     graphics.setBackgroundColor(UiTheme.BG);
                     graphics.setForegroundColor((inThinking && thinkingEnabled) ? UiTheme.THINKING_MUTED : UiTheme.MUTED);
-                    graphics.putString(0, i, padOrTruncate(line, contentWidth));
+                    graphics.putString(0, i, padOrTruncateByDisplayWidth(line, contentWidth));
                     inThinking = MarkdownLineRenderer.updateThinkingState(line, inThinking);
                     continue;
                 }
@@ -123,7 +123,7 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
         }
 
         for (int i = component.getLineCount() - component.getScrollOffset(); i < visibleRows; i++) {
-            graphics.putString(0, i, padOrTruncate("", contentWidth));
+            graphics.putString(0, i, padOrTruncateByDisplayWidth("", contentWidth));
         }
 
         drawSelectionHighlight(graphics, component, visibleRows, contentWidth);
@@ -207,14 +207,14 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
         String content = line.substring("[tool]".length());
         graphics.setBackgroundColor(UiTheme.BG);
         graphics.setForegroundColor(UiTheme.TOOL_DETAIL);
-        graphics.putString(0, row, padOrTruncate(content, contentWidth));
+        graphics.putString(0, row, padOrTruncateByDisplayWidth(content, contentWidth));
     }
 
     private void renderStatsLine(TextGUIGraphics graphics, String line, int row, int contentWidth) {
         String content = line.substring("[stats]".length());
         graphics.setBackgroundColor(UiTheme.BG);
         graphics.setForegroundColor(UiTheme.LINE_NUMBER);
-        graphics.putString(0, row, padOrTruncate(content, contentWidth));
+        graphics.putString(0, row, padOrTruncateByDisplayWidth(content, contentWidth));
     }
 
     private void drawScrollbar(TextGUIGraphics graphics, int totalWidth, int visibleRows, int maxOffset, int currentOffset) {

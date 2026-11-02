@@ -5,7 +5,7 @@ import com.googlecode.lanterna.gui2.TextGUIGraphics;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.boris.cli.ui.RenderUtils.padOrTruncate;
+import static com.boris.cli.ui.RenderUtils.padOrTruncateByDisplayWidth;
 
 public class TableRowRenderer {
 
@@ -53,7 +53,7 @@ public class TableRowRenderer {
             String cell = parts[i].trim();
             int cellWidth = columnWidths.size() > i - 1 ? columnWidths.get(i - 1) : 15;
 
-            String paddedCell = padOrTruncate(cell, cellWidth - 1);
+            String paddedCell = RenderUtils.padOrTruncateByDisplayWidth(cell, cellWidth - 1);
             graphics.putString(x, row, paddedCell);
             x += cellWidth;
 
@@ -62,7 +62,7 @@ public class TableRowRenderer {
         }
 
         if (x < contentWidth) {
-            graphics.putString(x, row, padOrTruncate("", contentWidth - x));
+            graphics.putString(x, row, RenderUtils.padOrTruncateByDisplayWidth("", contentWidth - x));
         }
     }
 }
