@@ -223,7 +223,7 @@ public class BorisUI {
 
         ((SeparateTextGUIThread) gui.getGUIThread()).start();
 
-        transcript.appendLine("boris listo. Escribe tu mensaje.");
+        transcript.appendLine("boris listo 🤖. Escribe tu mensaje.");
         statusBar.showTokenStatus(tokenCounter);
 
         try {
