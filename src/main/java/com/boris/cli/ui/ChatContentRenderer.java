@@ -1,9 +1,9 @@
 package com.boris.cli.ui;
 
 import com.googlecode.lanterna.TerminalSize;
+import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.ComponentRenderer;
 import com.googlecode.lanterna.gui2.TextGUIGraphics;
-import com.googlecode.lanterna.TextColor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,13 +30,19 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
             return 0;
         }
         int currentDisplayCol = 0;
-        for (int i = 0; i < line.length(); i++) {
+        int i = 0;
+        while (i < line.length()) {
             if (currentDisplayCol >= displayCol) {
                 return i;
             }
-            char c = line.charAt(i);
-            int charWidth = com.googlecode.lanterna.TerminalTextUtils.isCharDoubleWidth(c) ? 2 : 1;
+            int cp = line.codePointAt(i);
+            int charWidth = RenderUtils.getDisplayWidth(cp);
+            if (charWidth == 0) {
+                i += (cp > 0xFFFF ? 2 : 1);
+                continue;
+            }
             currentDisplayCol += charWidth;
+            i += (cp > 0xFFFF ? 2 : 1);
         }
         return line.length();
     }
@@ -91,7 +97,7 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
                     isHeader = false;
                     graphics.setBackgroundColor(UiTheme.BG);
                     graphics.setForegroundColor((inThinking && thinkingEnabled) ? UiTheme.THINKING_MUTED : UiTheme.MUTED);
-                    graphics.putString(0, i, padOrTruncateByDisplayWidth(line, contentWidth));
+                    CodepointAwareTextRenderer.render(graphics, line, i, 0, contentWidth);
                     inThinking = MarkdownLineRenderer.updateThinkingState(line, inThinking);
                     continue;
                 }
@@ -123,7 +129,7 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
         }
 
         for (int i = component.getLineCount() - component.getScrollOffset(); i < visibleRows; i++) {
-            graphics.putString(0, i, padOrTruncateByDisplayWidth("", contentWidth));
+            CodepointAwareTextRenderer.render(graphics, padOrTruncateByDisplayWidth("", contentWidth), i, 0, contentWidth);
         }
 
         drawSelectionHighlight(graphics, component, visibleRows, contentWidth);
@@ -207,14 +213,14 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
         String content = line.substring("[tool]".length());
         graphics.setBackgroundColor(UiTheme.BG);
         graphics.setForegroundColor(UiTheme.TOOL_DETAIL);
-        graphics.putString(0, row, padOrTruncateByDisplayWidth(content, contentWidth));
+        CodepointAwareTextRenderer.render(graphics, content, row, 0, contentWidth);
     }
 
     private void renderStatsLine(TextGUIGraphics graphics, String line, int row, int contentWidth) {
         String content = line.substring("[stats]".length());
         graphics.setBackgroundColor(UiTheme.BG);
         graphics.setForegroundColor(UiTheme.LINE_NUMBER);
-        graphics.putString(0, row, padOrTruncateByDisplayWidth(content, contentWidth));
+        CodepointAwareTextRenderer.render(graphics, content, row, 0, contentWidth);
     }
 
     private void drawScrollbar(TextGUIGraphics graphics, int totalWidth, int visibleRows, int maxOffset, int currentOffset) {

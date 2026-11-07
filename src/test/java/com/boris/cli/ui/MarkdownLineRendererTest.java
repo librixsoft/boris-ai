@@ -1,6 +1,7 @@
 package com.boris.cli.ui;
 
 import com.googlecode.lanterna.TextColor;
+import com.googlecode.lanterna.TextCharacter;
 import com.googlecode.lanterna.gui2.TextGUIGraphics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -135,29 +136,41 @@ class MarkdownLineRendererTest {
     @Test
     void testRenderSingleSegmentThinkingLineStripsTags() {
         renderer.render(graphics, "<thinking> I am Boris</thinking>", 0, 40, false, true);
-        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(graphics).putString(eq(0), eq(0), captor.capture());
-        assertFalse(captor.getValue().contains("<thinking>"));
-        assertFalse(captor.getValue().contains("</thinking>"));
-        assertTrue(captor.getValue().contains("I am Boris"));
+        ArgumentCaptor<TextCharacter> captor = ArgumentCaptor.forClass(TextCharacter.class);
+        verify(graphics, atLeastOnce()).setCharacter(anyInt(), anyInt(), captor.capture());
+        StringBuilder rendered = new StringBuilder();
+        for (TextCharacter tc : captor.getAllValues()) {
+            rendered.append(tc.getCharacterString());
+        }
+        assertFalse(rendered.toString().contains("<thinking>"));
+        assertFalse(rendered.toString().contains("</thinking>"));
+        assertTrue(rendered.toString().contains("I am Boris"));
     }
 
     @Test
     void testRenderOpeningTagLineStripsTag() {
         renderer.render(graphics, "<thinking>Start of thinking", 0, 40, false, true);
-        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(graphics).putString(eq(0), eq(0), captor.capture());
-        assertFalse(captor.getValue().contains("<thinking>"));
-        assertTrue(captor.getValue().contains("Start of thinking"));
+        ArgumentCaptor<TextCharacter> captor = ArgumentCaptor.forClass(TextCharacter.class);
+        verify(graphics, atLeastOnce()).setCharacter(anyInt(), anyInt(), captor.capture());
+        StringBuilder rendered = new StringBuilder();
+        for (TextCharacter tc : captor.getAllValues()) {
+            rendered.append(tc.getCharacterString());
+        }
+        assertFalse(rendered.toString().contains("<thinking>"));
+        assertTrue(rendered.toString().contains("Start of thinking"));
     }
 
     @Test
     void testRenderClosingTagLineStripsTag() {
         renderer.render(graphics, "End of thinking</thinking>", 0, 40, true, true);
-        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(graphics).putString(eq(0), eq(0), captor.capture());
-        assertFalse(captor.getValue().contains("</thinking>"));
-        assertTrue(captor.getValue().contains("End of thinking"));
+        ArgumentCaptor<TextCharacter> captor = ArgumentCaptor.forClass(TextCharacter.class);
+        verify(graphics, atLeastOnce()).setCharacter(anyInt(), anyInt(), captor.capture());
+        StringBuilder rendered = new StringBuilder();
+        for (TextCharacter tc : captor.getAllValues()) {
+            rendered.append(tc.getCharacterString());
+        }
+        assertFalse(rendered.toString().contains("</thinking>"));
+        assertTrue(rendered.toString().contains("End of thinking"));
     }
 
     @Test
