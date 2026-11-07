@@ -222,7 +222,7 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
     private void renderStatsLine(TextGUIGraphics graphics, String line, int row, int contentWidth) {
         String content = line.substring("[stats]".length());
         graphics.setBackgroundColor(UiTheme.BG);
-        graphics.setForegroundColor(UiTheme.LINE_NUMBER);
+        graphics.setForegroundColor(UiTheme.STATS);
         CodepointAwareTextRenderer.render(graphics, content, row, 0, contentWidth);
     }
 

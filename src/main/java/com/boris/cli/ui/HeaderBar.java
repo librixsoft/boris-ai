@@ -1,10 +1,9 @@
 package com.boris.cli.ui;
 
+import com.boris.cli.BorisVersion;
 import com.googlecode.lanterna.gui2.Label;
 
 public class HeaderBar extends Label {
-
-    private static final String VERSION = "2.2.0";
 
     public HeaderBar(String modelName) {
         super(render(modelName));
@@ -32,7 +31,7 @@ public class HeaderBar extends Label {
         if (main == null) {
             main = "unknown";
         }
-        return " boris  ·  " + main + "  [v" + VERSION + "]";
+        return " boris  ·  " + main + "  [v" + BorisVersion.current() + "]";
     }
 
     public void updateModel(String modelName) {

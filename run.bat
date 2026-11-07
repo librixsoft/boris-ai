@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 set "DIR=%~dp0"
-set "JAR=%DIR%target\boris-cli-1.0.0.jar"
+set "JAR=%DIR%target\boris-cli-2.4.0.jar"
 
 set "SKIP_TESTS=true"
 set "ARGS="

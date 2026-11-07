@@ -30,6 +30,7 @@ public final class UiTheme {
     public static final TextColor DIFF_REMOVE_BG = new TextColor.RGB(50, 20, 20);
     public static final TextColor DIFF_ERROR_BG = new TextColor.RGB(60, 40, 10);
     public static final TextColor LINE_NUMBER = new TextColor.RGB(100, 100, 100);
+    public static final TextColor STATS = new TextColor.RGB(80, 80, 80);
     public static final TextColor DIFF_HEADER = new TextColor.RGB(130, 180, 220);
     public static final TextColor DIFF_BORDER = new TextColor.RGB(70, 70, 70);
 

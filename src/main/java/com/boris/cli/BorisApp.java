@@ -11,7 +11,7 @@ import com.boris.task.TaskAborter;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
-@Command(name = "boris", mixinStandardHelpOptions = true, version = "2.2.0",
+@Command(name = "boris", mixinStandardHelpOptions = true, versionProvider = BorisVersion.class,
          description = "Boris CLI - Asistente de linea de comandos")
 public class BorisApp implements Runnable {
 

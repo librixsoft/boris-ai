@@ -9,7 +9,7 @@ import java.util.function.Consumer;
 
 public class Transcript {
 
-    private enum EntryType { NORMAL, TOOL_DETAIL, STATS }
+    private enum EntryType { NORMAL, TOOL_DETAIL, STATS, BLANK }
 
     private record Entry(EntryType type, String content) {}
 
@@ -73,6 +73,14 @@ public class Transcript {
     public void appendLine(String text) {
         uiExecutor.run(() -> {
             entries.add(new Entry(EntryType.NORMAL, text));
+            renderWrapped();
+            scrollToBottom();
+        });
+    }
+
+    public void appendBlankLine() {
+        uiExecutor.run(() -> {
+            entries.add(new Entry(EntryType.BLANK, ""));
             renderWrapped();
             scrollToBottom();
         });
@@ -147,6 +155,7 @@ public class Transcript {
             String timeStr = formatDuration(durationMs);
             String timestamp = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
             String stats = "[" + timestamp + "] " + timeStr + " · in: " + inputTokens + " tokens · out: " + outputTokens + " tokens";
+            entries.add(new Entry(EntryType.BLANK, ""));
             entries.add(new Entry(EntryType.STATS, stats));
             renderWrapped();
             scrollToBottom();
@@ -188,7 +197,9 @@ public class Transcript {
             if (sb.length() > 0 && !sb.toString().endsWith("\n") && !e.content().startsWith("\n")) {
                 sb.append("\n");
             }
-            if (e.type() == EntryType.STATS) {
+            if (e.type() == EntryType.BLANK) {
+                sb.append("\n");
+            } else if (e.type() == EntryType.STATS) {
                 sb.append("[stats]").append(e.content());
             } else if (e.type() == EntryType.TOOL_DETAIL) {
                 // Mark each line with [tool] prefix so renderer can apply correct color
