@@ -7,7 +7,6 @@
     }
   },
   "env": {
-    "OLLAMA_API_KEY": "ollama"
   },
   "maxHistorySize": 20,
   "enableHistory": true,

@@ -63,8 +63,6 @@ public class TaskAborterTest {
     void active_model_is_set() {
         TaskAborter aborter = new TaskAborter();
         aborter.setActiveModel("llama3");
-        aborter.setOllamaBaseUrl("http://localhost:11434");
-        assertEquals("http://localhost:11434", aborter.getOllamaBaseUrl());
     }
 
     @Test
@@ -79,7 +77,7 @@ public class TaskAborterTest {
     }
 
     @Test
-    void abort_without_ollama_url_does_not_throw() {
+    void abort_without_base_url_does_not_throw() {
         TaskAborter aborter = new TaskAborter();
         aborter.markGenerationStart();
         assertDoesNotThrow(() -> aborter.abort());

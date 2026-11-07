@@ -1,6 +1,7 @@
 package com.boris.config;
 
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -11,8 +12,7 @@ import org.springframework.context.annotation.Lazy;
 import com.boris.chat.ChatService;
 import com.boris.chat.DecomposableChatService;
 import com.boris.llm.client.BorisLlmClient;
-import com.boris.llm.ollama.OllamaModelService;
-import com.boris.llm.think.OllamaThinkSpringAiFactory;
+import com.boris.llm.think.ThinkModeResolver;
 import com.boris.settings.Settings;
 import com.boris.skill.SkillExecutor;
 import com.boris.skill.SkillLoader;
@@ -50,7 +50,17 @@ public class ServiceConfiguration {
     @Lazy
     public BorisLlmClient borisLlmClient(Settings settings) {
         try {
-            return OllamaThinkSpringAiFactory.createClient(settings);
+            String baseUrl = settings.getModel() != null ? settings.getModel().getBaseUrl() : null;
+            if (baseUrl == null || baseUrl.isBlank()) {
+                throw new IllegalStateException("Model baseUrl is required");
+            }
+            String normalized = baseUrl.trim();
+            while (normalized.endsWith("/")) {
+                normalized = normalized.substring(0, normalized.length() - 1);
+            }
+            Map<String, String> envMap = settings.getEnv();
+            String apiKey = envMap != null ? envMap.get("OLLAMA_API_KEY") : null;
+            return new BorisLlmClient(normalized, apiKey);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to create BorisLlmClient: " + e.getMessage(), e);
         }
@@ -68,14 +78,14 @@ public class ServiceConfiguration {
                                    Settings settings,
                                    TaskAborter taskAborter) {
         String modelName = settings.getModel() != null ? settings.getModel().getName() : null;
-        String thinkMode = OllamaThinkSpringAiFactory.resolveThinkMode(settings);
+        String thinkMode = ThinkModeResolver.resolveThinkMode(settings);
         boolean thinkingEnabled = thinkMode != null;
         String thinkingMode = thinkMode != null ? thinkMode : "low";
         int historySize = settings.getMaxHistorySize() != null ? settings.getMaxHistorySize() : 10;
         boolean enableHistory = settings.getEnableHistory() != null ? settings.getEnableHistory() : true;
 
         if (settings.getModel() != null && settings.getModel().getBaseUrl() != null) {
-            taskAborter.setOllamaBaseUrl(settings.getModel().getBaseUrl());
+            // Base URL is already configured on the BorisLlmClient bean
         }
 
         ChatService service = new ChatService(
@@ -114,10 +124,5 @@ public class ServiceConfiguration {
                 System.out::println,
                 DecompositionConfig.defaults()
         );
-    }
-
-    @Bean
-    public OllamaModelService ollamaModelService() {
-        return new OllamaModelService();
     }
 }

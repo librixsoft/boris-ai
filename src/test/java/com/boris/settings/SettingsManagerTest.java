@@ -96,7 +96,7 @@ class SettingsManagerTest {
 
         // Validar variables de entorno
         assertNotNull(settings.getEnv());
-        assertEquals("ollama", settings.getEnv().get("OLLAMA_API_KEY"));
+        assertTrue(settings.getEnv().isEmpty());
 
         // Validar parámetros de configuración general
         assertEquals(20, settings.getMaxHistorySize());

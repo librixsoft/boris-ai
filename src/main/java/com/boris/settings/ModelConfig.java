@@ -27,9 +27,6 @@ public class ModelConfig {
         if (reasoningEffort != null && !reasoningEffort.isBlank()) {
             return reasoningEffort;
         }
-        if (options != null && options.get("think") != null) {
-            return String.valueOf(options.get("think"));
-        }
         return null;
     }
 

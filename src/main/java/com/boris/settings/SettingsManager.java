@@ -51,7 +51,6 @@ public class SettingsManager {
         ModelConfig defaultModel = new ModelConfig("http://localhost:8080", "granite4.2:8b");
         defaultModel.setOptions(Map.of("think", "high"));
         defaultSettings.setModel(defaultModel);
-        defaultSettings.setEnv(Map.of("OLLAMA_API_KEY", "ollama"));
         defaultSettings.setMaxHistorySize(20);
         defaultSettings.setEnableHistory(true);
         defaultSettings.setEnforceSequentialExecution(true);

@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.boris.llm.client.BorisLlmClient;
-import com.boris.llm.client.ChatRequest;
 import com.boris.settings.ModelConfig;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
@@ -29,35 +28,35 @@ class ThinkDeactivationTest {
     @Test
     void resolveThinkMode_returnsNull_whenOptionsMissing() {
         Settings s = new Settings(new ModelConfig("http://localhost:11434", "granite4.2:8b"), Map.of());
-        assertNull(OllamaThinkSpringAiFactory.resolveThinkMode(s));
+        assertNull(ThinkModeResolver.resolveThinkMode(s));
     }
 
     @Test
     void resolveThinkMode_returnsNull_whenSettingsNull() {
-        assertNull(OllamaThinkSpringAiFactory.resolveThinkMode(null));
+        assertNull(ThinkModeResolver.resolveThinkMode(null));
     }
 
     @Test
     void resolveThinkMode_returnsValue_whenThinkPresent() {
-        assertEquals("low", OllamaThinkSpringAiFactory.resolveThinkMode(settingsWithOptions("low")));
+        assertEquals("low", ThinkModeResolver.resolveThinkMode(settingsWithOptions("low")));
     }
 
     @Test
     void resolveThinkMode_returnsNull_whenThinkBlankOrNotString() {
-        assertNull(OllamaThinkSpringAiFactory.resolveThinkMode(settingsWithOptions("  ")));
-        assertNull(OllamaThinkSpringAiFactory.resolveThinkMode(settingsWithOptions(42)));
+        assertNull(ThinkModeResolver.resolveThinkMode(settingsWithOptions("  ")));
+        assertNull(ThinkModeResolver.resolveThinkMode(settingsWithOptions(42)));
     }
 
     @Test
-    void createClient_configuresBaseUrlCorrectly() {
-        BorisLlmClient client = OllamaThinkSpringAiFactory.createClient(settingsWithOptions(null));
+    void borisLlmClient_configuresBaseUrlCorrectly() {
+        BorisLlmClient client = new BorisLlmClient("http://localhost:11434", null);
         assertNotNull(client);
         assertEquals("http://localhost:11434", client.getBaseUrl());
     }
 
     @Test
     void chatRequest_setsReasoningEffortNone_whenThinkDisabled() {
-        ChatRequest req = ChatRequest.builder()
+        com.boris.llm.client.ChatRequest req = com.boris.llm.client.ChatRequest.builder()
                 .model("granite4.2:8b")
                 .reasoningEffort("none")
                 .think(false)
@@ -68,7 +67,7 @@ class ThinkDeactivationTest {
 
     @Test
     void chatRequest_setsReasoningEffortLevel_whenThinkEnabled() {
-        ChatRequest req = ChatRequest.builder()
+        com.boris.llm.client.ChatRequest req = com.boris.llm.client.ChatRequest.builder()
                 .model("granite4.2:8b")
                 .reasoningEffort("low")
                 .think("low")
@@ -86,7 +85,7 @@ class ThinkDeactivationTest {
         Settings s = new SettingsManager().loadSettings(file.toString());
         assertNotNull(s);
         assertNull(s.getOptions());
-        assertNull(OllamaThinkSpringAiFactory.resolveThinkMode(s));
+        assertNull(ThinkModeResolver.resolveThinkMode(s));
     }
 
     @Test

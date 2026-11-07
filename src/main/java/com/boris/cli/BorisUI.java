@@ -25,7 +25,6 @@ import com.googlecode.lanterna.terminal.Terminal;
 
 import com.boris.chat.ChatService;
 import com.boris.cli.ui.CommandItem;
-import com.boris.llm.ollama.OllamaModelService;
 import com.boris.settings.Settings;
 import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
@@ -61,7 +60,6 @@ public class BorisUI {
     private final TaskAborter taskAborter;
     private final TokenCounter tokenCounter;
     private final Settings settings;
-    private final OllamaModelService ollamaModelService;
 
     private Screen screen;
     private MultiWindowTextGUI gui;
@@ -70,13 +68,11 @@ public class BorisUI {
     public BorisUI(ChatService chatService,
                    SkillManager skillManager,
                    TaskAborter taskAborter,
-                   Settings settings,
-                   OllamaModelService ollamaModelService) {
+                   Settings settings) {
         this.chatService = chatService;
         this.skillManager = skillManager;
         this.taskAborter = taskAborter;
         this.settings = settings;
-        this.ollamaModelService = ollamaModelService;
         int contextWindowLimit = 262000;
         if (this.settings != null && this.settings.getContextWindow() != null) {
             contextWindowLimit = this.settings.getContextWindow();
@@ -157,9 +153,9 @@ public class BorisUI {
                 waiting,
                 wasAborted,
                 () -> window.close(),
-                ollamaModelService,
                 headerBar,
-                settingsManager
+                settingsManager,
+                null
         );
 
         window = new BorisWindow(chatPanel, SCROLL_STEP, delta -> uiExecutor.run(() -> chatPanel.scroll(delta)));
@@ -184,9 +180,7 @@ public class BorisUI {
         // Create ModelSelector with supplier to fetch models dynamically
         final ModelSelector[] modelSelectorHolder = new ModelSelector[1];
         modelSelectorHolder[0] = new ModelSelector(
-                () -> ollamaModelService != null && ollamaModelService.isOllamaAvailable() 
-                        ? ollamaModelService.getModels() 
-                        : new ArrayList<>(),
+                () -> new ArrayList<>(),
                 () -> {
                     // When a model is selected via Enter (legacy callback - now handled by InputArea)
                     String selectedModel = modelSelectorHolder[0].getSelectedModel();

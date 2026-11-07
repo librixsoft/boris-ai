@@ -104,7 +104,6 @@ On its first launch, Boris automatically creates the configuration directory `~/
     }
   },
   "env": {
-    "OLLAMA_API_KEY": "ollama"
   },
   "maxHistorySize": 20,
   "enableHistory": true,

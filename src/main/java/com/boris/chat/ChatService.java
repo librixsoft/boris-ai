@@ -2,6 +2,7 @@ package com.boris.chat;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -16,8 +17,8 @@ import com.boris.exceptions.ChatException.ErrorType;
 import com.boris.llm.client.BorisLlmClient;
 import com.boris.llm.client.ChatMessage;
 import com.boris.llm.client.ChatRequest;
-import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.llm.think.ThinkContextHolder;
+import com.boris.llm.think.ThinkModeResolver;
 import com.boris.tooling.ToolResultNotifier;
 import com.boris.tooling.DiffLineNotifier;
 import com.boris.tooling.ToolProgressNotifier;
@@ -70,10 +71,6 @@ public class ChatService {
     }
 
     public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode, String modelName) {
-        this(llmClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, thinkingEnabled, thinkingMode, modelName, null);
-    }
-
-    public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode, String modelName, String ollamaBaseUrl) {
         this.llmClientSupplier = llmClientSupplier;
         this.botName = botName;
         this.taskAborter = taskAborter;
@@ -434,16 +431,13 @@ public class ChatService {
             throw new IllegalStateException("Settings file not found or invalid: " + settingsPath);
         }
         String modelName = s.getModel().getName();
-        String resolvedThink = OllamaThinkSpringAiFactory.resolveThinkMode(s);
+        String resolvedThink = ThinkModeResolver.resolveThinkMode(s);
         boolean thinkingEnabled = resolvedThink != null;
         String thinkingMode = resolvedThink != null ? resolvedThink : "low";
-        BorisLlmClient client = OllamaThinkSpringAiFactory.createClient(s);
+        BorisLlmClient client = createBorisLlmClient(s);
         int historySize = s.getMaxHistorySize();
         boolean enableHistory = s.getEnableHistory() != null ? s.getEnableHistory() : true;
         TaskAborter aborter = new TaskAborter();
-        if (s.getModel().getBaseUrl() != null) {
-            aborter.setOllamaBaseUrl(s.getModel().getBaseUrl());
-        }
         ToolRegistry registry = ToolCallingConfig.buildToolRegistry(s);
         String prompt = ToolCallingConfig.loadSystemPrompt(s);
 
@@ -540,11 +534,11 @@ public class ChatService {
         }
         this.modelName = newModelName;
         currentSettings.getModel().setName(newModelName);
-        String thinkMode = OllamaThinkSpringAiFactory.resolveThinkMode(currentSettings);
+        String thinkMode = ThinkModeResolver.resolveThinkMode(currentSettings);
         this.thinkingEnabled = thinkMode != null;
         this.thinkingMode = thinkMode != null ? thinkMode : "low";
         try {
-            this.currentClient = OllamaThinkSpringAiFactory.createClient(currentSettings);
+            this.currentClient = createBorisLlmClient(currentSettings);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to rebuild BorisLlmClient for model " + newModelName + ": " + e.getMessage(), e);
         }
@@ -637,8 +631,13 @@ public class ChatService {
         return lastThinkingContent;
     }
 
-    public boolean usesOllamaApi() {
-        return false;
+    private static BorisLlmClient createBorisLlmClient(Settings settings) {
+        if (settings == null || settings.getModel() == null) {
+            throw new IllegalStateException("Settings model is required");
+        }
+        Map<String, String> envMap = settings.getEnv();
+        String apiKey = envMap != null ? envMap.get("OLLAMA_API_KEY") : null;
+        return new BorisLlmClient(settings.getModel().getBaseUrl(), apiKey);
     }
 
     private String resolveThinkMode() {

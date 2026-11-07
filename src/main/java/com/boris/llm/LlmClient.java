@@ -1,9 +1,9 @@
 package com.boris.llm;
 
 import java.io.IOException;
+import java.util.Map;
 
 import com.boris.llm.client.BorisLlmClient;
-import com.boris.llm.think.OllamaThinkSpringAiFactory;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 
@@ -22,7 +22,17 @@ public class LlmClient {
             throw new IllegalStateException("Settings file not found or invalid: " + settingsPath);
         }
         try {
-            this.borisLlmClient = OllamaThinkSpringAiFactory.createClient(settings);
+            String baseUrl = settings.getModel().getBaseUrl();
+            if (baseUrl == null || baseUrl.isBlank()) {
+                throw new IllegalStateException("Model baseUrl is required");
+            }
+            String normalized = baseUrl.trim();
+            while (normalized.endsWith("/")) {
+                normalized = normalized.substring(0, normalized.length() - 1);
+            }
+            Map<String, String> envMap = settings.getEnv();
+            String apiKey = envMap != null ? envMap.get("OLLAMA_API_KEY") : null;
+            this.borisLlmClient = new BorisLlmClient(normalized, apiKey);
         } catch (IllegalStateException e) {
             throw e;
         } catch (Exception e) {

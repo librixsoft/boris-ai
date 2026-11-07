@@ -8,13 +8,11 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.boris.exceptions.ChatException;
 import com.boris.exceptions.ChatException.ErrorType;
@@ -26,7 +24,7 @@ import com.boris.tooling.WriteArgsPreviewStreamer;
 import com.boris.tooling.engine.ToolRegistry;
 
 /**
- * Cliente HTTP nativo para Ollama / OpenAI compatible sin dependencias de Spring AI.
+ * Cliente HTTP nativo para LLM compatible sin dependencias de Spring AI.
  * Implementa comunicación síncrona, streaming Server-Sent Events (SSE) y el bucle de ejecución de tools.
  *
  * <p><b>Referencia histórica / Equivalencia:</b><br>
@@ -38,8 +36,8 @@ import com.boris.tooling.engine.ToolRegistry;
  * </ul>
  * <b>Mejoras sobre la implementación anterior:</b>
  * <ul>
- *   <li>Soporte nativo de parámetros de razonamiento Ollama ({@code think}, {@code reasoning_effort}) sin necesidad
- *       de interceptar bytes HTTP (reemplaza a {@code ThinkClientHttpInterceptor}).</li>
+ *   <li>Soporte nativo de parámetros de razonamiento ({@code think}, {@code reasoning_effort}) sin necesidad
+ *       de interceptar bytes HTTP.</li>
  *   <li>Extracción directa de tokens de pensamiento ({@code reasoning_content}) tanto en modo síncrono como en SSE.</li>
  *   <li>Sin sobrecarga de Spring Boot starters, WebFlux o Project Reactor (usa {@code java.net.http.HttpClient} de Java 21).</li>
  * </ul>
@@ -55,11 +53,9 @@ public class BorisLlmClient {
     private final String apiKey;
     private final HttpClient httpClient;
     private final Duration timeout;
-    private final java.util.concurrent.ConcurrentHashMap<String, Boolean> thinkingCapabilityCache =
-            new java.util.concurrent.ConcurrentHashMap<>();
 
     public BorisLlmClient(String baseUrl) {
-        this(baseUrl, "ollama", Duration.ofMinutes(5));
+        this(baseUrl, null, Duration.ofMinutes(5));
     }
 
     public BorisLlmClient(String baseUrl, String apiKey) {
@@ -68,7 +64,7 @@ public class BorisLlmClient {
 
     public BorisLlmClient(String baseUrl, String apiKey, Duration timeout) {
         this.baseUrl = normalizeBaseUrl(baseUrl);
-        this.apiKey = (apiKey != null && !apiKey.isBlank()) ? apiKey : "ollama";
+        this.apiKey = apiKey;
         this.timeout = timeout != null ? timeout : Duration.ofMinutes(5);
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(15))
@@ -405,10 +401,6 @@ public class BorisLlmClient {
                     && !"none".equalsIgnoreCase(thinkMode) && !"off".equalsIgnoreCase(thinkMode);
 
             if (thinkingRequested) {
-                if (!isModelThinkingCapable(model)) {
-                    throw new ChatException("\"" + model + "\" does not support thinking. Usa /effort off",
-                            ErrorType.UNKNOWN);
-                }
                 reqBuilder.reasoningEffort(thinkMode);
                 reqBuilder.think(true);
             } else {
@@ -610,55 +602,6 @@ public class BorisLlmClient {
         }
 
         return builder.POST(HttpRequest.BodyPublishers.ofByteArray(body)).build();
-    }
-
-    /**
-     * Consulta /api/show de Ollama para determinar si el modelo emite cadena de razonamiento.
-     */
-    public boolean isModelThinkingCapable(String model) {
-        if (model == null || model.isBlank()) {
-            throw new ChatException("Model es requerido para consultar capability thinking", ErrorType.UNKNOWN);
-        }
-        return thinkingCapabilityCache.computeIfAbsent(model, this::probeThinkingCapability);
-    }
-
-    private boolean probeThinkingCapability(String model) {
-        try {
-            JsonNode capabilities = requestModelInfo(model).get("capabilities");
-            if (capabilities == null || !capabilities.isArray()) {
-                throw new ChatException("Ollama /api/show no devolvio capabilities para el modelo " + model,
-                        ErrorType.UNKNOWN);
-            }
-            for (JsonNode cap : capabilities) {
-                if (cap.isTextual() && "thinking".equals(cap.asText())) {
-                    return true;
-                }
-            }
-            return false;
-        } catch (java.io.IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw new ChatException("No se pudo consultar /api/show de Ollama (base " + baseUrl + "): " + e.getMessage(),
-                    e, ErrorType.CONNECTION_ERROR);
-        }
-    }
-
-    private JsonNode requestModelInfo(String model) throws IOException, InterruptedException {
-        byte[] body = MAPPER.writeValueAsBytes(java.util.Map.of("model", model));
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/api/show"))
-                .header("Content-Type", "application/json")
-                .timeout(Duration.ofSeconds(30))
-                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                .build();
-
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() >= 400) {
-            throw new ChatException("Ollama /api/show devolvio HTTP " + response.statusCode() + " para el modelo "
-                    + model + ": " + response.body(), ErrorType.UNKNOWN);
-        }
-        return MAPPER.readTree(response.body());
     }
 
     public static String normalizeBaseUrl(String baseUrl) {

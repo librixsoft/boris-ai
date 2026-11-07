@@ -4,7 +4,6 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 
 import com.boris.chat.ChatService;
 import com.boris.config.BorisConfiguration;
-import com.boris.llm.ollama.OllamaModelService;
 import com.boris.settings.Settings;
 import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
@@ -26,9 +25,8 @@ public class BorisApp implements Runnable {
             SkillManager skillManager = context.getBean(SkillManager.class);
             TaskAborter taskAborter = context.getBean(TaskAborter.class);
             Settings settings = context.getBean(Settings.class);
-            OllamaModelService ollamaModelService = context.getBean(OllamaModelService.class);
 
-            BorisUI ui = new BorisUI(chatService, skillManager, taskAborter, settings, ollamaModelService);
+            BorisUI ui = new BorisUI(chatService, skillManager, taskAborter, settings);
             ui.start();
         } catch (Exception e) {
             throw new RuntimeException(e);

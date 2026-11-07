@@ -29,7 +29,7 @@ class LlmClientTest {
     void constructor_succeedsWithValidSettingsFile() throws Exception {
         Settings settings = new Settings(
             new com.boris.settings.ModelConfig("http://localhost:11434/v1", "qwen3.6-35b-64k"),
-            java.util.Map.of("OLLAMA_API_KEY", "ollama")
+            null
         );
 
         Path settingsFile = tempDir.resolve("settings.json");
@@ -42,7 +42,7 @@ class LlmClientTest {
     void constructor_throwsWhenModelFieldMissing() throws Exception {
         Settings settings = new Settings(
             null,
-            java.util.Map.of("OLLAMA_API_KEY", "ollama")
+            null
         );
 
         Path settingsFile = tempDir.resolve("settings.json");

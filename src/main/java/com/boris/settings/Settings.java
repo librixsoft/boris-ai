@@ -78,21 +78,6 @@ public class Settings {
 
     @JsonIgnore
     public String getReasoningEffort() {
-        // Check options map for "think" parameter from Ollama granite4.2
-        if (options != null && options.containsKey("think")) {
-            Object thinkValue = options.get("think");
-            if (thinkValue instanceof String) {
-                String thinkStr = ((String) thinkValue).toLowerCase();
-                // Map the values to match Spring AI expectations
-                return switch (thinkStr) {
-                    case "high" -> "high";
-                    case "medium" -> "medium";
-                    case "low" -> "low";
-                    default -> "medium";
-                };
-            }
-        }
-        // Fallback to model-specific reasoning effort
         if (model != null && model.getReasoningEffort() != null) {
             return model.getReasoningEffort();
         }

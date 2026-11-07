@@ -2,7 +2,6 @@ package com.boris.cli.ui;
 
 import com.boris.chat.ChatService;
 import com.boris.exceptions.ChatException;
-import com.boris.llm.ollama.OllamaModelService;
 import com.boris.queue.ChatMessage;
 import com.boris.queue.MessageQueueService;
 import com.boris.settings.SettingsManager;
@@ -31,7 +30,6 @@ public class ChatController implements InputArea.InputListener {
     private final AtomicBoolean wasAborted;
     private final Runnable onClose;
     private final SkillManager skillManager;
-    private final OllamaModelService ollamaModelService;
     private final HeaderBar headerBar;
     private final SettingsManager settingsManager;
     private final Runnable onModelSelected;
@@ -55,9 +53,8 @@ public class ChatController implements InputArea.InputListener {
                           ChatPanel chatPanel,
                           AtomicBoolean waiting,
                           AtomicBoolean wasAborted,
-                          Runnable onClose,
-                          OllamaModelService ollamaModelService) {
-        this(chatService, skillManager, taskAborter, commandHistory, tokenCounter, spinner, statusBar, transcript, chatPanel, waiting, wasAborted, onClose, ollamaModelService, null, null);
+                          Runnable onClose) {
+        this(chatService, skillManager, taskAborter, commandHistory, tokenCounter, spinner, statusBar, transcript, chatPanel, waiting, wasAborted, onClose, null, null, null);
     }
 
     public ChatController(ChatService chatService,
@@ -72,10 +69,9 @@ public class ChatController implements InputArea.InputListener {
                           AtomicBoolean waiting,
                           AtomicBoolean wasAborted,
                           Runnable onClose,
-                          OllamaModelService ollamaModelService,
                           HeaderBar headerBar,
                           SettingsManager settingsManager) {
-        this(chatService, skillManager, taskAborter, commandHistory, tokenCounter, spinner, statusBar, transcript, chatPanel, waiting, wasAborted, onClose, ollamaModelService, headerBar, settingsManager, null);
+        this(chatService, skillManager, taskAborter, commandHistory, tokenCounter, spinner, statusBar, transcript, chatPanel, waiting, wasAborted, onClose, headerBar, settingsManager, null);
     }
 
     public ChatController(ChatService chatService,
@@ -90,7 +86,6 @@ public class ChatController implements InputArea.InputListener {
                           AtomicBoolean waiting,
                           AtomicBoolean wasAborted,
                           Runnable onClose,
-                          OllamaModelService ollamaModelService,
                           HeaderBar headerBar,
                           SettingsManager settingsManager,
                           Runnable onModelSelected) {
@@ -106,7 +101,6 @@ public class ChatController implements InputArea.InputListener {
         this.waiting = waiting;
         this.wasAborted = wasAborted;
         this.onClose = onClose;
-        this.ollamaModelService = ollamaModelService;
         this.headerBar = headerBar;
         this.settingsManager = settingsManager;
         this.onModelSelected = onModelSelected != null ? onModelSelected : () -> {};
@@ -218,9 +212,7 @@ public class ChatController implements InputArea.InputListener {
     }
 
     public void setChatModel(String modelName) {
-        if (ollamaModelService != null) {
-            ollamaModelService.selectModel(modelName);
-        }
+        // Model selection is handled via ChatService.rebuildClient
     }
 
     @Override
@@ -458,12 +450,7 @@ public class ChatController implements InputArea.InputListener {
             return;
         }
 
-        // 2. Update OllamaModelService if available
-        if (ollamaModelService != null) {
-            ollamaModelService.selectModel(selectedModel);
-        }
-
-        // 3. Update HeaderBar visually
+        // 2. Update HeaderBar visually
         headerBar.updateModel(selectedModel);
 
         // 4. Persist to ~/.boris/settings.json
@@ -500,34 +487,12 @@ public class ChatController implements InputArea.InputListener {
             return;
         }
 
-        if (ollamaModelService == null || !ollamaModelService.isOllamaAvailable()) {
-            transcript.appendLine("[x] Ollama no está disponible. Asegúrate de que Ollama esté corriendo.");
+        // Try to apply model selection directly
+        try {
+            applyModelSelection(requestedModel);
+        } catch (Exception e) {
+            transcript.appendLine("[x] Error al cambiar modelo: " + e.getMessage());
             transcript.rerender();
-            return;
-        }
-
-        List<String> models = ollamaModelService.getModels();
-        if (models.isEmpty()) {
-            transcript.appendLine("[x] No se encontraron modelos en Ollama.");
-            transcript.rerender();
-            return;
-        }
-
-        // Check if the provided model name matches any available model
-        boolean found = false;
-        for (String model : models) {
-            if (model.equals(requestedModel) || model.contains(requestedModel)) {
-                applyModelSelection(requestedModel);
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            transcript.appendLine("[x] Modelo no encontrado: " + requestedModel);
-            transcript.appendLine("Modelos disponibles:");
-            for (int i = 0; i < Math.min(models.size(), 10); i++) {
-                transcript.appendLine("  " + (i + 1) + ". " + models.get(i));
-            }
         }
         transcript.rerender();
     }
