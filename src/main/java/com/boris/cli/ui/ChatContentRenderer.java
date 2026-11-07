@@ -1,11 +1,13 @@
 package com.boris.cli.ui;
 
+import com.googlecode.lanterna.SGR;
 import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.ComponentRenderer;
 import com.googlecode.lanterna.gui2.TextGUIGraphics;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 
 import static com.boris.cli.ui.RenderUtils.SCROLLBAR_WIDTH;
@@ -233,12 +235,16 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
         int thumbHeight = Math.max(1, (visibleRows * visibleRows) / Math.max(1, visibleRows + maxOffset));
         int thumbTop = (currentOffset * (barHeight - thumbHeight)) / Math.max(1, maxOffset);
 
+        TextColor scrollFg = graphics.getForegroundColor();
+        TextColor scrollBg = graphics.getBackgroundColor();
+        EnumSet<SGR> scrollModifiers = EnumSet.noneOf(SGR.class);
+
         for (int row = 0; row < visibleRows; row++) {
-            graphics.putString(barX, row, "│");
+            CodepointAwareTextRenderer.renderWithStyle(graphics, "│", row, barX, totalWidth, scrollFg, scrollBg, scrollModifiers);
         }
 
         for (int row = thumbTop; row < thumbTop + thumbHeight && row < visibleRows; row++) {
-            graphics.putString(barX, row, "█");
+            CodepointAwareTextRenderer.renderWithStyle(graphics, "█", row, barX, totalWidth, scrollFg, scrollBg, scrollModifiers);
         }
     }
 }

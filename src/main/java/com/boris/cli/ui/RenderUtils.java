@@ -61,7 +61,12 @@ public final class RenderUtils {
 
     public static int getDisplayWidth(int codePoint) {
         if (codePoint > 0xFFFF) {
-            return com.googlecode.lanterna.TerminalTextUtils.isCharDoubleWidth(Character.highSurrogate(codePoint)) ? 2 : 1;
+            // Zero-width supplementary characters (tags U+E0000-U+E001F)
+            if (codePoint >= 0xE0000 && codePoint <= 0xE001F) {
+                return 0;
+            }
+            // Supplementary characters: emojis and most symbols are double-width
+            return 2;
         }
         return com.googlecode.lanterna.TerminalTextUtils.isCharDoubleWidth((char) codePoint) ? 2 : 1;
     }

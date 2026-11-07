@@ -1,8 +1,11 @@
 package com.boris.cli.ui;
 
+import com.googlecode.lanterna.SGR;
+import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.gui2.TextGUIGraphics;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 
 import static com.boris.cli.ui.RenderUtils.padOrTruncateByDisplayWidth;
@@ -46,7 +49,11 @@ public class TableRowRenderer {
             graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
         }
 
-        graphics.putString(x, row, "│");
+        TextColor fg = graphics.getForegroundColor();
+        TextColor bg = graphics.getBackgroundColor();
+        EnumSet<SGR> modifiers = EnumSet.noneOf(SGR.class);
+
+        CodepointAwareTextRenderer.renderWithStyle(graphics, "│", row, x, contentWidth, fg, bg, modifiers);
         x += 1;
 
         for (int i = 1; i < parts.length - 1; i++) {
@@ -54,15 +61,15 @@ public class TableRowRenderer {
             int cellWidth = columnWidths.size() > i - 1 ? columnWidths.get(i - 1) : 15;
 
             String paddedCell = RenderUtils.padOrTruncateByDisplayWidth(cell, cellWidth - 1);
-            graphics.putString(x, row, paddedCell);
+            CodepointAwareTextRenderer.renderWithStyle(graphics, paddedCell, row, x, contentWidth, fg, bg, modifiers);
             x += cellWidth;
 
-            graphics.putString(x, row, "│");
+            CodepointAwareTextRenderer.renderWithStyle(graphics, "│", row, x, contentWidth, fg, bg, modifiers);
             x += 1;
         }
 
         if (x < contentWidth) {
-            graphics.putString(x, row, RenderUtils.padOrTruncateByDisplayWidth("", contentWidth - x));
+            CodepointAwareTextRenderer.renderWithStyle(graphics, RenderUtils.padOrTruncateByDisplayWidth("", contentWidth - x), row, x, contentWidth, fg, bg, modifiers);
         }
     }
 }
