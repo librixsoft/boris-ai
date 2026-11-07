@@ -93,7 +93,8 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
             int lineIdx = component.getScrollOffset() + i;
             String line = component.getLine(lineIdx);
 
-            if (tableRowRenderer.isTableRow(line)) {
+            boolean isUserLine = line.startsWith(TextWrap.USER_LINE_PREFIX) || line.startsWith(TextWrap.USER_CONT_MARKER);
+            if (!isUserLine && tableRowRenderer.isTableRow(line)) {
                 if (tableRowRenderer.isSeparatorRow(line)) {
                     inTable = true;
                     isHeader = false;

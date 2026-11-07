@@ -229,6 +229,21 @@ public class MarkdownLineRenderer {
             return;
         }
 
+        if (line.startsWith(TextWrap.USER_CONT_MARKER)) {
+            String content = line.substring(TextWrap.USER_CONT_MARKER.length());
+            graphics.setBackgroundColor(UiTheme.BG);
+            graphics.setForegroundColor(UiTheme.USERC);
+            renderString(graphics, content, row, 0, contentWidth, UiTheme.USERC, UiTheme.BG);
+            return;
+        }
+
+        if (line.startsWith(TextWrap.USER_LINE_PREFIX)) {
+            graphics.setBackgroundColor(UiTheme.BG);
+            graphics.setForegroundColor(UiTheme.USERC);
+            renderString(graphics, line, row, 0, contentWidth, UiTheme.USERC, UiTheme.BG);
+            return;
+        }
+
         if (inCodeBlock && !isCodeFence(line)) {
             renderCodeLine(graphics, line, row, contentWidth, inThinking);
             return;
@@ -371,7 +386,7 @@ public class MarkdownLineRenderer {
         }
 
         if (line.trim().startsWith("```") || line.trim().startsWith("``")) {
-            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.USERC);
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
             graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
             renderString(graphics, line, row, 0, contentWidth, graphics.getForegroundColor(), graphics.getBackgroundColor());
             return;
@@ -393,13 +408,13 @@ public class MarkdownLineRenderer {
         }
 
         if (line.trim().startsWith("- ") || line.trim().startsWith("* ")) {
-            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.USERC);
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
             renderString(graphics, line, row, 0, contentWidth, graphics.getForegroundColor(), UiTheme.BG);
             return;
         }
 
         if (line.trim().matches("^\\d+\\..*")) {
-            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.USERC);
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
             renderString(graphics, line, row, 0, contentWidth, graphics.getForegroundColor(), UiTheme.BG);
             return;
         }
@@ -439,7 +454,7 @@ public class MarkdownLineRenderer {
             if (cp == '`' && (i == 0 || text.codePointAt(i - 1) != '\\')) {
                 if (inCode) {
                     graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
-                    graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.USERC);
+                    graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
                     renderString(graphics, current.toString(), row, x, contentWidth, graphics.getForegroundColor(), graphics.getBackgroundColor());
                     x += currentWidth;
                     current.setLength(0);
@@ -467,7 +482,7 @@ public class MarkdownLineRenderer {
         if (current.length() > 0 && x < contentWidth) {
             if (inCode) {
                 graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
-                graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.USERC);
+                graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
             } else {
                 graphics.setBackgroundColor(UiTheme.BG);
                 graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
@@ -495,7 +510,7 @@ public class MarkdownLineRenderer {
             if (cp == '`' && (i == 0 || line.codePointAt(i - 1) != '\\')) {
                 if (inCode) {
                     graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
-                    graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.USERC);
+                    graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
                     renderString(graphics, current.toString(), row, x, contentWidth, graphics.getForegroundColor(), graphics.getBackgroundColor());
                     x += currentWidth;
                     current.setLength(0);
@@ -516,7 +531,7 @@ public class MarkdownLineRenderer {
         if (current.length() > 0) {
             if (inCode) {
                 graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
-                graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.USERC);
+                graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
             } else {
                 graphics.setBackgroundColor(UiTheme.BG);
                 graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);

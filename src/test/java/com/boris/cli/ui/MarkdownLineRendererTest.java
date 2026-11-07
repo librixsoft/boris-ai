@@ -75,6 +75,20 @@ class MarkdownLineRendererTest {
     }
 
     @Test
+    void testRenderUserLineUsesUserColor() {
+        renderer.render(graphics, ">> hola", 0, 40, false);
+        verify(graphics).setForegroundColor(UiTheme.USERC);
+        verify(graphics).setBackgroundColor(UiTheme.BG);
+    }
+
+    @Test
+    void testRenderUserContinuationUsesUserColor() {
+        renderer.render(graphics, TextWrap.USER_CONT_MARKER + "continuacion", 0, 40, false);
+        verify(graphics).setForegroundColor(UiTheme.USERC);
+        verify(graphics).setBackgroundColor(UiTheme.BG);
+    }
+
+    @Test
     void testRenderThinkingLineUsesThinkingGreyColor() {
         renderer.render(graphics, "Analyzing problem...", 0, 40, true);
         verify(graphics).setForegroundColor(UiTheme.THINKING);

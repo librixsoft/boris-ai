@@ -87,6 +87,17 @@ class TextWrapTest {
     }
 
     @Test
+    void wrapUserLine_continuationHasUserMarker() {
+        String line = ">> this is a long user message that should be wrapped across several rows";
+        String result = TextWrap.wrap(line, 30);
+
+        String[] lines = result.split("\n");
+        assertTrue(lines.length > 1, "Should wrap to multiple lines");
+        assertTrue(lines[0].startsWith(TextWrap.USER_LINE_PREFIX), "First line keeps user prefix");
+        assertTrue(lines[1].startsWith(TextWrap.USER_CONT_MARKER), "Continuation has user marker");
+    }
+
+    @Test
     void wrapGluedTagPairsKeepsTagsAtomic() {
         String line = "<thinking>One</thinking><thinking>Two Three Four Five Six Seven Eight Nine Ten</thinking>";
         String result = TextWrap.wrap(line, 25);

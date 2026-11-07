@@ -6,17 +6,18 @@ import com.googlecode.lanterna.gui2.Separator;
 
 public final class UiTheme {
 
+    public static final TextColor PRIMARY = new TextColor.RGB(0, 210, 0);
     public static final TextColor BG = new TextColor.RGB(0, 0, 0);
-    public static final TextColor BG_ELEVATED = new TextColor.RGB(50, 40, 22);
-    public static final TextColor FG = new TextColor.RGB(175, 145, 75);
-    public static final TextColor MUTED = new TextColor.RGB(115, 95, 55);
+    public static final TextColor BG_ELEVATED = new TextColor.RGB(15, 35, 15);
+    public static final TextColor FG = PRIMARY;
+    public static final TextColor MUTED = new TextColor.RGB(0, 120, 0);
     public static final TextColor TOOL_DETAIL = new TextColor.RGB(90, 90, 90);
-    public static final TextColor ACCENT = new TextColor.RGB(0, 210, 0);
-    public static final TextColor USERC = new TextColor.RGB(175, 145, 75);
-    public static final TextColor SELECTED_BG = new TextColor.RGB(35, 28, 15);
-    public static final TextColor SELECT_BG = new TextColor.RGB(50, 40, 22);
-    public static final TextColor SELECT_FG = new TextColor.RGB(190, 155, 85);
-    public static final TextColor SELECT_HIGHLIGHT_BG = new TextColor.RGB(0, 210, 0);
+    public static final TextColor ACCENT = PRIMARY;
+    public static final TextColor USERC = new TextColor.RGB(255, 255, 255);
+    public static final TextColor SELECTED_BG = new TextColor.RGB(15, 40, 28);
+    public static final TextColor SELECT_BG = new TextColor.RGB(20, 55, 38);
+    public static final TextColor SELECT_FG = new TextColor.RGB(210, 255, 225);
+    public static final TextColor SELECT_HIGHLIGHT_BG = PRIMARY;
     public static final TextColor SELECT_HIGHLIGHT_FG = new TextColor.RGB(0, 0, 0);
     public static final TextColor THINKING = new TextColor.RGB(100, 100, 100);
     public static final TextColor THINKING_BOLD = new TextColor.RGB(150, 150, 150);

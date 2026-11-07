@@ -15,6 +15,13 @@ public final class TextWrap {
                 out.append('\n');
                 continue;
             }
+            if (rawLine.startsWith(USER_LINE_PREFIX) && !rawLine.contains(QUEUED_TAG_MARKER)) {
+                List<String> wrapped = wrapUserLine(rawLine, width);
+                for (String piece : wrapped) {
+                    out.append(piece).append('\n');
+                }
+                continue;
+            }
             if (isDiffLine(rawLine)) {
                 List<String> wrapped = wrapDiffLine(rawLine, width);
                 for (String piece : wrapped) {
@@ -58,11 +65,38 @@ public final class TextWrap {
      */
     public static final String DIFF_CONT_MARKER = "​​";
 
+    /**
+     * Prefix used for user messages in the transcript.
+     */
+    public static final String USER_LINE_PREFIX = ">> ";
+
+    /**
+     * Marker prefix for user message continuation lines.
+     */
+    public static final String USER_CONT_MARKER = "​​​";
+
+    private static final String QUEUED_TAG_MARKER = "<queued:#";
+
     private static final java.util.regex.Pattern TEXT_LABEL_PATTERN =
         java.util.regex.Pattern.compile("(?i)^(\\s*(?:[-*+]?\\s*)?(?:\\*{0,2}\\s*(?:old|new)[ _-]?text\\b[^:]*:)\\s*)(.*)$");
 
     private static boolean isTextLabelLine(String line) {
         return TEXT_LABEL_PATTERN.matcher(line).find();
+    }
+
+    private static List<String> wrapUserLine(String line, int width) {
+        List<String> result = new ArrayList<>();
+        int contentWidth = width - USER_LINE_PREFIX.length();
+        if (contentWidth <= 1) {
+            result.add(truncateWithEllipsis(line, width));
+            return result;
+        }
+        String content = line.substring(USER_LINE_PREFIX.length());
+        List<String> pieces = wrapLine(content, contentWidth);
+        for (int i = 0; i < pieces.size(); i++) {
+            result.add(i == 0 ? USER_LINE_PREFIX + pieces.get(i) : USER_CONT_MARKER + pieces.get(i));
+        }
+        return result;
     }
 
     private static List<String> wrapDiffLine(String line, int width) {
