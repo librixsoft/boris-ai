@@ -194,4 +194,18 @@ class MarkdownLineRendererTest {
         assertEquals(":: ", segs.get(0).getText());
         assertEquals("El usuario", segs.get(1).getText());
     }
+
+    @Test
+    void testEnsureBlankLineAfterThinking() {
+        String input = ":: <thinking>razonando</thinking>\nHola";
+        assertEquals(":: <thinking>razonando</thinking>\n\nHola",
+                MarkdownLineRenderer.ensureBlankLineAfterThinking(input));
+    }
+
+    @Test
+    void testEnsureBlankLineAfterThinkingKeepsConsecutiveBlocksTogether() {
+        String input = "<thinking>a</thinking>\n<thinking>b</thinking>\nHola";
+        assertEquals("<thinking>a</thinking>\n<thinking>b</thinking>\n\nHola",
+                MarkdownLineRenderer.ensureBlankLineAfterThinking(input));
+    }
 }

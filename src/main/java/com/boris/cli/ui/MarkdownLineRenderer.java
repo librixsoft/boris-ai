@@ -16,6 +16,23 @@ public class MarkdownLineRenderer {
     private static final String[] CLOSE_TAGS = {"</think>", "</thought>", "</thinking>", "</reasoning>"};
     private static final String CODE_FENCE = "```";
 
+    private static final java.util.regex.Pattern THINKING_GAP_PATTERN = java.util.regex.Pattern.compile(
+            "((?:</think>|</thinking>|</thought>|</reasoning>))\\s*(?!<(?:think|thinking|thought|reasoning)>)(?=\\S)",
+            java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Ensures a blank line separates the last thinking block from the assistant response.
+     *
+     * @param text raw transcript text
+     * @return text with a blank line inserted after the closing thinking tag when response text follows
+     */
+    public static String ensureBlankLineAfterThinking(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        return THINKING_GAP_PATTERN.matcher(text).replaceAll("$1\n\n");
+    }
+
     public static class TextSegment {
         private final String text;
         private final boolean isThinking;

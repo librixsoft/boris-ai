@@ -41,6 +41,22 @@ class TranscriptTest {
     }
 
     @Test
+    void appendAssistantPrefixAddsGapAfterUserMessageAndThinkingBlock() {
+        ChatPanel panel = createPanel();
+        Transcript transcript = new Transcript(panel, Runnable::run);
+
+        transcript.appendLine(">> hey");
+        transcript.appendAssistantPrefix();
+        transcript.appendChunk("<thinking>razonando</thinking>\nHola, soy Boris.");
+
+        String rendered = lastRenderedText(panel);
+        assertTrue(rendered.contains(">> hey\n\n:: "),
+                "Debe haber una linea en blanco tras el mensaje del usuario");
+        assertTrue(rendered.contains("</thinking>\n\nHola, soy Boris."),
+                "Debe haber una linea en blanco tras el bloque de pensamiento");
+    }
+
+    @Test
     void appendResponseStatsAddsBlankLineBeforeStats() {
         ChatPanel panel = createPanel();
         Transcript transcript = new Transcript(panel, Runnable::run);

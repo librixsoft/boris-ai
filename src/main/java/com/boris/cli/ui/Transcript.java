@@ -112,6 +112,7 @@ public class Transcript {
 
     public void appendAssistantPrefix() {
         uiExecutor.run(() -> {
+            entries.add(new Entry(EntryType.BLANK, ""));
             entries.add(new Entry(EntryType.NORMAL, ":: "));
             renderWrapped();
             scrollToBottom();
@@ -241,7 +242,7 @@ public class Transcript {
                 }
             }
         }
-        return sb.toString();
+        return MarkdownLineRenderer.ensureBlankLineAfterThinking(sb.toString());
     }
 
     private void renderWrapped() {

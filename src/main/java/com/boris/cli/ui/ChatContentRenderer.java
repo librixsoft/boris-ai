@@ -223,7 +223,8 @@ public class ChatContentRenderer implements ComponentRenderer<ChatPanel> {
         String content = line.substring("[stats]".length());
         graphics.setBackgroundColor(UiTheme.BG);
         graphics.setForegroundColor(UiTheme.STATS);
-        CodepointAwareTextRenderer.render(graphics, content, row, 0, contentWidth);
+        CodepointAwareTextRenderer.renderWithStyle(graphics, content, row, 0, contentWidth,
+                UiTheme.STATS, UiTheme.BG, EnumSet.noneOf(SGR.class));
     }
 
     private void drawScrollbar(TextGUIGraphics graphics, int totalWidth, int visibleRows, int maxOffset, int currentOffset) {
