@@ -215,6 +215,14 @@ public class Transcript {
                         }
                         continue;
                     }
+                    if (ToolResultRenderer.isToolResultLine(line)) {
+                        String formatted = ToolResultRenderer.formatToolResult(line);
+                        if (sb.length() > 0 && !sb.toString().endsWith("\n")) {
+                            sb.append("\n");
+                        }
+                        sb.append("[tool]").append(formatted);
+                        continue;
+                    }
                     if (sb.length() > 0 && !sb.toString().endsWith("\n")) {
                         sb.append("\n");
                     }

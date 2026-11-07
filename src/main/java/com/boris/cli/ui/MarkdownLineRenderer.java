@@ -419,6 +419,14 @@ public class MarkdownLineRenderer {
             return;
         }
 
+        if (ToolResultRenderer.isToolResultLine(line)) {
+            String formatted = ToolResultRenderer.formatToolResult(line);
+            graphics.setBackgroundColor(UiTheme.BG);
+            graphics.setForegroundColor(UiTheme.TOOL_DETAIL);
+            renderString(graphics, formatted, row, 0, contentWidth, graphics.getForegroundColor(), UiTheme.BG);
+            return;
+        }
+
         graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
         renderString(graphics, line, row, 0, contentWidth, graphics.getForegroundColor(), UiTheme.BG);
     }
