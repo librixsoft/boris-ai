@@ -312,6 +312,24 @@ public class MarkdownLineRenderer {
     private void renderSingleSegmentLine(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean isThinking) {
         graphics.setBackgroundColor(UiTheme.BG);
 
+        // Tool result lines must be checked FIRST, before any other formatting,
+        // to prevent raw JSON from leaking through inline code/bold/italic/diff renderers.
+        if (ToolResultRenderer.isToolResultLine(line)) {
+            String formatted;
+            try {
+                formatted = ToolResultRenderer.formatToolResult(line);
+            } catch (InvalidToolResultPathException e) {
+                formatted = ToolResultRenderer.INVALID_PATH_DISPLAY;
+            } catch (Exception e) {
+                // Si el JSON es inválido, renderizar la línea original con TOOL_DETAIL
+                // para mantener consistencia de color sin romper el renderizado.
+                formatted = line;
+            }
+            graphics.setForegroundColor(UiTheme.TOOL_DETAIL);
+            renderString(graphics, formatted, row, 0, contentWidth, graphics.getForegroundColor(), UiTheme.BG);
+            return;
+        }
+
         if (line.startsWith("###")) {
             graphics.setForegroundColor(isThinking ? UiTheme.THINKING_BOLD : UiTheme.ACCENT);
             String content = line.substring(3).trim();
@@ -436,20 +454,33 @@ public class MarkdownLineRenderer {
             return;
         }
 
-        if (ToolResultRenderer.isToolResultLine(line)) {
-            String formatted = ToolResultRenderer.formatToolResult(line);
-            graphics.setBackgroundColor(UiTheme.BG);
-            graphics.setForegroundColor(UiTheme.TOOL_DETAIL);
-            renderString(graphics, formatted, row, 0, contentWidth, graphics.getForegroundColor(), UiTheme.BG);
-            return;
-        }
-
         graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
         renderString(graphics, line, row, 0, contentWidth, graphics.getForegroundColor(), UiTheme.BG);
     }
 
     private void renderMultiSegmentLine(TextGUIGraphics graphics, List<TextSegment> segments, int row, int contentWidth) {
         graphics.setBackgroundColor(UiTheme.BG);
+
+        // Check if the full line (concatenated from segments) is a tool result,
+        // to catch JSON that was split across segments by thinking tags.
+        StringBuilder fullLine = new StringBuilder();
+        for (TextSegment seg : segments) {
+            fullLine.append(seg.getText());
+        }
+        if (ToolResultRenderer.isToolResultLine(fullLine.toString())) {
+            String formatted;
+            try {
+                formatted = ToolResultRenderer.formatToolResult(fullLine.toString());
+            } catch (InvalidToolResultPathException e) {
+                formatted = ToolResultRenderer.INVALID_PATH_DISPLAY;
+            } catch (Exception e) {
+                formatted = fullLine.toString();
+            }
+            graphics.setForegroundColor(UiTheme.TOOL_DETAIL);
+            renderString(graphics, formatted, row, 0, contentWidth, graphics.getForegroundColor(), UiTheme.BG);
+            return;
+        }
+
         int currentX = 0;
 
         for (TextSegment segment : segments) {

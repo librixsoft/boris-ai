@@ -117,4 +117,56 @@ class ToolResultRendererTest {
     void formatToolResultHandlesNull() {
         assertThrows(IllegalArgumentException.class, () -> ToolResultRenderer.formatToolResult(null));
     }
+
+    @Test
+    void isToolResultLineDetectsJsonWithHtmlInPath() {
+        assertTrue(ToolResultRenderer.isToolResultLine("{\"tool\": \"write_file\", \"path\": \"<meta charset=\\\"UTF-8\\\">\", \"success\": true}"));
+    }
+
+    @Test
+    void isToolResultLineDetectsJsonWithPathOnly() {
+        assertTrue(ToolResultRenderer.isToolResultLine("{\"path\": \"/Users/lastprophet/Downloads/hola.md\"}"));
+    }
+
+    @Test
+    void isToolResultLineDetectsJsonWithEmbeddedQuotes() {
+        assertTrue(ToolResultRenderer.isToolResultLine("{\"tool\": \"write_file\", \"path\": \"/tmp/file\", \"message\": \"ok\"}"));
+    }
+
+    @Test
+    void isToolResultLineRejectsJsonWithExtraPrefix() {
+        assertFalse(ToolResultRenderer.isToolResultLine("prefix {\"tool\": \"delete_file\", \"path\": \"/tmp/x\", \"success\": true}"));
+    }
+
+    @Test
+    void isToolResultLineRejectsJsonWithExtraSuffix() {
+        assertFalse(ToolResultRenderer.isToolResultLine("{\"tool\": \"delete_file\", \"path\": \"/tmp/x\", \"success\": true} suffix"));
+    }
+
+    @Test
+    void formatToolResultRejectsHtmlInlineInPath() {
+        assertThrows(InvalidToolResultPathException.class, () ->
+                ToolResultRenderer.formatToolResult("{\"tool\": \"write_file\", \"path\": \"<meta charset=\\\"UTF-8\\\">\", \"success\": true}"));
+    }
+
+    @Test
+    void formatToolResultHandlesPathOnly() {
+        String result = ToolResultRenderer.formatToolResult("{\"path\": \"/Users/lastprophet/Downloads/hola.md\", \"success\": true}");
+        assertEquals("🛠️ : /Users/lastprophet/Downloads/hola.md", result);
+    }
+
+    @Test
+    void formatToolResultThrowsOnUnescapedQuotes() {
+        assertThrows(IllegalArgumentException.class, () -> ToolResultRenderer.formatToolResult("{\"path\": \"/tmp/file\", \"message\": \"broken"));
+    }
+
+    @Test
+    void formatToolResultRejectsAngleBracketsInPath() {
+        assertThrows(InvalidToolResultPathException.class, () -> ToolResultRenderer.formatToolResult("{\"tool\": \"write_file\", \"path\": \"/tmp/<file>.txt\", \"success\": true}"));
+    }
+
+    @Test
+    void formatToolResultRejectsHtmlEntityInPath() {
+        assertThrows(InvalidToolResultPathException.class, () -> ToolResultRenderer.formatToolResult("{\"tool\": \"write_file\", \"path\": \"/tmp/file&amp;.txt\", \"success\": true}"));
+    }
 }

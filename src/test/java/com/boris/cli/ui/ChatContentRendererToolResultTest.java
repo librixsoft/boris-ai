@@ -53,6 +53,32 @@ class ChatContentRendererToolResultTest {
     }
 
     @Test
+    void testRenderToolResultWithHtmlInPathDoesNotLeakRawJsonOrHtml() {
+        ChatContentRenderer renderer = new ChatContentRenderer();
+        ChatPanel panel = new ChatPanel();
+        panel.setText("{\"tool\": \"write_file\", \"path\": \"<meta charset=\\\"UTF-8\\\">\", \"success\": true}");
+
+        TextGUIGraphics graphics = Mockito.mock(TextGUIGraphics.class);
+        Mockito.when(graphics.getSize()).thenReturn(new com.googlecode.lanterna.TerminalSize(60, 10));
+
+        ArgumentCaptor<TextCharacter> captor = ArgumentCaptor.forClass(TextCharacter.class);
+        renderer.drawComponent(graphics, panel);
+
+        verify(graphics, atLeastOnce()).setCharacter(anyInt(), anyInt(), captor.capture());
+
+        StringBuilder rendered = new StringBuilder();
+        for (TextCharacter tc : captor.getAllValues()) {
+            rendered.append(tc.getCharacterString());
+        }
+
+        assertFalse(rendered.toString().contains("{\"tool\""));
+        assertFalse(rendered.toString().contains("\"success\""));
+        assertFalse(rendered.toString().contains("\"path\""));
+        assertFalse(rendered.toString().contains("<meta"));
+        assertTrue(rendered.toString().contains("Invalid tool result path"));
+    }
+
+    @Test
     void testRenderToolResultInThinkingBlock() {
         ChatContentRenderer renderer = new ChatContentRenderer();
         ChatPanel panel = new ChatPanel();
@@ -78,6 +104,35 @@ class ChatContentRendererToolResultTest {
 
         renderer.drawComponent(graphics, panel);
 
+        Mockito.verify(graphics, atLeastOnce()).setForegroundColor(UiTheme.TOOL_DETAIL);
+    }
+
+    @Test
+    void testRenderToolResultWithPathOnly() {
+        ChatContentRenderer renderer = new ChatContentRenderer();
+        ChatPanel panel = new ChatPanel();
+        panel.setText("{\"path\": \"/Users/lastprophet/Downloads/hola.md\", \"success\": true}");
+
+        TextGUIGraphics graphics = Mockito.mock(TextGUIGraphics.class);
+        Mockito.when(graphics.getSize()).thenReturn(new com.googlecode.lanterna.TerminalSize(60, 10));
+
+        renderer.drawComponent(graphics, panel);
+
+        Mockito.verify(graphics, atLeastOnce()).setForegroundColor(UiTheme.TOOL_DETAIL);
+    }
+
+    @Test
+    void testRenderToolResultWithBackticksDoesNotUseInlineCodeColor() {
+        ChatContentRenderer renderer = new ChatContentRenderer();
+        ChatPanel panel = new ChatPanel();
+        panel.setText("{\"tool\": \"write_file\", \"path\": \"/tmp/file`name.txt\", \"success\": true}");
+
+        TextGUIGraphics graphics = Mockito.mock(TextGUIGraphics.class);
+        Mockito.when(graphics.getSize()).thenReturn(new com.googlecode.lanterna.TerminalSize(60, 10));
+
+        renderer.drawComponent(graphics, panel);
+
+        // Should use TOOL_DETAIL, not inline code BG_ELEVATED
         Mockito.verify(graphics, atLeastOnce()).setForegroundColor(UiTheme.TOOL_DETAIL);
     }
 }

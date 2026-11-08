@@ -228,7 +228,16 @@ public class Transcript {
                         continue;
                     }
                     if (ToolResultRenderer.isToolResultLine(line)) {
-                        String formatted = ToolResultRenderer.formatToolResult(line);
+                        String formatted;
+                        try {
+                            formatted = ToolResultRenderer.formatToolResult(line);
+                        } catch (InvalidToolResultPathException ex) {
+                            formatted = ToolResultRenderer.INVALID_PATH_DISPLAY;
+                        } catch (Exception ex) {
+                            // Si el JSON es inválido, renderizar la línea original para no perder información
+                            // pero el renderer la detectará como tool result y aplicará TOOL_DETAIL
+                            formatted = line;
+                        }
                         if (sb.length() > 0 && !sb.toString().endsWith("\n")) {
                             sb.append("\n");
                         }
