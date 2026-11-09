@@ -45,21 +45,17 @@ public class StatusBar extends Label {
         }, durationSeconds, TimeUnit.SECONDS);
     }
 
-    public void showThinking(String frame, int minutes, int seconds, TokenCounter tokens, boolean thinkingEnabled) {
+    public void showThinking(String coloredFrame, String coloredText, int minutes, int seconds, TokenCounter tokens, boolean thinkingEnabled) {
         uiExecutor.run(() -> {
             String time = minutes > 0 ? String.format("%dm%02ds", minutes, seconds) : String.format("%ds", seconds);
-            if (thinkingEnabled) {
-                setText(" [T] " + frame + " pensando... " + time + "   " + tokens.plainStatus());
-            } else {
-                setText(" " + frame + " pensando... " + time + "   " + tokens.plainStatus());
-            }
+            setText(coloredFrame + " " + coloredText + " " + time + "   " + tokens.plainStatus());
         });
     }
 
     public void showThinkingState(boolean thinkingEnabled) {
         uiExecutor.run(() -> {
             if (thinkingEnabled) {
-                setText(" [T] Thinking: activado");
+                setText(" Thinking: activado");
             }
         });
     }

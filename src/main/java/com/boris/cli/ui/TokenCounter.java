@@ -76,7 +76,7 @@ public class TokenCounter {
     }
 
     public String plainStatus() {
-        return "tokens: " + formatTokens(totalTokens()) + "/" + formatTokens(contextWindowLimit) + " " + progressBar();
+        return formatTokens(totalTokens()) + "/" + formatTokens(contextWindowLimit) + " " + progressBar();
     }
 
     public String statusText() {
