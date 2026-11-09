@@ -33,6 +33,15 @@ public final class UiTheme {
     public static final TextColor STATS = new TextColor.RGB(80, 80, 80);
     public static final TextColor DIFF_HEADER = new TextColor.RGB(130, 180, 220);
     public static final TextColor DIFF_BORDER = new TextColor.RGB(70, 70, 70);
+    public static final TextColor IDLE = new TextColor.RGB(150, 150, 150);
+    public static final TextColor[] SPINNER_GRADIENT = {
+            new TextColor.RGB(234, 169, 169),
+            new TextColor.RGB(234, 183, 161),
+            new TextColor.RGB(234, 199, 161),
+            new TextColor.RGB(231, 211, 167),
+            new TextColor.RGB(226, 219, 175),
+            new TextColor.RGB(220, 216, 183)
+    };
 
     // Syntax highlighting colors for code in diffs
     public static final TextColor SYNTAX_KEYWORD = new TextColor.RGB(225, 140, 255);

@@ -3,19 +3,25 @@ package com.boris.cli.ui;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.googlecode.lanterna.TextColor;
+
 public class ThinkingSpinner {
 
     private static final String[] FRAMES = {"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"};
+    private static final long COLOR_STEP_MILLIS = 3000L;
 
-    private static final String[] COLORS = {
-        "\u001b[38;2;255;0;0m",    // Rojo puro
-        "\u001b[38;2;255;69;0m",   // Rojo-naranja
-        "\u001b[38;2;255;140;0m",  // Naranja
-        "\u001b[38;2;255;200;0m",  // Naranja-amarillo
-        "\u001b[38;2;255;255;0m",  // Amarillo
-        "\u001b[38;2;255;215;0m",  // Dorado
-    };
-    private static final String RESET = "\u001b[0m";
+    static long colorStepMillis() {
+        return COLOR_STEP_MILLIS;
+    }
+
+    static TextColor colorForElapsed(long elapsedMillis) {
+        if (elapsedMillis < 0) {
+            throw new IllegalArgumentException("elapsedMillis no puede ser negativo: " + elapsedMillis);
+        }
+        int gradientIndex = UiTheme.SPINNER_GRADIENT.length;
+        int stepIndex = (int) ((elapsedMillis / COLOR_STEP_MILLIS) % gradientIndex);
+        return UiTheme.SPINNER_GRADIENT[stepIndex];
+    }
 
     private final StatusBar statusBar;
     private final TokenCounter tokenCounter;
@@ -51,22 +57,17 @@ public class ThinkingSpinner {
         if (running.compareAndSet(false, true)) {
             Thread thread = new Thread(() -> {
                 int i = 0;
-                int colorIndex = 0;
 
                 while (waiting.get() && !wasAborted.get()) {
                     String frame = FRAMES[i % FRAMES.length];
-                    String color = COLORS[colorIndex % COLORS.length];
-
-                    String coloredFrame = color + frame + RESET;
-                    String coloredText = color + "pensando..." + RESET;
 
                     long elapsed = System.currentTimeMillis() - messageStartTime.get();
+                    TextColor color = colorForElapsed(elapsed);
                     int seconds = (int) (elapsed / 1000) % 60;
                     int minutes = (int) (elapsed / 1000) / 60;
 
-                    statusBar.showThinking(coloredFrame, coloredText, minutes, seconds, tokenCounter, thinkingEnabledSupplier.getAsBoolean());
+                    statusBar.showThinking(frame, color, "pensando...", minutes, seconds, tokenCounter);
                     i++;
-                    colorIndex++;
 
                     try {
                         Thread.sleep(80);
