@@ -116,4 +116,41 @@ class MarkdownLineRendererToolResultTest {
         // Verify inline code renderer was NOT used (no BG_ELEVATED for inline code)
         verify(graphics, never()).setBackgroundColor(UiTheme.BG_ELEVATED);
     }
+
+    @Test
+    void testRenderToolResultEmbeddedInThinkingBlockDoesNotLeakRawJson() {
+        MarkdownLineRenderer renderer = new MarkdownLineRenderer();
+        TextGUIGraphics graphics = Mockito.mock(TextGUIGraphics.class);
+
+        // Tool result JSON embedded within thinking tags on the same line
+        // This simulates the bug where raw JSON appears inline in thinking text
+        renderer.render(graphics, "●  <thinking>Analyzing... {\"tool\": \"delete_file\", \"path\": \"/tmp/x\", \"success\": true}</thinking> Done", 0, 60, true);
+
+        ArgumentCaptor<TextCharacter> captor = ArgumentCaptor.forClass(TextCharacter.class);
+        verify(graphics, atLeastOnce()).setCharacter(anyInt(), anyInt(), captor.capture());
+
+        StringBuilder rendered = new StringBuilder();
+        for (TextCharacter tc : captor.getAllValues()) {
+            rendered.append(tc.getCharacterString());
+        }
+
+        // Raw JSON must not leak in thinking block
+        assertFalse(rendered.toString().contains("{\"tool\""));
+        assertFalse(rendered.toString().contains("\"success\""));
+        assertFalse(rendered.toString().contains("\"path\""));
+        // Tool result should be formatted with emoji
+        assertTrue(rendered.toString().contains("delete_file"));
+        assertTrue(rendered.toString().contains("/tmp/x"));
+    }
+
+    @Test
+    void testRenderToolResultInThinkingBlockUsesToolDetailColor() {
+        MarkdownLineRenderer renderer = new MarkdownLineRenderer();
+        TextGUIGraphics graphics = Mockito.mock(TextGUIGraphics.class);
+
+        // Tool result on its own line within thinking block
+        renderer.render(graphics, "{\"tool\": \"delete_file\", \"path\": \"/tmp/x\", \"success\": true}", 0, 60, true);
+
+        Mockito.verify(graphics, atLeastOnce()).setForegroundColor(UiTheme.TOOL_DETAIL);
+    }
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Map;
+import java.util.regex.Matcher;
 
 public final class ToolResultRenderer {
 
@@ -28,6 +29,15 @@ public final class ToolResultRenderer {
             "git", "📦",
             "batch_read_files", "📂"
     );
+
+    /**
+     * Regex que detecta objetos JSON planos que contengan al menos una clave
+     * de resultado de herramienta (tool, path, message, deleted, success).
+     * Se usa para extraer y formatear resultados de herramienta embebidos
+     * dentro de texto (por ejemplo, dentro de bloques de thinking).
+     */
+    private static final java.util.regex.Pattern TOOL_RESULT_JSON_PATTERN =
+            java.util.regex.Pattern.compile("\\{[^{}]*\"(?:tool|path|message|deleted|success)\"[^{}]*\\}");
 
     private ToolResultRenderer() {
     }
@@ -92,5 +102,32 @@ public final class ToolResultRenderer {
         validatePath(path);
         String emoji = getToolEmoji(toolName);
         return emoji + " " + toolName + ": " + path;
+    }
+
+    /**
+     * Busca y formatea objetos JSON de resultado de herramienta embebidos dentro
+     * de un texto (por ejemplo, dentro de un bloque de thinking). Reemplaza cada
+     * JSON encontrado por su representación con emoji.
+     */
+    public static String formatToolResultsInText(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        Matcher matcher = TOOL_RESULT_JSON_PATTERN.matcher(text);
+        StringBuilder result = new StringBuilder();
+        int lastEnd = 0;
+        while (matcher.find()) {
+            result.append(text, lastEnd, matcher.start());
+            String json = matcher.group();
+            try {
+                result.append(formatToolResult(json));
+            } catch (Exception e) {
+                // Si el JSON no es un resultado de herramienta válido, mantenerlo tal cual
+                result.append(json);
+            }
+            lastEnd = matcher.end();
+        }
+        result.append(text, lastEnd, text.length());
+        return result.toString();
     }
 }

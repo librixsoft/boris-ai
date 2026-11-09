@@ -496,6 +496,32 @@ public class MarkdownLineRenderer {
             if (currentX >= contentWidth) {
                 break;
             }
+            // Check if this segment contains tool result JSON embedded within text.
+            // This prevents raw JSON from leaking through the thinking renderer.
+            String segmentText = segment.getText();
+            if (ToolResultRenderer.isToolResultLine(segmentText)) {
+                String formatted;
+                try {
+                    formatted = ToolResultRenderer.formatToolResult(segmentText);
+                } catch (InvalidToolResultPathException e) {
+                    formatted = ToolResultRenderer.INVALID_PATH_DISPLAY;
+                } catch (Exception e) {
+                    formatted = segmentText;
+                }
+                graphics.setForegroundColor(UiTheme.TOOL_DETAIL);
+                renderString(graphics, formatted, row, currentX, contentWidth, graphics.getForegroundColor(), UiTheme.BG);
+                currentX += displayWidth(formatted);
+                continue;
+            }
+            // Check if the segment contains embedded tool result JSON (e.g., within thinking tags)
+            String formattedSegment = ToolResultRenderer.formatToolResultsInText(segmentText);
+            if (!formattedSegment.equals(segmentText)) {
+                // The segment contained tool result JSON that was formatted
+                graphics.setForegroundColor(UiTheme.TOOL_DETAIL);
+                renderString(graphics, formattedSegment, row, currentX, contentWidth, graphics.getForegroundColor(), UiTheme.BG);
+                currentX += displayWidth(formattedSegment);
+                continue;
+            }
             currentX = renderSegment(graphics, segment.getText(), row, currentX, contentWidth, segment.isThinking());
         }
 
