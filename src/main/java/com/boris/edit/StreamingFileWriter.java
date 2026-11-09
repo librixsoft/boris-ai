@@ -88,7 +88,7 @@ public class StreamingFileWriter {
             }
         }
 
-        if (!inCodeBlock && buffer.length() > 0) {
+        if (!inCodeBlock && !inToolBlock && buffer.length() > 0) {
             String pending = buffer.toString();
             if (pending.matches("(?i).*`*</?(?:think|thinking|thought|reasoning)>`*.*")) {
                 buffer.setLength(0);

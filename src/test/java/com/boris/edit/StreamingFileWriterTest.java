@@ -396,6 +396,23 @@ class StreamingFileWriterTest {
     }
 
     @Test
+    void testDoesNotLeakPartialToolArgsWithoutNewline() {
+        String leaked = writer.processChunk("<thinking>analizando</thinking>\n")
+                + writer.processChunk("```tool:delete_file\n")
+                + writer.processChunk("{\"path\": \"/Users/lastprophet/Downloads/index.html")
+                + writer.processChunk("\"}\n```\n");
+        writer.finish();
+
+        String result = String.join("", notifications);
+        assertFalse(leaked.contains("{\"path\""),
+                "No debería filtrar JSON parcial de argumentos al chat: " + leaked);
+        assertTrue(notifications.stream().anyMatch(n -> n.contains("🗑️") && n.contains("delete_file")),
+                "Debería emitir el resumen con emoji 🗑️ delete_file");
+        assertTrue(notifications.stream().anyMatch(n -> n.contains("delete_file") && n.contains("/Users/lastprophet/Downloads/index.html")),
+                "El resumen debería incluir el path completo de los argumentos");
+    }
+
+    @Test
     void testFiltersThinkingWithBackticks() {
         String input = "`<thinking>pensamiento</thinking>`\nTexto normal";
 

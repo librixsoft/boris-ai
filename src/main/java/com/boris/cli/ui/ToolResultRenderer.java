@@ -10,7 +10,10 @@ public final class ToolResultRenderer {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private static final String[] TOOL_RESULT_KEYS = {"success", "path", "message", "deleted", "tool"};
+    private static final String[] TOOL_RESULT_KEYS = {
+            "success", "path", "message", "deleted", "tool",
+            "command", "query", "urls", "paths", "outputPath", "documentType"
+    };
 
     public static final String INVALID_PATH_DISPLAY = "⚠️ Invalid tool result path";
 
@@ -37,7 +40,7 @@ public final class ToolResultRenderer {
      * dentro de texto (por ejemplo, dentro de bloques de thinking).
      */
     private static final java.util.regex.Pattern TOOL_RESULT_JSON_PATTERN =
-            java.util.regex.Pattern.compile("\\{[^{}]*\"(?:tool|path|message|deleted|success)\"[^{}]*\\}");
+            java.util.regex.Pattern.compile("\\{[^{}]*\"(?:tool|path|message|deleted|success|command|query|urls|paths|outputPath|documentType)\"[^{}]*\\}");
 
     private ToolResultRenderer() {
     }
@@ -96,12 +99,74 @@ public final class ToolResultRenderer {
         }
         String toolName = node.get("tool") != null ? node.get("tool").asText() : "";
         String path = node.get("path") != null ? node.get("path").asText() : null;
-        if (path == null || path.isEmpty()) {
+        if (toolName.isBlank()) {
+            toolName = inferToolName(node);
+        }
+        if (path != null && !path.isEmpty()) {
+            validatePath(path);
+            String emoji = getToolEmoji(toolName);
+            return toolName.isBlank()
+                    ? emoji + " " + path
+                    : emoji + " " + toolName + ": " + path;
+        }
+        String detail = inferDetail(node);
+        if (detail.isEmpty()) {
             throw new IllegalArgumentException("Tool result line missing 'path' field: " + line);
         }
-        validatePath(path);
         String emoji = getToolEmoji(toolName);
-        return emoji + " " + toolName + ": " + path;
+        return toolName.isBlank()
+                ? emoji + " " + detail
+                : emoji + " " + toolName + ": " + detail;
+    }
+
+    private static String inferToolName(JsonNode node) {
+        if (node.has("command")) {
+            String command = node.get("command").asText("").trim();
+            return command.startsWith("git") ? "git" : "bash";
+        }
+        if (node.has("query")) {
+            return "web_search";
+        }
+        if (node.has("urls")) {
+            return "web_fetch";
+        }
+        if (node.has("paths")) {
+            return "batch_read_files";
+        }
+        if (node.has("outputPath")) {
+            return "generate_pdf";
+        }
+        if (node.has("documentType")) {
+            return "create_office_document";
+        }
+        return "";
+    }
+
+    private static String inferDetail(JsonNode node) {
+        if (node.has("command")) {
+            return node.get("command").asText("").trim();
+        }
+        if (node.has("query")) {
+            return node.get("query").asText("").trim();
+        }
+        if (node.has("urls") && node.get("urls").isArray()) {
+            return joinArrayValues(node.get("urls"));
+        }
+        if (node.has("paths") && node.get("paths").isArray()) {
+            return joinArrayValues(node.get("paths"));
+        }
+        return "";
+    }
+
+    private static String joinArrayValues(JsonNode arrayNode) {
+        StringBuilder joined = new StringBuilder();
+        for (JsonNode item : arrayNode) {
+            if (joined.length() > 0) {
+                joined.append(' ');
+            }
+            joined.append(item.asText());
+        }
+        return joined.toString();
     }
 
     /**

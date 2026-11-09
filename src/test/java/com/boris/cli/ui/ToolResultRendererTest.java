@@ -100,7 +100,54 @@ class ToolResultRendererTest {
     @Test
     void formatToolResultWithPathOnly() {
         String result = ToolResultRenderer.formatToolResult("{\"path\": \"/tmp/file.txt\", \"success\": true}");
-        assertEquals("🛠️ : /tmp/file.txt", result);
+        assertEquals("🛠️ /tmp/file.txt", result);
+    }
+
+    @Test
+    void formatToolResultInfersBashFromCommand() {
+        String result = ToolResultRenderer.formatToolResult("{\"command\": \"ls -la\"}");
+        assertEquals("🐧 bash: ls -la", result);
+    }
+
+    @Test
+    void formatToolResultInfersGitFromGitCommand() {
+        String result = ToolResultRenderer.formatToolResult("{\"command\": \"git status\"}");
+        assertEquals("📦 git: git status", result);
+    }
+
+    @Test
+    void formatToolResultInfersWebSearchFromQuery() {
+        String result = ToolResultRenderer.formatToolResult("{\"query\": \"spring boot\"}");
+        assertEquals("𔍀 web_search: spring boot", result);
+    }
+
+    @Test
+    void formatToolResultInfersWebFetchFromUrls() {
+        String result = ToolResultRenderer.formatToolResult("{\"urls\": [\"https://example.com\"]}");
+        assertEquals("🌐 web_fetch: https://example.com", result);
+    }
+
+    @Test
+    void formatToolResultInfersBatchReadFromPaths() {
+        String result = ToolResultRenderer.formatToolResult("{\"paths\": [\"/tmp/a.java\", \"/tmp/b.java\"]}");
+        assertEquals("📂 batch_read_files: /tmp/a.java /tmp/b.java", result);
+    }
+
+    @Test
+    void formatToolResultsInTextFormatsCallJsonInsideThinking() {
+        String text = "Voy a ejecutar {\"command\": \"git status\"} ahora";
+        String result = ToolResultRenderer.formatToolResultsInText(text);
+        assertEquals("Voy a ejecutar 📦 git: git status ahora", result);
+    }
+
+    @Test
+    void isToolResultLineDetectsCallJsonWithCommand() {
+        assertTrue(ToolResultRenderer.isToolResultLine("{\"command\": \"mvn test\"}"));
+    }
+
+    @Test
+    void isToolResultLineDetectsCallJsonWithQuery() {
+        assertTrue(ToolResultRenderer.isToolResultLine("{\"query\": \"kotlin coroutines\"}"));
     }
 
     @Test
@@ -152,7 +199,7 @@ class ToolResultRendererTest {
     @Test
     void formatToolResultHandlesPathOnly() {
         String result = ToolResultRenderer.formatToolResult("{\"path\": \"/Users/lastprophet/Downloads/hola.md\", \"success\": true}");
-        assertEquals("🛠️ : /Users/lastprophet/Downloads/hola.md", result);
+        assertEquals("🛠️ /Users/lastprophet/Downloads/hola.md", result);
     }
 
     @Test
