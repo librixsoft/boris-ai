@@ -203,6 +203,27 @@ class MarkdownLineRendererTest {
     }
 
     @Test
+    void testRenderFileSavedLineUsesGreenBackground() {
+        renderer.render(graphics, "─── +5 ✓ /path/to/file guardado ───", 0, 40, false);
+        verify(graphics).setBackgroundColor(UiTheme.DIFF_ADD_BG);
+        verify(graphics).setForegroundColor(UiTheme.DIFF_ADD);
+    }
+
+    @Test
+    void testRenderFileSavedLineWithRemovedLinesUsesGreenBackground() {
+        renderer.render(graphics, "─── +5 -2 ✓ /path/to/file guardado ───", 0, 40, false);
+        verify(graphics).setBackgroundColor(UiTheme.DIFF_ADD_BG);
+        verify(graphics).setForegroundColor(UiTheme.DIFF_ADD);
+    }
+
+    @Test
+    void testRenderFileSavedLineBulkEditUsesGreenBackground() {
+        renderer.render(graphics, "─── +5 ✓ guardado ───", 0, 40, false);
+        verify(graphics).setBackgroundColor(UiTheme.DIFF_ADD_BG);
+        verify(graphics).setForegroundColor(UiTheme.DIFF_ADD);
+    }
+
+    @Test
     void testEnsureBlankLineAfterThinkingKeepsConsecutiveBlocksTogether() {
         String input = "<thinking>a</thinking>\n<thinking>b</thinking>\nHola";
         assertEquals("<thinking>a</thinking>\n<thinking>b</thinking>\n\nHola",

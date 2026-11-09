@@ -394,6 +394,15 @@ public class MarkdownLineRenderer {
             return;
         }
 
+        // Línea de confirmación de guardado de archivo: "─── +5 ✓ /path guardado ───"
+        // Variantes: "─── +5 -2 ✓ /path guardado ───" (edit) y "─── +5 ✓ guardado ───" (bulk)
+        if (line.matches("^─+\\s*\\+\\d+(?:\\s*-\\d+)?\\s+✓\\s+.*guardado\\s*─+$")) {
+            graphics.setBackgroundColor(UiTheme.DIFF_ADD_BG);
+            graphics.setForegroundColor(UiTheme.DIFF_ADD);
+            renderString(graphics, line, row, 0, contentWidth, UiTheme.DIFF_ADD, UiTheme.DIFF_ADD_BG);
+            return;
+        }
+
         if (line.matches("^─+\\s*\\+\\d+\\s+-\\d+\\s*─+$")) {
             renderDiffStats(graphics, line, row, contentWidth, isThinking);
             return;
