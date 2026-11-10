@@ -18,6 +18,7 @@ import com.knuddels.jtokkit.api.EncodingRegistry;
 import com.knuddels.jtokkit.api.EncodingType;
 
 import com.boris.exceptions.BorisException;
+import com.boris.exceptions.PlanModeException;
 import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
@@ -42,6 +43,7 @@ import com.boris.tooling.ToolProgressNotifier;
 import com.boris.context.ProjectContext;
 import com.boris.tooling.ToolResultNotifier;
 import com.boris.task.decomposition.TaskPlannerTool;
+import com.boris.cli.ui.PlanModeManager;
 
 /**
  * Tool configuration with PARALLEL-FIRST approach.
@@ -84,6 +86,8 @@ public class ToolCallingConfig {
     private final OfficeDocumentTool officeDocumentTool;
     private final TaskPlannerTool taskPlannerTool;
     private final Settings settings;
+    private final PlanModeManager planModeManager;
+    private final WriteTool writeTool;
 
     // PARALLEL tools (replace sequential versions)
     private final BatchReadFileTool batchReadFileTool;
@@ -100,7 +104,8 @@ public class ToolCallingConfig {
                             PdfGenerationTool pdfGenerationTool,
                             OfficeDocumentTool officeDocumentTool,
                             TaskPlannerTool taskPlannerTool,
-                            Settings settings) {
+                            Settings settings,
+                            PlanModeManager planModeManager) {
         this.deleteTool = deleteTool;
         this.editTool = editTool;
         this.systemInfoTool = systemInfoTool;
@@ -108,6 +113,8 @@ public class ToolCallingConfig {
         this.officeDocumentTool = officeDocumentTool;
         this.taskPlannerTool = taskPlannerTool;
         this.settings = settings;
+        this.planModeManager = planModeManager;
+        this.writeTool = new WriteTool(planModeManager);
 
         // Initialize tools
         this.batchReadFileTool = new BatchReadFileTool();
@@ -176,6 +183,7 @@ public class ToolCallingConfig {
     }
 
     private static ToolCallingConfig createDefaultConfig(Settings settings) {
+        PlanModeManager planModeManager = new PlanModeManager();
         return new ToolCallingConfig(
                 new DeleteTool(),
                 new EditTool(),
@@ -183,7 +191,8 @@ public class ToolCallingConfig {
                 new PdfGenerationTool(),
                 new OfficeDocumentTool(),
                 new TaskPlannerTool(),
-                settings
+                settings,
+                planModeManager
         );
     }
 
@@ -221,7 +230,14 @@ public class ToolCallingConfig {
         String mainModelName = settings != null && settings.getModel() != null && settings.getModel().getName() != null
                 ? settings.getModel().getName() : "main";
         ToolProgressNotifier.notify("write_file", "Escribiendo con " + mainModelName + " (flujo normal): " + path);
-        String result = WriteTool.execute(Map.of("path", path, "content", content != null ? content : ""));
+
+        // Validar plan mode antes de escribir
+        String absolutePath = ProjectContext.resolveRelativePath(path);
+        if (!planModeManager.canWrite(absolutePath)) {
+            return "{\"success\":false,\"message\":\"Plan mode activo: solo se permiten archivos .md en " + planModeManager.getPlansDirectory() + "\"}";
+        }
+
+        String result = writeTool.execute(Map.of("path", path, "content", content != null ? content : ""));
         notifyToolTokens("write_file", path + "\n" + content, result);
         return result;
     }

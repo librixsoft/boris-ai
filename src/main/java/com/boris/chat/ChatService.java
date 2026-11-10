@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 import com.boris.edit.StreamingFileWriter;
 import com.boris.exceptions.ChatException;
 import com.boris.exceptions.ChatException.ErrorType;
+import com.boris.exceptions.PlanModeException;
 import com.boris.llm.client.BorisLlmClient;
 import com.boris.llm.client.ChatMessage;
 import com.boris.llm.client.ChatRequest;
@@ -30,6 +31,8 @@ import com.boris.settings.SettingsManager;
 import com.boris.task.TaskAborter;
 import com.boris.context.ProjectContext;
 import com.boris.tooling.tool.WebSearchTool;
+import com.boris.cli.ui.PlanModeManager;
+import com.boris.tooling.tool.WriteTool;
 
 public class ChatService {
 
@@ -52,6 +55,8 @@ public class ChatService {
     private volatile ToolRegistry toolRegistry;
     private volatile String systemPrompt;
     private final StreamingFileWriter fileWriter;
+    private final PlanModeManager planModeManager;
+    private final WriteTool writeTool;
     private static final Pattern THINKING_PATTERN = Pattern.compile("(?is)<(think|thinking|thought|reasoning)>(.*?)</\\1>");
     private static final Pattern ORPHAN_THINK_TAGS = Pattern.compile("(?i)</?(?:think|thinking|thought|reasoning)>");
     private static final Pattern PROJECT_PATH_PATTERN = Pattern.compile("^\\s*(/[^\\s]+|~/[^\\s]+)\\s+(.+)$", Pattern.DOTALL);
@@ -71,6 +76,10 @@ public class ChatService {
     }
 
     public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode, String modelName) {
+        this(llmClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, thinkingEnabled, thinkingMode, modelName, new PlanModeManager());
+    }
+
+    public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode, String modelName, PlanModeManager planModeManager) {
         this.llmClientSupplier = llmClientSupplier;
         this.botName = botName;
         this.taskAborter = taskAborter;
@@ -81,6 +90,8 @@ public class ChatService {
         this.thinkingEnabled = thinkingEnabled;
         this.thinkingMode = thinkingMode;
         this.modelName = modelName;
+        this.planModeManager = planModeManager;
+        this.writeTool = new WriteTool(planModeManager);
         this.fileWriter = new StreamingFileWriter();
         if (taskAborter != null && modelName != null) {
             taskAborter.setActiveModel(modelName);
@@ -290,7 +301,15 @@ public class ChatService {
             String result;
             try {
                 ToolProgressNotifier.notify("write_file", "Escribiendo: " + blockPath);
-                result = com.boris.tooling.tool.WriteTool.execute(java.util.Map.of(
+
+                // Validar plan mode antes de escribir
+                String absolutePath = ProjectContext.resolveRelativePath(blockPath != null ? blockPath : "");
+                if (!planModeManager.canWrite(absolutePath)) {
+                    DiffLineNotifier.notify("⚠ Plan mode activo: solo se permiten archivos .md en " + planModeManager.getPlansDirectory());
+                    return;
+                }
+
+                result = writeTool.execute(java.util.Map.of(
                         "path", blockPath != null ? blockPath : "",
                         "content", blockContent != null ? blockContent : ""));
                 ToolCallingConfig.notifyToolTokens("write_file",
@@ -303,6 +322,8 @@ public class ChatService {
                 String message = extractJsonProperty(result, "error");
                 DiffLineNotifier.notify("⚠ write_file no guardo " + blockPath + (message != null ? ": " + message : ""));
             }
+        } catch (PlanModeException e) {
+            DiffLineNotifier.notify("⚠ " + e.getMessage());
         } catch (Exception e) {
             DiffLineNotifier.notify("⚠ Error guardando " + blockPath + ": " + e.getMessage());
         }
@@ -441,7 +462,7 @@ public class ChatService {
         ToolRegistry registry = ToolCallingConfig.buildToolRegistry(s);
         String prompt = ToolCallingConfig.loadSystemPrompt(s);
 
-        ChatService service = new ChatService(() -> client, botName, aborter, historySize, enableHistory, thinkingEnabled, thinkingMode, modelName);
+        ChatService service = new ChatService(() -> client, botName, aborter, historySize, enableHistory, thinkingEnabled, thinkingMode, modelName, new PlanModeManager());
         service.setSettings(s);
         service.setToolRegistry(registry);
         service.setSystemPrompt(prompt);

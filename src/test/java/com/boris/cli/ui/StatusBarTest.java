@@ -16,9 +16,13 @@ class StatusBarTest {
     private static final String IDLE_TEXT = "en pausa...";
     private static final String ANSI_ESCAPE_EXAMPLE = "\u001b[38;2;255;0;0m";
 
+    private static StatusBar createStatusBar() {
+        return new StatusBar(Runnable::run, new PlanModeManager());
+    }
+
     @Test
     void showThinkingAplicaColorDeGradienteSoloAlSpinner() {
-        StatusBar statusBar = new StatusBar(Runnable::run);
+        StatusBar statusBar = createStatusBar();
         TokenCounter tokens = new TokenCounter(128000);
         TextColor spinnerColor = UiTheme.SPINNER_GRADIENT[0];
 
@@ -33,7 +37,7 @@ class StatusBarTest {
 
     @Test
     void showThinkingMuestraFrameTextoTiempoYTokens() {
-        StatusBar statusBar = new StatusBar(Runnable::run);
+        StatusBar statusBar = createStatusBar();
         TokenCounter tokens = new TokenCounter(128000);
 
         statusBar.showThinking(SPINNER_FRAME, UiTheme.SPINNER_GRADIENT[0], SPINNER_TEXT, 0, 5, tokens);
@@ -45,7 +49,7 @@ class StatusBarTest {
 
     @Test
     void spinnerMantieneAnchoConstanteEntreEstadoThinkingYIdle() {
-        StatusBar statusBar = new StatusBar(Runnable::run);
+        StatusBar statusBar = createStatusBar();
         TokenCounter tokens = new TokenCounter(128000);
 
         statusBar.showThinking(SPINNER_FRAME, UiTheme.SPINNER_GRADIENT[0], SPINNER_TEXT, 0, 5, tokens);
@@ -59,7 +63,7 @@ class StatusBarTest {
 
     @Test
     void showTokenStatusMuestraEstadoIdleSinVaciarElSpinner() {
-        StatusBar statusBar = new StatusBar(Runnable::run);
+        StatusBar statusBar = createStatusBar();
         TokenCounter tokens = new TokenCounter(128000);
 
         statusBar.showTokenStatus(tokens);
@@ -73,8 +77,39 @@ class StatusBarTest {
     }
 
     @Test
+    void togglePlanModeCambiaModoYLabelDelToggle() {
+        PlanModeManager planModeManager = new PlanModeManager();
+        StatusBar statusBar = new StatusBar(Runnable::run, planModeManager);
+
+        assertEquals(PlanMode.WRITE, planModeManager.getMode());
+        assertTrue(statusBar.planModeToggleLabel().contains("WRITE MODE"));
+
+        statusBar.togglePlanMode();
+
+        assertEquals(PlanMode.PLAN, planModeManager.getMode());
+        assertTrue(statusBar.planModeToggleLabel().contains("PLAN MODE"));
+
+        statusBar.togglePlanMode();
+
+        assertEquals(PlanMode.WRITE, planModeManager.getMode());
+        assertTrue(statusBar.planModeToggleLabel().contains("WRITE MODE"));
+    }
+
+    @Test
+    void togglePlanModeNoModificaElInfoText() {
+        PlanModeManager planModeManager = new PlanModeManager();
+        StatusBar statusBar = new StatusBar(Runnable::run, planModeManager);
+        statusBar.showTokenStatus(new TokenCounter(128000));
+        String infoAntes = statusBar.infoText();
+
+        statusBar.togglePlanMode();
+
+        assertEquals(infoAntes, statusBar.infoText());
+    }
+
+    @Test
     void showThinkingRechazaFrameConEscapeAnsi() {
-        StatusBar statusBar = new StatusBar(Runnable::run);
+        StatusBar statusBar = createStatusBar();
         TokenCounter tokens = new TokenCounter(128000);
 
         assertThrows(AnsiEscapeInUiTextException.class,
@@ -84,7 +119,7 @@ class StatusBarTest {
 
     @Test
     void showThinkingRechazaTextoConEscapeAnsi() {
-        StatusBar statusBar = new StatusBar(Runnable::run);
+        StatusBar statusBar = createStatusBar();
         TokenCounter tokens = new TokenCounter(128000);
 
         assertThrows(AnsiEscapeInUiTextException.class,
@@ -94,7 +129,7 @@ class StatusBarTest {
 
     @Test
     void showThinkingStateActivadoMuestraEmojiAlInicio() {
-        StatusBar statusBar = new StatusBar(Runnable::run);
+        StatusBar statusBar = createStatusBar();
 
         statusBar.showThinkingState(true);
 
@@ -105,7 +140,7 @@ class StatusBarTest {
 
     @Test
     void showThinkingStateDesactivadoEliminaEmoji() {
-        StatusBar statusBar = new StatusBar(Runnable::run);
+        StatusBar statusBar = createStatusBar();
 
         statusBar.showThinkingState(true);
         statusBar.showThinkingState(false);

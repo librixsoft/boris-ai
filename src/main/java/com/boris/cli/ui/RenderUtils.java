@@ -59,6 +59,20 @@ public final class RenderUtils {
         return sb.toString();
     }
 
+    public static int displayWidth(String text) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+        int width = 0;
+        int i = 0;
+        while (i < text.length()) {
+            int cp = text.codePointAt(i);
+            width += getDisplayWidth(cp);
+            i += (cp > 0xFFFF ? 2 : 1);
+        }
+        return width;
+    }
+
     public static int getDisplayWidth(int codePoint) {
         if (codePoint > 0xFFFF) {
             // Zero-width supplementary characters (tags U+E0000-U+E001F)

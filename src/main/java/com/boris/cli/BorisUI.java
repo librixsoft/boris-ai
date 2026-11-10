@@ -42,6 +42,7 @@ import com.boris.cli.ui.HeaderBar;
 import com.boris.cli.ui.HintBar;
 import com.boris.cli.ui.InputArea;
 import com.boris.cli.ui.StatusBar;
+import com.boris.cli.ui.PlanModeManager;
 import com.boris.cli.ui.ThinkingSpinner;
 import com.boris.cli.ui.ToastPopup;
 import com.boris.cli.ui.TokenCounter;
@@ -128,7 +129,12 @@ public class BorisUI {
             transcript.appendLine(line);
         });
 
-        StatusBar statusBar = new StatusBar(uiExecutor);
+        PlanModeManager planModeManager = new PlanModeManager();
+        if (settings != null && settings.getPlanMode() != null) {
+            planModeManager.initializeFromSettings(settings.getPlanMode());
+        }
+
+        StatusBar statusBar = new StatusBar(uiExecutor, planModeManager);
         chatPanel.setClipboardCopyListener(() -> {
             ToastPopup toast = new ToastPopup("Texto copiado al portapapeles", uiExecutor);
             toast.showFor(gui, 2);
@@ -157,7 +163,6 @@ public class BorisUI {
                 settingsManager,
                 null
         );
-
         window = new BorisWindow(chatPanel, SCROLL_STEP, delta -> uiExecutor.run(() -> chatPanel.scroll(delta)));
         window.setHints(Arrays.asList(Window.Hint.FULL_SCREEN, Window.Hint.NO_DECORATIONS));
         window.addWindowListener(new WindowListenerAdapter() {
@@ -204,6 +209,7 @@ public class BorisUI {
             hintBar.setToolDetailsVisible(showDetails);
             hintBar.showHiddenDetailsHint(showDetails ? 0 : transcript.getHiddenDetailsCount());
         });
+        inputArea.setPlanModeToggleHandler(statusBar::togglePlanMode);
         Border borderedInput = inputArea.withBorder(Borders.singleLine());
         borderedInput.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Fill));
         footer.addComponent(borderedInput);

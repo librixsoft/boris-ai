@@ -2,12 +2,16 @@ package com.boris.cli.ui;
 
 import com.googlecode.lanterna.SGR;
 import com.googlecode.lanterna.TextColor;
+import com.googlecode.lanterna.TerminalPosition;
 import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.gui2.ComponentRenderer;
 import com.googlecode.lanterna.gui2.Direction;
+import com.googlecode.lanterna.gui2.InputFilter;
 import com.googlecode.lanterna.gui2.Panel;
 import com.googlecode.lanterna.gui2.TextGUIGraphics;
 import com.googlecode.lanterna.gui2.LinearLayout;
+import com.googlecode.lanterna.gui2.CheckBox;
+import com.googlecode.lanterna.input.KeyType;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -23,8 +27,14 @@ public class StatusBar extends Panel {
     private static final int TIME_COLUMN_WIDTH = 6;
     private static final String IDLE_SPINNER_TEXT = " " + IDLE_MARK + " " + IDLE_TEXT;
     private static final String THINKING_EMOJI = "💭";
+    private static final String PLAN_MODE_LABEL = "PLAN MODE";
+    private static final String WRITE_MODE_LABEL = "WRITE MODE";
+    private static final int TOGGLE_GAP = 1;
 
     private final UiExecutor uiExecutor;
+    private final PlanModeManager planModeManager;
+    private final CheckBox planModeToggle;
+    private final PlanModeToggleRenderer toggleRenderer;
     private String spinnerText = "";
     private TextColor spinnerColor = UiTheme.ACCENT;
     private String infoText = "";
@@ -37,10 +47,43 @@ public class StatusBar extends Panel {
     private ScheduledFuture<?> pendingClear;
     private String persistentStatus = "";
 
-    public StatusBar(UiExecutor uiExecutor) {
+    public StatusBar(UiExecutor uiExecutor, PlanModeManager planModeManager) {
         super(new LinearLayout(Direction.HORIZONTAL));
         this.uiExecutor = uiExecutor;
+        this.planModeManager = planModeManager;
+        this.toggleRenderer = new PlanModeToggleRenderer();
+        this.planModeToggle = new CheckBox(WRITE_MODE_LABEL);
+        this.planModeToggle.setRenderer(toggleRenderer);
+        boolean isPlan = planModeManager.getMode() == PlanMode.PLAN;
+        this.planModeToggle.setChecked(isPlan);
+        this.planModeToggle.setLabel(isPlan ? PLAN_MODE_LABEL : WRITE_MODE_LABEL);
+
+        // InputFilter: bloquear activación por Enter/Space; manejar Shift+Tab para togglear
+        InputFilter toggleFilter = (component, keyStroke) -> {
+            if (keyStroke.getKeyType() == KeyType.ReverseTab && keyStroke.isShiftDown()) {
+                planModeToggle.setChecked(!planModeToggle.isChecked());
+            }
+            return false;
+        };
+        this.planModeToggle.setInputFilter(toggleFilter);
+
+        // Listener para cambios de estado
+        this.planModeToggle.addListener(checked -> {
+            String newLabel = checked ? PLAN_MODE_LABEL : WRITE_MODE_LABEL;
+            this.planModeToggle.setLabel(newLabel);
+            planModeManager.setMode(checked ? PlanMode.PLAN : PlanMode.WRITE);
+        });
+
+        addComponent(planModeToggle);
         setRenderer(new StatusBarRenderer());
+    }
+
+    public void togglePlanMode() {
+        planModeToggle.setChecked(!planModeToggle.isChecked());
+    }
+
+    String planModeToggleLabel() {
+        return planModeToggle.getLabel();
     }
 
     public String spinnerText() {
@@ -60,23 +103,16 @@ public class StatusBar extends Panel {
     }
 
     private static int displayWidth(String text) {
-        if (text == null || text.isEmpty()) {
-            return 0;
-        }
-        int width = 0;
-        for (int i = 0; i < text.length(); ) {
-            int cp = text.codePointAt(i);
-            width += RenderUtils.getDisplayWidth(cp);
-            i += (cp > 0xFFFF ? 2 : 1);
-        }
-        return width;
+        return RenderUtils.displayWidth(text);
     }
 
     private void updatePreferredSize() {
         int spinnerWidth = displayWidth(spinnerText);
         int infoWidth = displayWidth(infoText);
         int spacing = (spinnerWidth > 0 && infoWidth > 0) ? 1 : 0;
-        setPreferredSize(new TerminalSize(Math.max(1, spinnerWidth + infoWidth + spacing), 1));
+        int toggleWidth = planModeToggle != null ? planModeToggle.getPreferredSize().getColumns() : 0;
+        int totalWidth = spinnerWidth + infoWidth + spacing + toggleWidth + TOGGLE_GAP;
+        setPreferredSize(new TerminalSize(Math.max(1, totalWidth), 1));
     }
 
     public void clear() {
@@ -175,7 +211,8 @@ public class StatusBar extends Panel {
             int spinnerWidth = displayWidth(bar.spinnerText);
             int infoWidth = displayWidth(bar.infoText);
             int spacing = (spinnerWidth > 0 && infoWidth > 0) ? 1 : 0;
-            return new TerminalSize(Math.max(1, spinnerWidth + infoWidth + spacing), 1);
+            int toggleWidth = bar.planModeToggle != null ? bar.planModeToggle.getPreferredSize().getColumns() : 0;
+            return new TerminalSize(Math.max(1, spinnerWidth + infoWidth + spacing + toggleWidth), 1);
         }
 
         @Override
@@ -195,17 +232,29 @@ public class StatusBar extends Panel {
                 }
             }
 
+            int toggleWidth = bar.planModeToggle != null ? bar.planModeToggle.getPreferredSize().getColumns() : 0;
+            int textWidth = width - toggleWidth - TOGGLE_GAP;
+            if (textWidth < 0) {
+                textWidth = 0;
+            }
+
             if (!bar.spinnerText.isEmpty()) {
-                CodepointAwareTextRenderer.renderWithStyle(graphics, bar.spinnerText, 0, 0, width,
+                CodepointAwareTextRenderer.renderWithStyle(graphics, bar.spinnerText, 0, 0, textWidth,
                         bar.spinnerColor, UiTheme.BG, EnumSet.noneOf(SGR.class));
                 int spinnerWidth = displayWidth(bar.spinnerText);
-                if (!bar.infoText.isEmpty() && spinnerWidth + 1 < width) {
-                    CodepointAwareTextRenderer.renderWithStyle(graphics, bar.infoText, 0, spinnerWidth + 1, width,
+                if (!bar.infoText.isEmpty() && spinnerWidth + 1 < textWidth) {
+                    CodepointAwareTextRenderer.renderWithStyle(graphics, bar.infoText, 0, spinnerWidth + 1, textWidth,
                             bar.infoColor, UiTheme.BG, EnumSet.noneOf(SGR.class));
                 }
             } else if (!bar.infoText.isEmpty()) {
-                CodepointAwareTextRenderer.renderWithStyle(graphics, bar.infoText, 0, 0, width,
+                CodepointAwareTextRenderer.renderWithStyle(graphics, bar.infoText, 0, 0, textWidth,
                         bar.infoColor, UiTheme.BG, EnumSet.noneOf(SGR.class));
+            }
+
+            if (bar.planModeToggle != null && toggleWidth > 0 && width >= toggleWidth) {
+                TerminalSize toggleSize = bar.planModeToggle.getPreferredSize();
+                bar.planModeToggle.setPosition(new TerminalPosition(width - toggleWidth, 0));
+                bar.planModeToggle.draw(graphics.newTextGraphics(bar.planModeToggle.getPosition(), toggleSize));
             }
         }
     }

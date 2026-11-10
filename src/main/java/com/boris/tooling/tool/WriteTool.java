@@ -9,9 +9,17 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.tooling.ToolDefinition;
 import com.boris.edit.StreamingFileWriter;
 import com.boris.context.ProjectContext;
+import com.boris.cli.ui.PlanModeManager;
+import com.boris.exceptions.PlanModeException;
+
 public class WriteTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private final PlanModeManager planModeManager;
+
+    public WriteTool(PlanModeManager planModeManager) {
+        this.planModeManager = planModeManager;
+    }
 
     public static ToolDefinition write_file() {
         var pathProp = Map.of("type", "string", "description", "Absolute or relative file path");
@@ -28,7 +36,7 @@ public class WriteTool {
                 schema);
     }
 
-    public static String execute(Map<String, Object> args) {
+    public String execute(Map<String, Object> args) {
         @SuppressWarnings("unchecked")
         String pathStr = (String) args.getOrDefault("path", "");
         @SuppressWarnings("unchecked")
@@ -42,6 +50,11 @@ public class WriteTool {
 
         // Resolver ruta relativa usando el proyecto actual
         pathStr = ProjectContext.resolveRelativePath(pathStr);
+
+        // Validar plan mode antes de escribir
+        if (!planModeManager.canWrite(pathStr)) {
+            throw new PlanModeException("Plan mode activo: solo se permiten archivos .md en " + planModeManager.getPlansDirectory());
+        }
 
         if (content == null) {
             content = "";

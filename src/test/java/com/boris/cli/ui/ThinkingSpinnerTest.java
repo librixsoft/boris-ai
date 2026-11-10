@@ -20,7 +20,7 @@ class ThinkingSpinnerTest {
 
     @Test
     void startMuestraSpinnerFranjaConColorGradiente() throws InterruptedException {
-        StatusBar statusBar = new StatusBar(Runnable::run);
+        StatusBar statusBar = new StatusBar(Runnable::run, new PlanModeManager());
         TokenCounter tokens = new TokenCounter(128000);
         AtomicBoolean waiting = new AtomicBoolean(true);
         AtomicBoolean wasAborted = new AtomicBoolean(false);

@@ -26,9 +26,16 @@ import com.boris.tooling.parallel.BatchListDirectoriesTool;
 import com.boris.tooling.parallel.ParallelSearchTool;
 import com.boris.task.decomposition.TaskPlannerTool;
 import com.boris.tooling.integration.ToolCallingConfig;
+import com.boris.cli.ui.PlanModeManager;
 
 @Configuration
 public class TestConfiguration {
+
+    @Bean
+    @Primary
+    public PlanModeManager planModeManager() {
+        return new PlanModeManager();
+    }
 
     @Bean
     @Primary
@@ -143,7 +150,8 @@ public class TestConfiguration {
                                                PdfGenerationTool pdfGenerationTool,
                                                OfficeDocumentTool officeDocumentTool,
                                                TaskPlannerTool taskPlannerTool,
-                                               Settings settings) {
+                                               Settings settings,
+                                               PlanModeManager planModeManager) {
         return new ToolCallingConfig(
                 deleteTool,
                 editTool,
@@ -151,7 +159,8 @@ public class TestConfiguration {
                 pdfGenerationTool,
                 officeDocumentTool,
                 taskPlannerTool,
-                settings
+                settings,
+                planModeManager
         );
     }
 }
