@@ -107,10 +107,43 @@ class MarkdownLineRendererTest {
     }
 
     @Test
-    void testRenderThinkingCodeUsesThinkingColor() {
+    void testRenderThinkingCodeUsesSyntaxColors() {
         renderer.render(graphics, "```java", 0, 40, true);
-        verify(graphics).setForegroundColor(UiTheme.THINKING);
+        // Code fences inside thinking must use syntax highlighting colors, not THINKING grey
+        verify(graphics, never()).setForegroundColor(UiTheme.THINKING);
         verify(graphics).setBackgroundColor(UiTheme.BG_ELEVATED);
+    }
+
+    @Test
+    void testRenderThinkingCodeBlockContentUsesSyntaxColors() {
+        // Code block content inside thinking should render with syntax colors via renderCodeLine
+        renderer.render(graphics, "public class Hello {", 0, 40, true, true, true);
+        ArgumentCaptor<TextColor> captor = ArgumentCaptor.forClass(TextColor.class);
+        verify(graphics, atLeastOnce()).setForegroundColor(captor.capture());
+        List<TextColor> colors = captor.getAllValues();
+        // Dimmed syntax colors must be present; THINKING must not be used for code tokens
+        TextColor dimKeyword = new TextColor.RGB(135, 84, 153); // SYNTAX_KEYWORD * 0.6
+        TextColor dimType = new TextColor.RGB(54, 135, 138); // SYNTAX_TYPE * 0.6
+        assertTrue(colors.stream().anyMatch(c -> rgbEq(c, dimKeyword) || rgbEq(c, dimType)));
+        assertFalse(colors.contains(UiTheme.THINKING));
+        assertFalse(colors.stream().anyMatch(c -> rgbEq(c, UiTheme.SYNTAX_KEYWORD) || rgbEq(c, UiTheme.SYNTAX_TYPE))); // full brightness not used in thinking
+    }
+
+    @Test
+    void testRenderInlineCodeInThinkingUsesSyntaxColors() {
+        renderer.render(graphics, "Use `System.out.println()` here", 0, 60, true);
+        ArgumentCaptor<TextColor> captor = ArgumentCaptor.forClass(TextColor.class);
+        verify(graphics, atLeastOnce()).setForegroundColor(captor.capture());
+        List<TextColor> colors = captor.getAllValues();
+        // Dimmed inline code inside thinking must use syntax highlighting colors
+        TextColor dimKeyword = new TextColor.RGB(135, 84, 153); // SYNTAX_KEYWORD * 0.6
+        TextColor dimText = new TextColor.RGB(144, 144, 144); // SYNTAX_TEXT * 0.6
+        TextColor dimOperator = new TextColor.RGB(129, 132, 138); // SYNTAX_OPERATOR * 0.6
+        assertTrue(colors.stream().anyMatch(c -> rgbEq(c, dimKeyword) || rgbEq(c, dimText) || rgbEq(c, dimOperator)));
+    }
+
+    private static boolean rgbEq(TextColor a, TextColor b) {
+        return a.getRed() == b.getRed() && a.getGreen() == b.getGreen() && a.getBlue() == b.getBlue();
     }
 
     @Test

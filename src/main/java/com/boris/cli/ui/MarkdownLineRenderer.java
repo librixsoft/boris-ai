@@ -430,9 +430,7 @@ public class MarkdownLineRenderer {
         }
 
         if (line.trim().startsWith("```") || line.trim().startsWith("``")) {
-            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
-            graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
-            renderString(graphics, line, row, 0, contentWidth, graphics.getForegroundColor(), graphics.getBackgroundColor());
+            renderCodeLine(graphics, line, row, contentWidth, isThinking);
             return;
         }
 
@@ -545,9 +543,20 @@ public class MarkdownLineRenderer {
             if (cp == '`' && (i == 0 || text.codePointAt(i - 1) != '\\')) {
                 if (inCode) {
                     graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
-                    graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
-                    renderString(graphics, current.toString(), row, x, contentWidth, graphics.getForegroundColor(), graphics.getBackgroundColor());
-                    x += currentWidth;
+                    List<SyntaxHighlighter.SyntaxToken> tokens = SyntaxHighlighter.tokenizeLine(current.toString());
+                    int tokenX = x;
+                    for (SyntaxHighlighter.SyntaxToken token : tokens) {
+                        if (tokenX >= contentWidth) break;
+                        graphics.setForegroundColor(codeColor(token, isThinking));
+                        String tokenText = token.text();
+                        int spaceLeft = contentWidth - tokenX;
+                        if (tokenText.length() > spaceLeft) {
+                            tokenText = tokenText.substring(0, spaceLeft);
+                        }
+                        renderString(graphics, tokenText, row, tokenX, contentWidth, codeColor(token, isThinking), UiTheme.BG_ELEVATED);
+                        tokenX += displayWidth(tokenText);
+                    }
+                    x = tokenX;
                     current.setLength(0);
                     currentWidth = 0;
                     inCode = false;
@@ -573,15 +582,28 @@ public class MarkdownLineRenderer {
         if (current.length() > 0 && x < contentWidth) {
             if (inCode) {
                 graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
-                graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
+                List<SyntaxHighlighter.SyntaxToken> tokens = SyntaxHighlighter.tokenizeLine(current.toString());
+                int tokenX = x;
+                for (SyntaxHighlighter.SyntaxToken token : tokens) {
+                    if (tokenX >= contentWidth) break;
+                    graphics.setForegroundColor(codeColor(token, isThinking));
+                    String tokenText = token.text();
+                    int spaceLeft = contentWidth - tokenX;
+                    if (tokenText.length() > spaceLeft) {
+                        tokenText = tokenText.substring(0, spaceLeft);
+                    }
+                    renderString(graphics, tokenText, row, tokenX, contentWidth, codeColor(token, isThinking), UiTheme.BG_ELEVATED);
+                    tokenX += displayWidth(tokenText);
+                }
+                x = tokenX;
             } else {
                 graphics.setBackgroundColor(UiTheme.BG);
                 graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
+                int available = contentWidth - x;
+                String toPrint = current.length() > available ? current.substring(0, available) : current.toString();
+                renderString(graphics, toPrint, row, x, contentWidth, graphics.getForegroundColor(), graphics.getBackgroundColor());
+                x += currentWidth;
             }
-            int available = contentWidth - x;
-            String toPrint = current.length() > available ? current.substring(0, available) : current.toString();
-            renderString(graphics, toPrint, row, x, contentWidth, graphics.getForegroundColor(), graphics.getBackgroundColor());
-            x += currentWidth;
         }
 
         return x;
@@ -601,9 +623,20 @@ public class MarkdownLineRenderer {
             if (cp == '`' && (i == 0 || line.codePointAt(i - 1) != '\\')) {
                 if (inCode) {
                     graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
-                    graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
-                    renderString(graphics, current.toString(), row, x, contentWidth, graphics.getForegroundColor(), graphics.getBackgroundColor());
-                    x += currentWidth;
+                    List<SyntaxHighlighter.SyntaxToken> tokens = SyntaxHighlighter.tokenizeLine(current.toString());
+                    int tokenX = x;
+                    for (SyntaxHighlighter.SyntaxToken token : tokens) {
+                        if (tokenX >= contentWidth) break;
+                        graphics.setForegroundColor(codeColor(token, isThinking));
+                        String tokenText = token.text();
+                        int spaceLeft = contentWidth - tokenX;
+                        if (tokenText.length() > spaceLeft) {
+                            tokenText = tokenText.substring(0, spaceLeft);
+                        }
+                        renderString(graphics, tokenText, row, tokenX, contentWidth, codeColor(token, isThinking), UiTheme.BG_ELEVATED);
+                        tokenX += displayWidth(tokenText);
+                    }
+                    x = tokenX;
                     current.setLength(0);
                     currentWidth = 0;
                     inCode = false;
@@ -622,13 +655,26 @@ public class MarkdownLineRenderer {
         if (current.length() > 0) {
             if (inCode) {
                 graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
-                graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
+                List<SyntaxHighlighter.SyntaxToken> tokens = SyntaxHighlighter.tokenizeLine(current.toString());
+                int tokenX = x;
+                for (SyntaxHighlighter.SyntaxToken token : tokens) {
+                    if (tokenX >= contentWidth) break;
+                    graphics.setForegroundColor(codeColor(token, isThinking));
+                    String tokenText = token.text();
+                    int spaceLeft = contentWidth - tokenX;
+                    if (tokenText.length() > spaceLeft) {
+                        tokenText = tokenText.substring(0, spaceLeft);
+                    }
+                    renderString(graphics, tokenText, row, tokenX, contentWidth, codeColor(token, isThinking), UiTheme.BG_ELEVATED);
+                    tokenX += displayWidth(tokenText);
+                }
+                x = tokenX;
             } else {
                 graphics.setBackgroundColor(UiTheme.BG);
                 graphics.setForegroundColor(isThinking ? UiTheme.THINKING : UiTheme.FG);
+                renderString(graphics, current.toString(), row, x, contentWidth, graphics.getForegroundColor(), graphics.getBackgroundColor());
+                x += currentWidth;
             }
-            renderString(graphics, current.toString(), row, x, contentWidth, graphics.getForegroundColor(), graphics.getBackgroundColor());
-            x += currentWidth;
         }
     }
 
@@ -747,13 +793,13 @@ public class MarkdownLineRenderer {
         for (SyntaxHighlighter.SyntaxToken token : tokens) {
             if (x >= contentWidth) break;
             graphics.setBackgroundColor(bgColor);
-            graphics.setForegroundColor(token.color());
+            graphics.setForegroundColor(codeColor(token, isThinking));
             String tokenText = token.text();
             int spaceLeft = contentWidth - x;
             if (tokenText.length() > spaceLeft) {
                 tokenText = tokenText.substring(0, spaceLeft);
             }
-            renderString(graphics, tokenText, row, x, contentWidth, token.color(), bgColor);
+            renderString(graphics, tokenText, row, x, contentWidth, codeColor(token, isThinking), bgColor);
             x += displayWidth(tokenText);
         }
 
@@ -836,7 +882,7 @@ public class MarkdownLineRenderer {
 
         for (SyntaxHighlighter.SyntaxToken token : tokens) {
             if (x >= contentWidth) break;
-            TextColor tokenColor = isThinking ? UiTheme.THINKING : token.color();
+            TextColor tokenColor = isThinking ? UiTheme.THINKING : codeColor(token, isThinking);
             graphics.setForegroundColor(tokenColor);
             String tokenText = token.text();
             int spaceLeft = contentWidth - x;
@@ -923,13 +969,13 @@ public class MarkdownLineRenderer {
         List<SyntaxHighlighter.SyntaxToken> tokens = SyntaxHighlighter.tokenizeLine(code);
         for (SyntaxHighlighter.SyntaxToken token : tokens) {
             if (x >= contentWidth) break;
-            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : token.color());
+            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : codeColor(token, isThinking));
             String tokenText = token.text();
             int spaceLeft = contentWidth - x;
             if (tokenText.length() > spaceLeft) {
                 tokenText = tokenText.substring(0, spaceLeft);
             }
-            renderString(graphics, tokenText, row, x, contentWidth, token.color(), bgColor);
+            renderString(graphics, tokenText, row, x, contentWidth, codeColor(token, isThinking), bgColor);
             x += displayWidth(tokenText);
         }
 
@@ -938,7 +984,18 @@ public class MarkdownLineRenderer {
         }
     }
 
-    private void renderCodeLine(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean isThinking) {
+    private static TextColor dimColor(TextColor color, float factor) {
+        int r = (int)(color.getRed() * factor);
+        int g = (int)(color.getGreen() * factor);
+        int b = (int)(color.getBlue() * factor);
+        return new TextColor.RGB(r, g, b);
+    }
+
+    private static TextColor codeColor(SyntaxHighlighter.SyntaxToken token, boolean isThinking) {
+        return isThinking ? dimColor(token.color(), 0.6f) : token.color();
+    }
+
+    void renderCodeLine(TextGUIGraphics graphics, String line, int row, int contentWidth, boolean isThinking) {
         graphics.setBackgroundColor(UiTheme.BG_ELEVATED);
 
         int availableWidth = contentWidth;
@@ -951,13 +1008,14 @@ public class MarkdownLineRenderer {
         int x = 0;
         for (SyntaxHighlighter.SyntaxToken token : tokens) {
             if (x >= contentWidth) break;
-            graphics.setForegroundColor(isThinking ? UiTheme.THINKING : token.color());
+            TextColor fg = codeColor(token, isThinking);
+            graphics.setForegroundColor(fg);
             String tokenText = token.text();
             int spaceLeft = contentWidth - x;
             if (tokenText.length() > spaceLeft) {
                 tokenText = tokenText.substring(0, spaceLeft);
             }
-            renderString(graphics, tokenText, row, x, contentWidth, token.color(), UiTheme.BG_ELEVATED);
+            renderString(graphics, tokenText, row, x, contentWidth, fg, UiTheme.BG_ELEVATED);
             x += displayWidth(tokenText);
         }
 
@@ -979,7 +1037,7 @@ public class MarkdownLineRenderer {
         int x = 0;
         for (SyntaxHighlighter.SyntaxToken token : tokens) {
             if (x >= contentWidth) break;
-            TextColor fgColor = isThinking ? UiTheme.THINKING : token.color();
+            TextColor fgColor = isThinking ? UiTheme.THINKING : codeColor(token, isThinking);
             graphics.setForegroundColor(fgColor);
             String tokenText = token.text();
             int spaceLeft = contentWidth - x;
