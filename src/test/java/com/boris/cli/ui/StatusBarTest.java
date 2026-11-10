@@ -91,4 +91,25 @@ class StatusBarTest {
                 () -> statusBar.showThinking(SPINNER_FRAME, UiTheme.SPINNER_GRADIENT[0],
                         ANSI_ESCAPE_EXAMPLE + SPINNER_TEXT, 0, 5, tokens));
     }
+
+    @Test
+    void showThinkingStateActivadoMuestraEmojiAlInicio() {
+        StatusBar statusBar = new StatusBar(Runnable::run);
+
+        statusBar.showThinkingState(true);
+
+        assertTrue(statusBar.infoText().startsWith("💭"));
+        assertTrue(statusBar.infoText().contains("Thinking: activado"));
+        assertEquals(UiTheme.ACCENT, statusBar.infoColor());
+    }
+
+    @Test
+    void showThinkingStateDesactivadoEliminaEmoji() {
+        StatusBar statusBar = new StatusBar(Runnable::run);
+
+        statusBar.showThinkingState(true);
+        statusBar.showThinkingState(false);
+
+        assertTrue(statusBar.infoText().isBlank());
+    }
 }

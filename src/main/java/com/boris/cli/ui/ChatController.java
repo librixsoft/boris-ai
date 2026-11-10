@@ -281,6 +281,7 @@ public class ChatController implements InputArea.InputListener {
             }
             chatPanel.setThinkingEnabled(newState);
             chatService.setThinkingEnabled(newState);
+            statusBar.showThinkingState(newState);
             transcript.appendLine(newState ? "* Razonamiento (thinking) activado" : "* Razonamiento (thinking) desactivado");
             transcript.rerender();
             return;
@@ -599,8 +600,10 @@ public class ChatController implements InputArea.InputListener {
 
         if (normalizedLevel.equals("off")) {
             chatPanel.setThinkingEnabled(false);
+            statusBar.showThinkingState(false);
         } else {
             chatPanel.setThinkingEnabled(true);
+            statusBar.showThinkingState(true);
         }
 
         transcript.rerender();
