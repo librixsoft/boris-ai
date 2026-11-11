@@ -3,7 +3,6 @@ package com.boris.cli.ui;
 import com.googlecode.lanterna.TerminalPosition;
 import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.gui2.BasicWindow;
-import com.googlecode.lanterna.gui2.Borders;
 import com.googlecode.lanterna.gui2.Label;
 import com.googlecode.lanterna.gui2.MultiWindowTextGUI;
 import com.googlecode.lanterna.gui2.Window;
@@ -30,7 +29,7 @@ public class ToastPopup extends BasicWindow {
         Label label = new Label(" " + message + " ");
         label.setForegroundColor(UiTheme.SELECT_HIGHLIGHT_FG);
         label.setBackgroundColor(UiTheme.SELECT_HIGHLIGHT_BG);
-        setComponent(label.withBorder(Borders.doubleLine()));
+        setComponent(label);
     }
 
     public void showFor(MultiWindowTextGUI gui, int durationSeconds) {

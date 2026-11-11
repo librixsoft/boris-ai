@@ -2,11 +2,13 @@ package com.boris.cli.ui;
 
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.graphics.SimpleTheme;
+import com.googlecode.lanterna.gui2.AbstractBorder;
 import com.googlecode.lanterna.gui2.Separator;
 
 public final class UiTheme {
 
     public static final TextColor PRIMARY = new TextColor.RGB(0, 210, 0);
+    public static final TextColor BORDER_LINE = new TextColor.RGB(0, 0, 0);
     public static final TextColor BG = new TextColor.RGB(0, 0, 0);
     public static final TextColor BG_ELEVATED = new TextColor.RGB(15, 35, 15);
     public static final TextColor FG = PRIMARY;
@@ -70,6 +72,7 @@ public final class UiTheme {
                 BG
         );
         theme.addOverride(Separator.class, MUTED, BG);
+        theme.addOverride(AbstractBorder.class, BORDER_LINE, BG);
         return theme;
     }
 }

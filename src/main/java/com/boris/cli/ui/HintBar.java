@@ -4,13 +4,14 @@ import com.googlecode.lanterna.gui2.Label;
 
 public class HintBar extends Label {
 
-    private static final String BASE_HINTS = " / comandos   ESC: abortar   ↑↓: historial   ^N: nueva línea";
+    private static final String HINT_SEPARATOR = "  ·  ";
+    private static final String BASE_HINTS = "/ comandos" + HINT_SEPARATOR + "ESC: abortar" + HINT_SEPARATOR + "↑↓: historial" + HINT_SEPARATOR + "^N: nueva línea";
 
     private boolean toolDetailsVisible = false;
     private int hiddenCount = 0;
 
     public HintBar() {
-        super(BASE_HINTS + "   ^G: mostrar detalles");
+        super(BASE_HINTS + HINT_SEPARATOR + "^G: mostrar detalles");
         setForegroundColor(UiTheme.MUTED);
     }
 
@@ -30,9 +31,9 @@ public class HintBar extends Label {
     private void updateText() {
         StringBuilder sb = new StringBuilder(BASE_HINTS);
         if (toolDetailsVisible) {
-            sb.append("   ^G: ocultar detalles");
+            sb.append(HINT_SEPARATOR).append("^G: ocultar detalles");
         } else {
-            sb.append("   ^G: mostrar detalles");
+            sb.append(HINT_SEPARATOR).append("^G: mostrar detalles");
             if (hiddenCount > 0) {
                 sb.append("  [").append(hiddenCount).append(" ocultos]");
             }

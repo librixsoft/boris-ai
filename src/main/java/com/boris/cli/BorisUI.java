@@ -8,11 +8,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import com.boris.cli.ui.BorisTerminalFactory;
 
 import com.googlecode.lanterna.TerminalSize;
-import com.googlecode.lanterna.gui2.Border;
 import com.googlecode.lanterna.gui2.BorderLayout;
 import com.googlecode.lanterna.gui2.Borders;
 import com.googlecode.lanterna.gui2.Direction;
 import com.googlecode.lanterna.gui2.LinearLayout;
+import com.googlecode.lanterna.gui2.Label;
 import com.googlecode.lanterna.gui2.MultiWindowTextGUI;
 import com.googlecode.lanterna.gui2.Panel;
 import com.googlecode.lanterna.gui2.SeparateTextGUIThread;
@@ -173,11 +173,16 @@ public class BorisUI {
         });
 
         Panel root = new Panel(new BorderLayout());
-        root.addComponent(headerBar, BorderLayout.Location.TOP);
-        root.addComponent(chatPanel.withBorder(Borders.singleLine()), BorderLayout.Location.CENTER);
+        Panel topPanel = new Panel(new LinearLayout(Direction.VERTICAL));
+        topPanel.addComponent(headerBar);
+        topPanel.addComponent(createVerticalSpacer());
+        root.addComponent(topPanel, BorderLayout.Location.TOP);
+        root.addComponent(chatPanel, BorderLayout.Location.CENTER);
 
         Panel footer = new Panel(new LinearLayout(Direction.VERTICAL));
+        footer.addComponent(createVerticalSpacer());
         footer.addComponent(statusBar);
+        footer.addComponent(createVerticalSpacer());
 
         CommandMenu commandMenu = new CommandMenu(CommandItem.withSkills(skillManager));
         footer.addComponent(commandMenu);
@@ -210,20 +215,20 @@ public class BorisUI {
             hintBar.showHiddenDetailsHint(showDetails ? 0 : transcript.getHiddenDetailsCount());
         });
         inputArea.setPlanModeToggleHandler(statusBar::togglePlanMode);
-        Border borderedInput = inputArea.withBorder(Borders.singleLine());
-        borderedInput.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Fill));
-        footer.addComponent(borderedInput);
+        inputArea.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Fill));
+        footer.addComponent(inputArea);
+        footer.addComponent(createVerticalSpacer());
         footer.addComponent(hintBar);
 
         root.addComponent(footer, BorderLayout.Location.BOTTOM);
 
-        window.setComponent(root);
+        window.setComponent(root.withBorder(Borders.singleLine()));
         window.setFocusedInteractable(inputArea.getTextBox());
         gui.addWindow(window);
 
         ((SeparateTextGUIThread) gui.getGUIThread()).start();
 
-        transcript.appendLine("boris listo 🤖. Escribe tu mensaje.");
+        transcript.appendLine(" boris listo 🤖. Escribe tu mensaje.");
         transcript.appendBlankLine();
         statusBar.showTokenStatus(tokenCounter);
 
@@ -232,5 +237,9 @@ public class BorisUI {
         } finally {
             screen.stopScreen();
         }
+    }
+
+    private static Label createVerticalSpacer() {
+        return new Label(" ");
     }
 }
