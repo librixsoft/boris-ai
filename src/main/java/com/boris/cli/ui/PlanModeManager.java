@@ -11,7 +11,13 @@ import com.boris.context.ProjectContext;
 @Component
 public class PlanModeManager {
 
+    private static final PlanModeManager SHARED = new PlanModeManager();
+
     private final AtomicReference<PlanMode> mode = new AtomicReference<>(PlanMode.WRITE);
+
+    public static PlanModeManager shared() {
+        return SHARED;
+    }
 
     public PlanMode getMode() {
         return mode.get();

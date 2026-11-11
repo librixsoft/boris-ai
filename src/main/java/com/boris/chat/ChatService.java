@@ -76,7 +76,7 @@ public class ChatService {
     }
 
     public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode, String modelName) {
-        this(llmClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, thinkingEnabled, thinkingMode, modelName, new PlanModeManager());
+        this(llmClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, thinkingEnabled, thinkingMode, modelName, PlanModeManager.shared());
     }
 
     public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode, String modelName, PlanModeManager planModeManager) {
@@ -462,7 +462,7 @@ public class ChatService {
         ToolRegistry registry = ToolCallingConfig.buildToolRegistry(s);
         String prompt = ToolCallingConfig.loadSystemPrompt(s);
 
-        ChatService service = new ChatService(() -> client, botName, aborter, historySize, enableHistory, thinkingEnabled, thinkingMode, modelName, new PlanModeManager());
+        ChatService service = new ChatService(() -> client, botName, aborter, historySize, enableHistory, thinkingEnabled, thinkingMode, modelName, PlanModeManager.shared());
         service.setSettings(s);
         service.setToolRegistry(registry);
         service.setSystemPrompt(prompt);

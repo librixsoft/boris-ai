@@ -3,11 +3,21 @@ package com.boris.cli.ui;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+
+import com.boris.tooling.engine.ToolDefinition;
+import com.boris.tooling.engine.ToolRegistry;
+import com.boris.tooling.integration.ToolCallingConfig;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class PlanModeManagerTest {
+
+    @AfterEach
+    void restaurarModoCompartido() {
+        PlanModeManager.shared().setMode(PlanMode.WRITE);
+    }
 
     @Test
     void canWriteRetornaTrueEnModoWriteParaCualquierRuta() {
@@ -55,5 +65,33 @@ class PlanModeManagerTest {
         assertEquals(PlanMode.PLAN, manager.getMode());
         manager.setMode(PlanMode.WRITE);
         assertEquals(PlanMode.WRITE, manager.getMode());
+    }
+
+    @Test
+    void sharedRetornaSiempreLaMismaInstancia() {
+        assertSame(PlanModeManager.shared(), PlanModeManager.shared());
+    }
+
+    @Test
+    void writeDeRegistryEnModoPlanRechazaArchivosNoMd() throws Exception {
+        ToolCallingConfig.buildToolRegistry(null);
+        PlanModeManager.shared().setMode(PlanMode.PLAN);
+        ToolRegistry registry = ToolCallingConfig.buildToolRegistry(null);
+        ToolDefinition writeTool = registry.getTool("write_file");
+        assertNotNull(writeTool);
+        String result = registry.execute("write_file",
+                "{\"path\":\"/tmp/boris-plan-mode-test/archivo.txt\",\"content\":\"hola\"}");
+        assertTrue(result.contains("Plan mode activo"), "write_file debe rechazar la escritura en plan mode");
+        assertFalse(result.contains("\"success\":true"));
+    }
+
+    @Test
+    void writeDeRegistryEnModoWritePermiteEscrituraEnCualquierRuta() throws Exception {
+        ToolCallingConfig.buildToolRegistry(null);
+        PlanModeManager.shared().setMode(PlanMode.WRITE);
+        ToolRegistry registry = ToolCallingConfig.buildToolRegistry(null);
+        String result = registry.execute("write_file",
+                "{\"path\":\"/tmp/boris-plan-mode-test/archivo.txt\",\"content\":\"hola\"}");
+        assertTrue(result.contains("\"success\":true"), "write_file debe permitir escribir en modo WRITE");
     }
 }

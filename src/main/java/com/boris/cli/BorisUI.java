@@ -129,7 +129,7 @@ public class BorisUI {
             transcript.appendLine(line);
         });
 
-        PlanModeManager planModeManager = new PlanModeManager();
+        PlanModeManager planModeManager = PlanModeManager.shared();
         if (settings != null && settings.getPlanMode() != null) {
             planModeManager.initializeFromSettings(settings.getPlanMode());
         }

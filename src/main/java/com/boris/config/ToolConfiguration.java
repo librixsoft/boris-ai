@@ -25,7 +25,7 @@ public class ToolConfiguration {
 
     @Bean
     public PlanModeManager planModeManager() {
-        return new PlanModeManager();
+        return PlanModeManager.shared();
     }
 
     @Bean
