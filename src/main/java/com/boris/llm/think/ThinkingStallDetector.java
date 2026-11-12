@@ -1,13 +1,12 @@
 package com.boris.llm.think;
 
 import java.util.List;
-import java.util.Set;
-import java.util.HashSet;
+import java.util.stream.Collectors;
 
 /**
  * Detecta estancamiento del agente en thinking repetitivo sin progreso.
- * Trackea el hash del thinking content y los nombres de tool calls por iteración.
- * Se resetea al inicio de cada turno de chat.
+ * Trackea el hash del thinking content y el hash combinado (nombre + argumentos)
+ * de las tool calls por iteración. Se resetea al inicio de cada turno de chat.
  */
 public class ThinkingStallDetector {
 
@@ -16,7 +15,7 @@ public class ThinkingStallDetector {
     private int consecutiveThinkingOnlyIterations;
     private int consecutiveNonProgressiveIterations;
     private String lastThinkingHash;
-    private Set<String> lastToolCallNames;
+    private String lastToolCallHash;
 
     public ThinkingStallDetector(int maxStallIterations, int maxThinkingIterations) {
         this.maxStallIterations = maxStallIterations;
@@ -28,8 +27,8 @@ public class ThinkingStallDetector {
      * Registra el thinking y tool calls de una iteración.
      * @return true si se detectó estancamiento
      */
-    public boolean recordThinking(String thinkingContent, List<String> toolCallNames) {
-        boolean isThinkingOnly = (toolCallNames == null || toolCallNames.isEmpty());
+    public boolean recordThinking(String thinkingContent, List<ToolCallSignature> toolCalls) {
+        boolean isThinkingOnly = (toolCalls == null || toolCalls.isEmpty());
         boolean hasThinking = thinkingContent != null && !thinkingContent.isBlank();
 
         if (isThinkingOnly && hasThinking) {
@@ -43,24 +42,25 @@ public class ThinkingStallDetector {
                 consecutiveNonProgressiveIterations = 0;
             }
             lastThinkingHash = currentHash;
-            lastToolCallNames = new HashSet<>(toolCallNames != null ? toolCallNames : List.of());
+            lastToolCallHash = null;
         } else if (!isThinkingOnly) {
             // Hubo tool calls: resetear thinking-only counter
             consecutiveThinkingOnlyIterations = 0;
-            // Verificar si las tool calls son las mismas que la iteración anterior
-            if (lastToolCallNames != null && lastToolCallNames.equals(new HashSet<>(toolCallNames))) {
+            // Verificar si las tool calls son las mismas (nombre + argumentos) que la iteración anterior
+            String currentToolHash = hashToolCalls(toolCalls);
+            if (lastToolCallHash != null && lastToolCallHash.equals(currentToolHash)) {
                 consecutiveNonProgressiveIterations++;
             } else {
                 consecutiveNonProgressiveIterations = 0;
-                lastToolCallNames = new HashSet<>(toolCallNames != null ? toolCallNames : List.of());
             }
+            lastToolCallHash = currentToolHash;
             lastThinkingHash = null;
         } else {
             // Sin thinking ni tool calls: turno vacío
             consecutiveThinkingOnlyIterations = 0;
             consecutiveNonProgressiveIterations = 0;
             lastThinkingHash = null;
-            lastToolCallNames = null;
+            lastToolCallHash = null;
         }
 
         return isStallDetected();
@@ -86,7 +86,7 @@ public class ThinkingStallDetector {
         consecutiveThinkingOnlyIterations = 0;
         consecutiveNonProgressiveIterations = 0;
         lastThinkingHash = null;
-        lastToolCallNames = null;
+        lastToolCallHash = null;
     }
 
     private static String hashContent(String content) {
@@ -94,5 +94,28 @@ public class ThinkingStallDetector {
             return "null";
         }
         return Integer.toString(content.hashCode());
+    }
+
+    private static String hashToolCalls(List<ToolCallSignature> toolCalls) {
+        if (toolCalls == null || toolCalls.isEmpty()) {
+            return "null";
+        }
+        String combined = toolCalls.stream()
+                .map(tc -> tc.name() + ":" + (tc.arguments() != null ? tc.arguments() : "{}"))
+                .sorted()
+                .collect(Collectors.joining("||"));
+        return Integer.toString(combined.hashCode());
+    }
+
+    /**
+     * Firma de una tool call: nombre + argumentos. Se usa para detectar repeticiones
+     * exactas (mismo tool con mismos argumentos) vs progreso real (distintos argumentos).
+     */
+    public record ToolCallSignature(String name, String arguments) {
+        public ToolCallSignature {
+            if (name == null || name.isBlank()) {
+                throw new IllegalArgumentException("tool name es requerido");
+            }
+        }
     }
 }

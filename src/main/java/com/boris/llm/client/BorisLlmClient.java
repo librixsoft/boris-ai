@@ -477,17 +477,19 @@ public class BorisLlmClient {
             }
 
             // Detectar estancamiento por thinking repetitivo sin tool calls
-            List<String> toolCallNames = new java.util.ArrayList<>();
+            List<ThinkingStallDetector.ToolCallSignature> toolCallSignatures = new java.util.ArrayList<>();
             if (assistantMsg.toolCalls() != null) {
                 for (ToolCall tc : assistantMsg.toolCalls()) {
                     if (tc.function() != null) {
-                        toolCallNames.add(tc.function().name());
+                        toolCallSignatures.add(new ThinkingStallDetector.ToolCallSignature(
+                                tc.function().name(),
+                                tc.function().arguments() != null ? tc.function().arguments() : "{}"));
                     }
                 }
             }
             boolean stall = stallDetector.recordThinking(
                     assistantMsg.reasoningContent() != null ? assistantMsg.reasoningContent() : "",
-                    toolCallNames);
+                    toolCallSignatures);
             if (stall) {
                 TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
                 String warningMsg = "\n\n⚠️ Agente estancado: thinking repetitivo sin progreso. Deteniendo para evitar bucle infinito.";
@@ -541,9 +543,6 @@ public class BorisLlmClient {
                         if (isModificationResult(block.toolName(), toolResult)) {
                             hasModified = true;
                         }
-
-                        // Resetear detector de estancamiento: una tool call representa progreso
-                        stallDetector.reset();
 
                         resultsPayload.append("<tool name=\"").append(block.toolName()).append("\">\n")
                                 .append(toolResult)
@@ -626,9 +625,6 @@ public class BorisLlmClient {
                 if (isModificationResult(toolName, toolResult)) {
                     hasModified = true;
                 }
-
-                // Resetear detector de estancamiento: una tool call representa progreso
-                stallDetector.reset();
 
                 fullMessages.add(ChatMessage.tool(call.id(), toolResult));
             }
