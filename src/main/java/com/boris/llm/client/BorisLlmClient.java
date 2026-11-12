@@ -16,12 +16,14 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.boris.exceptions.ChatException;
 import com.boris.exceptions.ChatException.ErrorType;
+import com.boris.exceptions.WebSearchFallbackException;
 import com.boris.task.TaskExecutionState;
 import com.boris.task.TaskStateNotifier;
 import com.boris.tooling.ToolProgressNotifier;
 import com.boris.tooling.ToolBlockProtocol;
 import com.boris.tooling.WriteArgsPreviewStreamer;
 import com.boris.tooling.engine.ToolRegistry;
+import com.boris.llm.think.ThinkingStallDetector;
 
 /**
  * Cliente HTTP nativo para LLM compatible sin dependencias de Spring AI.
@@ -370,6 +372,9 @@ public class BorisLlmClient {
         int iterationCount = 0;
         final int MAX_TOOL_ITERATIONS = 50;
 
+        // Detector de estancamiento por thinking repetitivo
+        final ThinkingStallDetector stallDetector = new ThinkingStallDetector(3, 10);
+
         boolean taskPending = false;
         boolean hasModified = false;
         TaskStateNotifier.setState(TaskExecutionState.IDLE);
@@ -457,6 +462,37 @@ public class BorisLlmClient {
                 hasModified = true;
             }
 
+            // Detectar estancamiento por thinking repetitivo sin tool calls
+            List<String> toolCallNames = new java.util.ArrayList<>();
+            if (assistantMsg.toolCalls() != null) {
+                for (ToolCall tc : assistantMsg.toolCalls()) {
+                    if (tc.function() != null) {
+                        toolCallNames.add(tc.function().name());
+                    }
+                }
+            }
+            boolean stall = stallDetector.recordThinking(
+                    assistantMsg.reasoningContent() != null ? assistantMsg.reasoningContent() : "",
+                    toolCallNames);
+            if (stall) {
+                TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                String warningMsg = "\n\n⚠️ Agente estancado: thinking repetitivo sin progreso. Deteniendo para evitar bucle infinito.";
+                if (onChunk != null) {
+                    emitText(warningMsg, onChunk);
+                }
+                String thinkingResult = buildThinkingResult(totalThinking);
+                return new ChatTurn(warningMsg.trim(), thinkingResult);
+            }
+            if (stallDetector.isThinkingLimitReached()) {
+                TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                String warningMsg = "\n\n⚠️ Límite de thinking alcanzado (" + stallDetector.getConsecutiveThinkingOnlyIterations() + " iteraciones sin tool calls). Forzando finalización.";
+                if (onChunk != null) {
+                    emitText(warningMsg, onChunk);
+                }
+                String thinkingResult = buildThinkingResult(totalThinking);
+                return new ChatTurn(warningMsg.trim(), thinkingResult);
+            }
+
             List<ToolCall> toolCalls = assistantMsg.toolCalls();
             List<ToolBlockProtocol.ToolBlock> textToolBlocks =
                     (toolCalls == null || toolCalls.isEmpty()) && toolRegistry != null && !cleanContent.isBlank()
@@ -492,11 +528,14 @@ public class BorisLlmClient {
                             hasModified = true;
                         }
 
+                        // Resetear detector de estancamiento: una tool call representa progreso
+                        stallDetector.reset();
+
                         resultsPayload.append("<tool name=\"").append(block.toolName()).append("\">\n")
                                 .append(toolResult)
                                 .append("\n</tool>\n");
                     }
-                    resultsPayload.append("[/TOOL_RESULTS]");
+                    resultsPayload.append("emporada");
 
                     fullMessages.add(ChatMessage.user(resultsPayload.toString()));
                     continue;
@@ -550,6 +589,15 @@ public class BorisLlmClient {
                 }
                 try {
                     toolResult = toolRegistry.execute(toolName, toolArgs);
+                } catch (WebSearchFallbackException e) {
+                    // Fallback: usar contenido previamente fetchado (web_fetch) si está disponible
+                    String fallbackContent = extractPreviousFetchContent(fullMessages);
+                    if (!fallbackContent.isBlank()) {
+                        toolResult = "{\"success\":true,\"message\":\"Búsqueda web falló, usando contenido previamente fetchado.\",\"content\":\"" + fallbackContent.replace("\"", "\\\"") + "\"}";
+                        ToolProgressNotifier.notify("web_search", "Fallback: usando contenido previamente fetchado");
+                    } else {
+                        toolResult = "{\"success\":false,\"error\":\"" + e.getMessage().replace("\"", "\\\"") + "\"}";
+                    }
                 } catch (Exception e) {
                     toolResult = "Error ejecutando " + toolName + ": " + e.getMessage();
                 } finally {
@@ -565,6 +613,9 @@ public class BorisLlmClient {
                     hasModified = true;
                 }
 
+                // Resetear detector de estancamiento: una tool call representa progreso
+                stallDetector.reset();
+
                 fullMessages.add(ChatMessage.tool(call.id(), toolResult));
             }
         }
@@ -579,6 +630,31 @@ public class BorisLlmClient {
         for (String line : lines) {
             onChunk.accept(line);
         }
+    }
+
+    /**
+     * Extrae contenido previamente fetchado (web_fetch) de los mensajes de conversación
+     * para usarlo como fallback cuando web_search falla.
+     */
+    private static String extractPreviousFetchContent(List<ChatMessage> conversation) {
+        StringBuilder fetchedContent = new StringBuilder();
+        for (ChatMessage msg : conversation) {
+            String json = msg.content() != null ? msg.content() : "";
+            if (json.contains("web_fetch") && json.contains("\"success\":true")) {
+                int contentIdx = json.indexOf("\"content\"");
+                if (contentIdx >= 0) {
+                    int valueStart = json.indexOf(':', contentIdx) + 1;
+                    int valueEnd = json.indexOf('}', valueStart);
+                    if (valueEnd < 0) valueEnd = json.length();
+                    String contentValue = json.substring(valueStart, valueEnd).trim();
+                    if (contentValue.startsWith("\"") && contentValue.endsWith("\"")) {
+                        contentValue = contentValue.substring(1, contentValue.length() - 1);
+                    }
+                    fetchedContent.append(contentValue).append("\n");
+                }
+            }
+        }
+        return fetchedContent.toString().trim();
     }
 
     public record ChatTurn(String response, String thinking) {}

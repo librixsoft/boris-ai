@@ -14,5 +14,9 @@
   "temperature": 0.7,
   "contextWindow": 262000,
   "thinkingEnabled": true,
-  "thinkingMode": "think"
+  "thinkingMode": "think",
+  "agentThinkingMaxIterations": 10,
+  "agentThinkingMaxStallIterations": 3,
+  "agentThinkingEnableStallDetection": true,
+  "agentThinkingFallbackOnSearchFailure": true
 }

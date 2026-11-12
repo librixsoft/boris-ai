@@ -12,6 +12,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.context.ProjectContext;
+import com.boris.context.SessionWorkspaceGuard;
 import com.boris.exceptions.BorisException;
 
 public class BashTool {
@@ -31,6 +32,9 @@ public class BashTool {
         File workDir = workingDir != null && !workingDir.isBlank()
                 ? new File(workingDir)
                 : ProjectContext.projectRootOrCurrent().toFile();
+
+        // Guard del workspace de sesión: no permitir usar .boris/{sessionId} como directorio de trabajo
+        SessionWorkspaceGuard.assertWritable(workDir.getAbsolutePath());
 
         if (!workDir.exists() || !workDir.isDirectory()) {
             return formatOutput(false, "Error: working directory does not exist: " + workDir.getPath(), -1, "");

@@ -1,11 +1,15 @@
 package com.boris.cli.ui;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.Test;
 
+import com.boris.context.ProjectContext;
+import com.boris.context.SearchSessionContext;
+import com.boris.context.SessionDirectoryResolver;
 import com.boris.tooling.engine.ToolDefinition;
 import com.boris.tooling.engine.ToolRegistry;
 import com.boris.tooling.integration.ToolCallingConfig;
@@ -14,9 +18,20 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PlanModeManagerTest {
 
+    @TempDir
+    Path tempDir;
+
+    @BeforeEach
+    void setUp() {
+        ProjectContext.setProjectPath(tempDir.toString());
+        SearchSessionContext.setSessionId("test-session");
+    }
+
     @AfterEach
     void restaurarModoCompartido() {
         PlanModeManager.shared().setMode(PlanMode.WRITE);
+        ProjectContext.clear();
+        SearchSessionContext.clear();
     }
 
     @Test
@@ -46,8 +61,7 @@ class PlanModeManagerTest {
     void canWriteRetornaTrueEnModoPlanParaRutaMdDentroDePlans() {
         PlanModeManager manager = new PlanModeManager();
         manager.setMode(PlanMode.PLAN);
-        Path projectRoot = Paths.get(System.getProperty("user.dir"));
-        Path plansDir = projectRoot.resolve(".boris").resolve("plans");
+        Path plansDir = SessionDirectoryResolver.plansDirectory();
         String validPath = plansDir.toAbsolutePath().normalize().toString() + "/plan.md";
         assertTrue(manager.canWrite(validPath));
     }

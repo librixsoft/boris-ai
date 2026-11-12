@@ -20,6 +20,12 @@ public class Settings {
     private String thinkingMode;
     private Map<String, Object> options;
     private PlanMode planMode;
+
+    // Agent thinking limits
+    private Integer agentThinkingMaxIterations;
+    private Integer agentThinkingMaxStallIterations;
+    private Boolean agentThinkingEnableStallDetection;
+    private Boolean agentThinkingFallbackOnSearchFailure;
     
     // Parallel OS Execution settings
     private Boolean parallelOsExecution;
@@ -68,6 +74,18 @@ public class Settings {
 
     public PlanMode getPlanMode() { return planMode; }
     public void setPlanMode(PlanMode planMode) { this.planMode = planMode; }
+
+    public Integer getAgentThinkingMaxIterations() { return agentThinkingMaxIterations; }
+    public void setAgentThinkingMaxIterations(Integer agentThinkingMaxIterations) { this.agentThinkingMaxIterations = agentThinkingMaxIterations; }
+
+    public Integer getAgentThinkingMaxStallIterations() { return agentThinkingMaxStallIterations; }
+    public void setAgentThinkingMaxStallIterations(Integer agentThinkingMaxStallIterations) { this.agentThinkingMaxStallIterations = agentThinkingMaxStallIterations; }
+
+    public Boolean getAgentThinkingEnableStallDetection() { return agentThinkingEnableStallDetection; }
+    public void setAgentThinkingEnableStallDetection(Boolean agentThinkingEnableStallDetection) { this.agentThinkingEnableStallDetection = agentThinkingEnableStallDetection; }
+
+    public Boolean getAgentThinkingFallbackOnSearchFailure() { return agentThinkingFallbackOnSearchFailure; }
+    public void setAgentThinkingFallbackOnSearchFailure(Boolean agentThinkingFallbackOnSearchFailure) { this.agentThinkingFallbackOnSearchFailure = agentThinkingFallbackOnSearchFailure; }
 
     // Parallel OS Execution accessors
     public Boolean getParallelOsExecution() { return parallelOsExecution; }

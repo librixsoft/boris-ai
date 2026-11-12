@@ -13,25 +13,42 @@ import java.util.Properties;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.microsoft.playwright.*;
+import com.microsoft.playwright.options.LoadState;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import java.util.concurrent.atomic.AtomicInteger;
-import com.boris.tooling.ToolDefinition;
+import com.boris.exceptions.ChromeNotFoundException;
+import com.boris.exceptions.WebSearchBlockedException;
+import com.boris.exceptions.WebSearchDuplicateQueryException;
+import com.boris.exceptions.WebSearchLimitException;
+import com.boris.exceptions.WebSearchFallbackException;
 import com.boris.tooling.ToolProgressNotifier;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
- * Web search using Playwright with DuckDuckGo.
+ * Web search using Playwright with Bing.
  * Simple, single-engine search - fast and efficient.
  *
  * Features:
  * - No API key required
- * - Single engine (DuckDuckGo) - no overhead
+ * - Single engine (Bing) - no overhead
  * - Progress notifications to UI
  * - Returns titles, URLs, and snippets
  */
 public class WebSearchTool {
 
+    private static final String BING_SEARCH_URL = "https://www.bing.com/search";
+    private static final String BING_MARKET = "es-MX";
+    private static final String BING_LANG = "es";
+    private static final String BING_REDIRECT_PREFIX = "https://www.bing.com/ck/a";
     private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
     private static final Properties PROPERTIES = loadProperties();
     private static final boolean HEADLESS = Boolean.parseBoolean(PROPERTIES.getProperty("web.search.headless", "true"));
+    private static final String REGION = PROPERTIES.getProperty("web.search.region", "mx-es");
     private static final int DEFAULT_COUNT = Integer.parseInt(PROPERTIES.getProperty("web.search.default.count", "5"));
     private static final int MAX_COUNT = Integer.parseInt(PROPERTIES.getProperty("web.search.max.count", "10"));
     private static final int TIMEOUT_MS = Integer.parseInt(PROPERTIES.getProperty("web.search.timeout.ms", "20000"));
@@ -39,92 +56,105 @@ public class WebSearchTool {
     private static final int MAX_CALLS = Integer.parseInt(PROPERTIES.getProperty("web.search.max.calls", "1"));
     private static final AtomicInteger CALL_COUNT = new AtomicInteger(0);
 
+    // Estado por turno: queries ya ejecutadas (normalizadas). Se resetea con resetCallCount().
+    private static final Set<String> EXECUTED_QUERIES = new HashSet<>();
+
     private static Properties loadProperties() {
         Properties props = new Properties();
-        for (String resource : List.of("application.properties", "test.properties")) {
-            try (InputStream input = WebSearchTool.class.getClassLoader().getResourceAsStream(resource)) {
-                if (input != null) {
-                    props.load(input);
-                }
-            } catch (IOException ignored) {
+        try (InputStream input = WebSearchTool.class.getClassLoader().getResourceAsStream("application.properties")) {
+            if (input != null) {
+                props.load(input);
             }
+        } catch (IOException e) {
+            throw new com.boris.exceptions.BorisException("No se pudo cargar application.properties", e);
         }
         return props;
     }
 
     public static void resetCallCount() {
         CALL_COUNT.set(0);
+        EXECUTED_QUERIES.clear();
     }
 
     public static int getCallCount() {
         return CALL_COUNT.get();
     }
 
-    public static int incrementCallCount() {
-        return CALL_COUNT.incrementAndGet();
-    }
-
     public static int getMaxCalls() {
         return MAX_CALLS;
     }
 
-    public static ToolDefinition web_search() {
-        var queryProp = Map.of("type", "string", "description", "Search query string");
-        var properties = new LinkedHashMap<String, Object>();
-        properties.put("query", queryProp);
-        var countProp = Map.of("type", "integer", "description", "Number of results to return (1-10, default 5)");
-        properties.put("count", countProp);
-        var schema = new LinkedHashMap<String, Object>();
-        schema.put("type", "object");
-        schema.put("properties", properties);
-        return ToolDefinition.of(
-                "web_search",
-                "Search the web using DuckDuckGo via Playwright. Returns titles, URLs, and snippets.",
-                schema);
+    public static int incrementCallCount() {
+        return CALL_COUNT.incrementAndGet();
     }
 
     public static String execute(Map<String, Object> args) {
-        WebSearchTool tool = new WebSearchTool();
-        return tool.search(args);
-    }
-
-    String search(Map<String, Object> args) {
         String query = (String) args.get("query");
 
         if (query == null || query.isBlank()) {
             return formatError("query is required");
         }
 
+        // Dedup: query idéntica (normalizada) en el mismo turno → excepción controlada
+        String normalized = normalizeQuery(query);
+        if (EXECUTED_QUERIES.contains(normalized)) {
+            throw new WebSearchDuplicateQueryException(
+                "Query ya ejecutada en este turno: '" + query + "'. Reformulá con más precisión o terminá tu turno.");
+        }
+
         int currentCount = CALL_COUNT.incrementAndGet();
         if (currentCount > MAX_CALLS) {
-            String msg = "Límite de búsquedas web alcanzado (máximo " + MAX_CALLS + " llamada por consulta). "
-                    + "No intentes más búsquedas web con queries diferentes. "
-                    + "Utiliza las herramientas locales del proyecto como list_files o batch_read_files, o responde con la información disponible.";
-            ToolProgressNotifier.notify("web_search", "Límite alcanzado (máx " + MAX_CALLS + " llamada por consulta)");
-            return formatError(msg);
+            throw new WebSearchLimitException(
+                "Límite de búsquedas web alcanzado (máximo " + MAX_CALLS + " por turno).");
         }
+
+        // Registrar la query ejecutada (después de validar límite, antes de la búsqueda real)
+        EXECUTED_QUERIES.add(normalized);
 
         int count = resolveCount(args);
         ToolProgressNotifier.notify("web_search", "Buscando: " + query);
 
         try (Playwright playwright = Playwright.create()) {
-            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
-                .setHeadless(HEADLESS)
-                .setArgs(java.util.List.of("--no-sandbox", "--disable-blink-features=AutomationControlled")));
+            Browser browser = BrowserLauncher.launchChrome(playwright, HEADLESS);
 
             BrowserContext context = browser.newContext(new Browser.NewContextOptions()
-                .setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                .setLocale("es-ES"));
+                .setLocale(REGION));
 
             try {
                 Page page = context.newPage();
 
-                // Usar solo DuckDuckGo (más simple, sin bloqueos)
-                List<Map<String, String>> results = searchViaDuckDuckGo(page, query, count);
+                String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
+                String url = BING_SEARCH_URL + "?q=" + encoded + "&setmkt=" + BING_MARKET + "&setlang=" + BING_LANG;
 
-                if (results == null || results.isEmpty()) {
+                page.navigate(url, new Page.NavigateOptions().setTimeout(TIMEOUT_MS));
+                page.waitForLoadState(LoadState.DOMCONTENTLOADED);
+
+                // Detectar bloqueo anti-bot en la URL
+                String currentUrl = page.url();
+                if (currentUrl.contains("/challenge") || currentUrl.contains("captcha")) {
+                    throw new WebSearchBlockedException(
+                        "Bing bloqueó la solicitud (anti-bot): URL de desafío/captcha detectada.");
+                }
+
+                // Detectar bloqueo anti-bot en el contenido de la página
+                String pageContent = page.content().toLowerCase();
+                if (pageContent.contains("challenge-form") || pageContent.contains("recaptcha") ||
+                    pageContent.contains("not a robot") || pageContent.contains("verify you are not a robot")) {
+                    throw new WebSearchBlockedException(
+                        "Bing bloqueó la solicitud (anti-bot): contenido de desafío detectado.");
+                }
+
+                // Esperar resultados reales con timeout extendido
+                page.waitForSelector("li.b_algo", new Page.WaitForSelectorOptions().setTimeout(WAIT_TIMEOUT_MS));
+
+                String html = page.content();
+                List<Map<String, String>> results = parseBingHtml(html);
+
+                if (results.isEmpty()) {
                     ToolProgressNotifier.notify("web_search", "No se encontraron resultados");
-                    return formatError("No se encontraron resultados para: " + query);
+                    throw new WebSearchFallbackException(
+                        "Búsqueda web sin resultados para: '" + query + "'. "
+                        + "Usá contenido previamente fetchado o proporcioná la URL directamente.");
                 }
 
                 if (results.size() > count) {
@@ -132,158 +162,106 @@ public class WebSearchTool {
                 }
 
                 ToolProgressNotifier.notify("web_search", "Encontrados " + results.size() + " resultados");
-                return formatSuccess(query, results, "DuckDuckGo");
+                return formatSuccess(query, results, "Bing");
             } finally {
                 browser.close();
             }
+        } catch (WebSearchLimitException e) {
+            ToolProgressNotifier.notify("web_search", "Límite alcanzado (máx " + MAX_CALLS + " llamada por consulta)");
+            return formatError(e.getMessage());
+        } catch (WebSearchBlockedException e) {
+            ToolProgressNotifier.notify("web_search", "Búsqueda bloqueada: " + e.getMessage());
+            return formatError(e.getMessage());
+        } catch (ChromeNotFoundException e) {
+            ToolProgressNotifier.notify("web_search", "Error: " + e.getMessage());
+            return formatError(e.getMessage());
         } catch (Exception e) {
             ToolProgressNotifier.notify("web_search", "Error: " + e.getMessage());
-            return formatError("Error en búsqueda: " + e.getMessage());
+            throw new WebSearchFallbackException(
+                "Búsqueda web falló para: '" + query + "'. "
+                + "Usá contenido previamente fetchado o proporcioná la URL directamente.", e);
         }
     }
 
-
-    private List<Map<String, String>> searchViaGoogle(Page page, String query, int count) {
-        try {
-            String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
-            String url = "https://www.google.com/search?q=" + encoded + "&num=" + Math.min(count + 5, 20);
-
-            page.navigate(url, new Page.NavigateOptions().setTimeout(TIMEOUT_MS));
-            page.waitForTimeout(WAIT_TIMEOUT_MS);
-
-            try {
-                Locator consentButton = page.locator("button:has-text('Accept'), button:has-text('Aceptar'), button:has-text('I agree')");
-                if (consentButton.count() > 0) {
-                    consentButton.first().click();
-                    page.waitForTimeout(1000);
-                }
-            } catch (Exception ignored) {}
-
-            Object resultObj = page.evaluate("""
-                () => {
-                    const results = [];
-
-                    document.querySelectorAll('div.g, div[data-sokoban-container]').forEach(item => {
-                        const linkEl = item.querySelector('a[href^="http"]');
-                        const titleEl = item.querySelector('h3');
-                        const snippetEl = item.querySelector('[data-sncf], .VwiC3b, span.st');
-
-                        if (linkEl && titleEl) {
-                            const url = linkEl.href;
-                            if (!url.includes('google.com/search') && !url.includes('accounts.google')) {
-                                results.push({
-                                    title: titleEl.textContent || '',
-                                    url: url,
-                                    snippet: snippetEl ? snippetEl.textContent : ''
-                                });
-                            }
-                        }
-                    });
-
-                    return results;
-                }
-            """);
-
-            return parseResults(resultObj, count);
-        } catch (Exception e) {
-            return null;
+    /**
+     * Parses a Bing SERP HTML string into a list of results.
+     * Package-visible for unit testing without network.
+     *
+     * @param html the raw SERP HTML
+     * @return list of results with title, url, snippet; empty list if no results
+     * @throws WebSearchBlockedException if the page is blocked by Bing anti-bot
+     */
+    static List<Map<String, String>> parseBingHtml(String html) {
+        if (html == null || html.isBlank()) {
+            return new ArrayList<>();
         }
-    }
 
-    private List<Map<String, String>> searchViaBing(Page page, String query, int count) {
-        try {
-            String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
-            String url = "https://www.bing.com/search?q=" + encoded + "&count=" + count;
-
-            page.navigate(url, new Page.NavigateOptions().setTimeout(TIMEOUT_MS));
-            page.waitForTimeout(WAIT_TIMEOUT_MS);
-
-            Object resultObj = page.evaluate("""
-                () => {
-                    const results = [];
-                    document.querySelectorAll('li.b_algo').forEach(item => {
-                        const link = item.querySelector('a');
-                        const snippetEl = item.querySelector('.b_caption p, .b_caption');
-
-                        if (link && link.href) {
-                            results.push({
-                                title: link.textContent || '',
-                                url: link.href,
-                                snippet: snippetEl ? snippetEl.textContent : ''
-                            });
-                        }
-                    });
-                    return results;
-                }
-            """);
-
-            return parseResults(resultObj, count);
-        } catch (Exception e) {
-            return null;
+        // Detectar bloqueo en el HTML
+        String lowerHtml = html.toLowerCase();
+        if (lowerHtml.contains("challenge-form") || lowerHtml.contains("recaptcha") ||
+            lowerHtml.contains("not a robot") || lowerHtml.contains("verify you are not a robot")) {
+            throw new WebSearchBlockedException("Bing bloqueó la solicitud (anti-bot).");
         }
-    }
 
-    private List<Map<String, String>> searchViaDuckDuckGo(Page page, String query, int count) {
-        try {
-            String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
-            String url = "https://html.duckduckgo.com/html/?q=" + encoded;
+        Document doc = Jsoup.parse(html);
+        Elements items = doc.select("li.b_algo");
 
-            page.navigate(url, new Page.NavigateOptions().setTimeout(TIMEOUT_MS));
-            page.waitForTimeout(WAIT_TIMEOUT_MS);
-
-            Object resultObj = page.evaluate("""
-                () => {
-                    const results = [];
-                    document.querySelectorAll('.result, .web-result').forEach(item => {
-                        const linkEl = item.querySelector('a.result__a, a.result__url');
-                        const snippetEl = item.querySelector('.result__snippet, .result__body');
-
-                        if (linkEl && linkEl.href) {
-                            let url = linkEl.href;
-                            if (url.includes('duckduckgo.com/l/')) {
-                                const match = url.match(/uddg=([^&]+)/);
-                                if (match) {
-                                    url = decodeURIComponent(match[1]);
-                                }
-                            }
-                            results.push({
-                                title: linkEl.textContent || '',
-                                url: url,
-                                snippet: snippetEl ? snippetEl.textContent : ''
-                            });
-                        }
-                    });
-                    return results;
-                }
-            """);
-
-            return parseResults(resultObj, count);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<Map<String, String>> parseResults(Object resultObj, int count) {
-        if (resultObj == null) return null;
-
-        List<Map<String, String>> allResults = (List<Map<String, String>>) resultObj;
         List<Map<String, String>> results = new ArrayList<>();
+        for (Element item : items) {
+            Element titleEl = item.select("h2").first();
+            Element linkEl = item.select("h2 a").first();
+            Element snippetEl = item.select(".b_caption p").first();
 
-        for (int i = 0; i < Math.min(count, allResults.size()); i++) {
-            Map<String, String> result = allResults.get(i);
-            String title = result.get("title");
-            String url = result.get("url");
-
-            if (title != null && !title.isEmpty() && url != null && !url.isEmpty()) {
-                results.add(result);
+            if (titleEl == null || linkEl == null) {
+                continue;
             }
+
+            String title = titleEl.text();
+            String url = resolveBingRedirectUrl(linkEl.attr("href"));
+            String snippet = snippetEl != null ? snippetEl.text() : "";
+
+            if (title.isBlank() || url.isBlank()) {
+                continue;
+            }
+
+            Map<String, String> result = new LinkedHashMap<>();
+            result.put("title", title);
+            result.put("url", url);
+            result.put("snippet", snippet);
+            results.add(result);
         }
 
-        return results.isEmpty() ? null : results;
+        return results;
     }
 
-    private int resolveCount(Map<String, Object> args) {
+    /**
+     * Resolves Bing redirect links (bing.com/ck/a?...&u=a1BASE64URL) to the real target URL.
+     *
+     * @param href the raw href from the SERP
+     * @return the real target URL, or empty string if the redirect cannot be resolved
+     */
+    static String resolveBingRedirectUrl(String href) {
+        if (href == null || href.isBlank() || !href.startsWith(BING_REDIRECT_PREFIX)) {
+            return href;
+        }
+        int encodedIndex = href.indexOf("u=a1");
+        if (encodedIndex < 0) {
+            return "";
+        }
+        String encodedUrl = href.substring(encodedIndex + "u=a1".length());
+        int ampersandIndex = encodedUrl.indexOf('&');
+        if (ampersandIndex >= 0) {
+            encodedUrl = encodedUrl.substring(0, ampersandIndex);
+        }
+        try {
+            byte[] decoded = java.util.Base64.getUrlDecoder().decode(encodedUrl);
+            return new String(decoded, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            throw new WebSearchBlockedException("Bing devolvió un redirect con URL codificada inválida.");
+        }
+    }
+
+    private static int resolveCount(Map<String, Object> args) {
         Object countObj = args.get("count");
         if (countObj instanceof Integer c) {
             return Math.max(1, Math.min(MAX_COUNT, c));
@@ -294,7 +272,15 @@ public class WebSearchTool {
         return DEFAULT_COUNT;
     }
 
-    private String formatSuccess(String query, List<Map<String, String>> results, String enginesUsed) {
+    /**
+     * Normaliza una query para detección de duplicados: minúsculas, trim,
+     * colapso de espacios internos a un solo espacio.
+     */
+    private static String normalizeQuery(String query) {
+        return query.toLowerCase().trim().replaceAll("\\s+", " ");
+    }
+
+    private static String formatSuccess(String query, List<Map<String, String>> results, String enginesUsed) {
         try {
             ObjectNode node = MAPPER.createObjectNode();
             node.put("success", true);
@@ -314,7 +300,7 @@ public class WebSearchTool {
         }
     }
 
-    private String formatError(String message) {
+    private static String formatError(String message) {
         try {
             ObjectNode node = MAPPER.createObjectNode();
             node.put("success", false);

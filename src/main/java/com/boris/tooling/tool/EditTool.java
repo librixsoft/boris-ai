@@ -11,6 +11,7 @@ import com.boris.exceptions.BorisException;
 import com.boris.tooling.ToolDefinition;
 import com.boris.tooling.DiffLineNotifier;
 import com.boris.context.ProjectContext;
+import com.boris.context.SessionWorkspaceGuard;
 public class EditTool {
 
     public static ToolDefinition apply_edit() {
@@ -44,6 +45,9 @@ public class EditTool {
 
         // Resolver ruta relativa usando el proyecto actual
         pathStr = ProjectContext.resolveRelativePath(pathStr);
+
+        // Guard del workspace de sesión
+        SessionWorkspaceGuard.assertWritable(pathStr);
 
         if (oldText == null || oldText.isEmpty()) {
             return formatOutput(false, "Error: old_text is required");
@@ -110,6 +114,9 @@ public class EditTool {
 
         // Resolver ruta relativa usando el proyecto actual
         pathStr = ProjectContext.resolveRelativePath(pathStr);
+
+        // Guard del workspace de sesión
+        SessionWorkspaceGuard.assertWritable(pathStr);
 
         if (oldText == null || oldText.isEmpty()) {
             return formatOutput(false, "Error: old_text is required");

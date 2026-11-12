@@ -127,6 +127,7 @@ public class ChatService {
             this.currentProjectPath = extracted[1];
             ProjectContext.setProjectPath(extracted[1]);
         }
+        WebSearchTool.resetCallCount();
         BorisLlmClient client = getActiveClient();
         try {
             String fullMessage = buildPromptWithHistory(cleanMessage);

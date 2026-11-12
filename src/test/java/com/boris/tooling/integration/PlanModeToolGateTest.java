@@ -1,30 +1,46 @@
 package com.boris.tooling.integration;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.Test;
 
 import com.boris.cli.ui.PlanMode;
 import com.boris.cli.ui.PlanModeManager;
+import com.boris.context.ProjectContext;
+import com.boris.context.SearchSessionContext;
+import com.boris.context.SessionDirectoryResolver;
+import com.boris.exceptions.SessionWorkspaceViolationException;
 import com.boris.tooling.engine.ToolRegistry;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class PlanModeToolGateTest {
 
-    private static final String PLANS_DIR = Paths.get(System.getProperty("user.dir"))
-            .resolve(".boris").resolve("plans").toAbsolutePath().normalize().toString();
+    @TempDir
+    Path tempDir;
 
-    private ToolRegistry registryEnPlanMode() {
+    private Path plansDir;
+
+    @BeforeEach
+    void setUp() {
+        ProjectContext.setProjectPath(tempDir.toString());
+        SearchSessionContext.setSessionId("test-session");
         PlanModeManager.shared().setMode(PlanMode.PLAN);
-        return ToolCallingConfig.buildToolRegistry(null);
+        plansDir = SessionDirectoryResolver.plansDirectory();
     }
 
     @AfterEach
     void restaurarModoCompartido() {
         PlanModeManager.shared().setMode(PlanMode.WRITE);
+        ProjectContext.clear();
+        SearchSessionContext.clear();
+    }
+
+    private ToolRegistry registryEnPlanMode() {
+        return ToolCallingConfig.buildToolRegistry(null);
     }
 
     @Test
@@ -48,7 +64,7 @@ class PlanModeToolGateTest {
     void applyEditEnPlanModePermiteMdDentroDePlans() throws Exception {
         ToolRegistry registry = registryEnPlanMode();
         String result = registry.execute("apply_edit",
-                "{\"path\":\"" + PLANS_DIR + "/plan.md\",\"old_text\":\"a\",\"new_text\":\"b\"}");
+                "{\"path\":\"" + plansDir + "/plan.md\",\"old_text\":\"a\",\"new_text\":\"b\"}");
         assertFalse(result.contains("Plan mode activo"), "El gate no debe bloquear .md dentro de plans/");
         assertFalse(result.contains("\"success\":true"), "El archivo no existe, debe fallar por otra razon pero no por plan mode");
     }
@@ -65,7 +81,7 @@ class PlanModeToolGateTest {
     void deleteFileEnPlanModeBloqueaSiempre() throws Exception {
         ToolRegistry registry = registryEnPlanMode();
         String result = registry.execute("delete_file",
-                "{\"path\":\"" + PLANS_DIR + "/plan.md\"}");
+                "{\"path\":\"" + plansDir + "/plan.md\"}");
         assertTrue(result.contains("Plan mode activo"));
     }
 
@@ -73,7 +89,7 @@ class PlanModeToolGateTest {
     void createDirectoryEnPlanModeBloqueaSiempre() throws Exception {
         ToolRegistry registry = registryEnPlanMode();
         String result = registry.execute("create_directory",
-                "{\"path\":\"" + PLANS_DIR + "/subdir\"}");
+                "{\"path\":\"" + plansDir + "/subdir\"}");
         assertTrue(result.contains("Plan mode activo"));
     }
 
@@ -81,7 +97,7 @@ class PlanModeToolGateTest {
     void deleteDirectoryEnPlanModeBloqueaSiempre() throws Exception {
         ToolRegistry registry = registryEnPlanMode();
         String result = registry.execute("delete_directory",
-                "{\"path\":\"" + PLANS_DIR + "\"}");
+                "{\"path\":\"" + plansDir + "\"}");
         assertTrue(result.contains("Plan mode activo"));
     }
 
@@ -89,7 +105,7 @@ class PlanModeToolGateTest {
     void generatePdfEnPlanModeBloqueaSiempre() throws Exception {
         ToolRegistry registry = registryEnPlanMode();
         String result = registry.execute("generate_pdf",
-                "{\"content\":\"hola\",\"outputPath\":\"" + PLANS_DIR + "/plan.pdf\",\"contentType\":\"text\"}");
+                "{\"content\":\"hola\",\"outputPath\":\"" + plansDir + "/plan.pdf\",\"contentType\":\"text\"}");
         assertTrue(result.contains("Plan mode activo"));
     }
 
@@ -97,7 +113,7 @@ class PlanModeToolGateTest {
     void createOfficeDocumentEnPlanModeBloqueaSiempre() throws Exception {
         ToolRegistry registry = registryEnPlanMode();
         String result = registry.execute("create_office_document",
-                "{\"documentType\":\"word\",\"outputPath\":\"" + PLANS_DIR + "/plan.docx\",\"title\":\"t\",\"content\":\"c\"}");
+                "{\"documentType\":\"word\",\"outputPath\":\"" + plansDir + "/plan.docx\",\"title\":\"t\",\"content\":\"c\"}");
         assertTrue(result.contains("Plan mode activo"));
     }
 
@@ -123,5 +139,16 @@ class PlanModeToolGateTest {
         String result = registry.execute("maven_build", "{\"goal\":\"compile\"}");
         assertTrue(result.contains("Plan mode activo"));
         assertFalse(result.contains("\"success\":true"));
+    }
+
+    @Test
+    void writeFile_enWriteMode_aBorisPlansPdf_rechazadoPorGuardDeSesion() throws Exception {
+        ToolRegistry registry = registryEnPlanMode();
+        // Forzar modo WRITE para probar el guard de sesión (no el gate de plan mode)
+        PlanModeManager.shared().setMode(PlanMode.WRITE);
+
+        assertThrows(com.boris.exceptions.SessionWorkspaceViolationException.class,
+            () -> registry.execute("write_file",
+                    "{\"path\":\"" + plansDir + "/out.pdf\",\"content\":\"hola\"}"));
     }
 }

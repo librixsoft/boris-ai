@@ -10,6 +10,8 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.tooling.ToolDefinition;
+import com.boris.context.ProjectContext;
+import com.boris.context.SessionWorkspaceGuard;
 
 public class CreateDirectoryTool {
 
@@ -33,6 +35,10 @@ public class CreateDirectoryTool {
         if (pathStr == null || pathStr.isBlank()) {
             return formatOutput(false, "Error: path is required");
         }
+
+        // Resolver ruta y aplicar guard del workspace de sesión
+        pathStr = ProjectContext.resolveRelativePath(pathStr);
+        SessionWorkspaceGuard.assertWritable(pathStr);
 
         Path path = Paths.get(pathStr);
         if (Files.exists(path)) {

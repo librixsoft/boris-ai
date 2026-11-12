@@ -4,6 +4,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 
 import com.boris.chat.ChatService;
 import com.boris.config.BorisConfiguration;
+import com.boris.context.SearchSessionContext;
 import com.boris.settings.Settings;
 import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
@@ -25,6 +26,9 @@ public class BorisApp implements Runnable {
             SkillManager skillManager = context.getBean(SkillManager.class);
             TaskAborter taskAborter = context.getBean(TaskAborter.class);
             Settings settings = context.getBean(Settings.class);
+
+            // Generar sessionId para el registro de búsquedas en .boris/searchs/{SESION}.md
+            SearchSessionContext.setSessionId(SearchSessionContext.generateSessionId());
 
             BorisUI ui = new BorisUI(chatService, skillManager, taskAborter, settings);
             ui.start();

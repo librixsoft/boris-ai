@@ -19,6 +19,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.exceptions.BorisException;
 import com.boris.tooling.ToolDefinition;
+import com.boris.context.ProjectContext;
+import com.boris.context.SessionWorkspaceGuard;
 
 public class PdfGenerationTool {
 
@@ -73,6 +75,10 @@ public class PdfGenerationTool {
         if (contentType == null || contentType.isBlank()) {
             return formatOutput(false, "Error: contentType is required (html, markdown, or text)");
         }
+
+        // Resolver ruta y aplicar guard del workspace de sesión
+        outputPath = ProjectContext.resolveRelativePath(outputPath);
+        SessionWorkspaceGuard.assertWritable(outputPath);
 
         try {
             String textContent = convertToPlainText(content, contentType);

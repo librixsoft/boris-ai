@@ -14,6 +14,8 @@ import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.LoadState;
 import com.boris.task.TaskAborter;
 import com.boris.tooling.ToolProgressNotifier;
+import com.boris.tooling.tool.BrowserLauncher;
+import com.boris.exceptions.WebFetchException;
 
 /**
  * Web fetch tool using Playwright.
@@ -32,12 +34,12 @@ public class BatchWebFetchTool {
 
     private static Properties loadProperties() {
         Properties props = new Properties();
-        try (InputStream input = BatchWebFetchTool.class.getClassLoader().getResourceAsStream("test.properties")) {
+        try (InputStream input = BatchWebFetchTool.class.getClassLoader().getResourceAsStream("application.properties")) {
             if (input != null) {
                 props.load(input);
             }
         } catch (IOException e) {
-            // Use defaults
+            throw new com.boris.exceptions.BorisException("No se pudo cargar application.properties", e);
         }
         return props;
     }
@@ -57,12 +59,9 @@ public class BatchWebFetchTool {
         }
 
         try (Playwright playwright = Playwright.create()) {
-            Browser browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
-                .setHeadless(HEADLESS)
-                .setArgs(java.util.List.of("--no-sandbox")));
+            Browser browser = BrowserLauncher.launchChrome(playwright, HEADLESS);
 
-            BrowserContext context = browser.newContext(new Browser.NewContextOptions()
-                .setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"));
+            BrowserContext context = browser.newContext(new Browser.NewContextOptions());
 
             try {
                 List<FetchResult> results = new ArrayList<>();
@@ -134,6 +133,8 @@ public class BatchWebFetchTool {
             }
 
             return new FetchResult(spec.url(), true, title, content, null);
+        } catch (WebFetchException e) {
+            return new FetchResult(spec.url(), false, "", "", e.getMessage());
         } catch (Exception e) {
             return new FetchResult(spec.url(), false, "", "", "Error: " + e.getMessage());
         }
@@ -173,9 +174,9 @@ public class BatchWebFetchTool {
                 return element.textContent();
             }
         } catch (Exception e) {
-            // Selector not found
+            throw new WebFetchException("Selector no encontrado: " + selector, e);
         }
-        return null;
+        throw new WebFetchException("Selector no encontrado: " + selector);
     }
 
     private String extractMainContent(Page page, String url) {

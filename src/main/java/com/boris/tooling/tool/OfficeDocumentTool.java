@@ -13,6 +13,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
+import com.boris.context.ProjectContext;
+import com.boris.context.SessionWorkspaceGuard;
+import com.boris.exceptions.SessionWorkspaceViolationException;
+
 /**
  * OfficeDocumentTool v2: Genera documentos Office personalizados con estilos avanzados.
  * 
@@ -58,11 +62,15 @@ public class OfficeDocumentTool {
             @SuppressWarnings("unchecked")
             Map<String, Object> customization = (Map<String, Object>) params.getOrDefault("customization", new HashMap<>());
 
-            if (documentType == null || outputPath == null) {
-                return "ERROR: documentType y outputPath son parámetros requeridos";
-            }
+        if (documentType == null || outputPath == null) {
+            return "ERROR: documentType y outputPath son parámetros requeridos";
+        }
 
-            String result = switch (documentType.toLowerCase()) {
+        // Resolver ruta y aplicar guard del workspace de sesión
+        outputPath = ProjectContext.resolveRelativePath(outputPath);
+        SessionWorkspaceGuard.assertWritable(outputPath);
+
+        String result = switch (documentType.toLowerCase()) {
                 case "word" -> createWordDocument(outputPath, title, content, customization);
                 case "powerpoint" -> createPowerPointDocument(outputPath, title, content, customization);
                 case "excel" -> createExcelDocument(outputPath, title, content, customization);
@@ -70,6 +78,8 @@ public class OfficeDocumentTool {
             };
 
             return result;
+        } catch (SessionWorkspaceViolationException e) {
+            throw e;
         } catch (Exception e) {
             return "ERROR: " + e.getMessage();
         }

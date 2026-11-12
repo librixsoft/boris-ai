@@ -19,6 +19,7 @@ import com.knuddels.jtokkit.api.EncodingType;
 
 import com.boris.exceptions.BorisException;
 import com.boris.exceptions.PlanModeException;
+import com.boris.exceptions.SearchContextWriterException;
 import com.boris.cli.ui.PlanMode;
 import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
@@ -31,12 +32,16 @@ import com.boris.tooling.tool.EditTool;
 import com.boris.tooling.tool.GitTool;
 import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
+import com.boris.tooling.tool.SearchContextWriter;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
 import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 // BatchGitHubSearchTool ELIMINADO
 // ParallelSearchTool ELIMINADO
@@ -45,6 +50,8 @@ import com.boris.context.ProjectContext;
 import com.boris.tooling.ToolResultNotifier;
 import com.boris.task.decomposition.TaskPlannerTool;
 import com.boris.cli.ui.PlanModeManager;
+import com.boris.llm.think.ThinkingStallDetector;
+import com.boris.tooling.integration.WebSearchFallbackStrategy;
 
 /**
  * Tool configuration with PARALLEL-FIRST approach.
@@ -108,6 +115,8 @@ public class ToolCallingConfig {
     private final Settings settings;
     private final PlanModeManager planModeManager;
     private final WriteTool writeTool;
+    private final ThinkingStallDetector thinkingStallDetector;
+    private final WebSearchFallbackStrategy webSearchFallbackStrategy;
 
     // PARALLEL tools (replace sequential versions)
     private final BatchReadFileTool batchReadFileTool;
@@ -115,7 +124,6 @@ public class ToolCallingConfig {
     // batchExecuteCommandTool ELIMINADO
     // batchGitHubSearchTool ELIMINADO
     // parallelSearchTool ELIMINADO
-    private final WebSearchTool webSearchTool;
 
     public ToolCallingConfig(
                             DeleteTool deleteTool,
@@ -136,13 +144,37 @@ public class ToolCallingConfig {
         this.planModeManager = planModeManager;
         this.writeTool = new WriteTool(planModeManager);
 
+        // Inicializar detector de estancamiento y fallback de búsqueda
+        int maxThinkingIterations = settings != null
+                ? settings.getAgentThinkingMaxIterations() != null
+                    ? settings.getAgentThinkingMaxIterations()
+                    : 10
+                : 10;
+        int maxStallIterations = settings != null
+                ? settings.getAgentThinkingMaxStallIterations() != null
+                    ? settings.getAgentThinkingMaxStallIterations()
+                    : 3
+                : 3;
+        boolean enableStallDetection = settings != null
+                ? settings.getAgentThinkingEnableStallDetection() != null
+                    ? settings.getAgentThinkingEnableStallDetection()
+                    : true
+                : true;
+        boolean fallbackOnSearchFailure = settings != null
+                ? settings.getAgentThinkingFallbackOnSearchFailure() != null
+                    ? settings.getAgentThinkingFallbackOnSearchFailure()
+                    : true
+                : true;
+
+        this.thinkingStallDetector = new ThinkingStallDetector(maxStallIterations, maxThinkingIterations);
+        this.webSearchFallbackStrategy = new WebSearchFallbackStrategy(fallbackOnSearchFailure);
+
         // Initialize tools
         this.batchReadFileTool = new BatchReadFileTool();
         this.batchWebFetchTool = new BatchWebFetchTool();
         // batchExecuteCommandTool ELIMINADO
         // batchGitHubSearchTool ELIMINADO
         // parallelSearchTool ELIMINADO
-        this.webSearchTool = new WebSearchTool();
     }
 
     public static String loadSystemPrompt(Settings settings) {
@@ -444,7 +476,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "web_search",
-            description = "Search the web using DuckDuckGo and return titles, URLs, and snippets. Use ONLY when the user asks for internet information or when needed data is not available in the project (documentation, recent versions, rare errors). At most one call per question.")
+            description = "Search the web using Bing and return titles, URLs, and snippets. Use ONLY when the user asks for internet information or when needed data is not available in the project (documentation, recent versions, rare errors). At most one call per question. Cada búsqueda queda registrada en .boris/{SESION}/searchs.md.")
     public String web_search(@ToolParam(description = "Search query string") String query,
                              @ToolParam(description = "Number of results to return (1-10, default 5)") Integer count) {
         Map<String, Object> args = new java.util.LinkedHashMap<>();
@@ -453,6 +485,11 @@ public class ToolCallingConfig {
         String result = WebSearchTool.execute(args);
         notifyToolTokens("web_search", query, result);
         ToolResultNotifier.notifyQueryResult("web_search", query, result);
+
+        // Registrar en archivo de contexto (el error de logging nunca destruye el resultado)
+        String brief = buildSearchResultBrief(result);
+        result = appendSearchLogWithFallback("web_search", query, brief, result);
+
         return result;
     }
 
@@ -490,7 +527,84 @@ public class ToolCallingConfig {
         String urlsStr = specs.stream().map(BatchWebFetchTool.FetchSpec::url).toList().toString();
         notifyToolTokens("web_fetch", urlsStr, result);
         ToolResultNotifier.notifyQueryResult("web_fetch", urlsStr, result);
+
+        // Registrar en archivo de contexto (el error de logging nunca destruye el resultado)
+        String brief = buildFetchResultBrief(result);
+        result = appendSearchLogWithFallback("web_fetch", urlsStr, brief, result);
+
         return result;
+    }
+
+    private static String buildSearchResultBrief(String jsonResult) {
+        try {
+            var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(jsonResult);
+            if (node.has("success") && node.get("success").asBoolean() && node.has("results")) {
+                var results = node.get("results");
+                int count = results.isArray() ? results.size() : 0;
+                if (count == 0) {
+                    return "Sin resultados";
+                }
+                var first = results.get(0);
+                String title = first.has("title") ? first.get("title").asText() : "";
+                String url = first.has("url") ? first.get("url").asText() : "";
+                return count + " resultados · Principal: \"" + title + "\" (" + url + ")";
+            }
+            return "Error: " + node.get("error").asText();
+        } catch (Exception e) {
+            return "Resultado no parseable";
+        }
+    }
+
+    private static String buildFetchResultBrief(String jsonResult) {
+        try {
+            var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(jsonResult);
+            if (node.has("success") && node.get("success").asBoolean()) {
+                if (node.has("totalUrls")) {
+                    return "Fetch completado: " + node.get("totalUrls").asInt() + " URLs";
+                }
+                if (node.has("content")) {
+                    return "Contenido extraído (" + node.get("content").asText().length() + " caracteres)";
+                }
+                return "Fetch exitoso";
+            }
+            return "Error: " + node.get("error").asText();
+        } catch (Exception e) {
+            return "Resultado no parseable";
+        }
+    }
+
+    /**
+     * Escribe el registro de búsqueda en searchs.md. Si falla (p. ej. sin project path),
+     * el error se agrega como campo visible `context_log_error` en el JSON de resultado
+     * y el resultado real de la búsqueda se devuelve intacto al modelo. Nunca lanza hacia el tool call.
+     */
+    private static String appendSearchLogWithFallback(String toolName, String input, String brief, String rawResultJson) {
+        try {
+            SearchContextWriter.append(toolName, input, brief, brief);
+        } catch (SearchContextWriterException e) {
+            // El error de logging no destruye el resultado de la búsqueda.
+            // Agrega el error como campo visible en el JSON de salida.
+            try {
+                var mapper = new ObjectMapper();
+                var node = mapper.readTree(rawResultJson);
+                if (node.isObject()) {
+                    ((ObjectNode) node).put("context_log_error", e.getMessage());
+                    return mapper.writeValueAsString(node);
+                }
+            } catch (Exception ex) {
+                // El JSON no parsea: devuelve un nuevo ObjectNode con el error y el resultado original
+                try {
+                    var mapper = new ObjectMapper();
+                    var node = mapper.createObjectNode();
+                    node.put("context_log_error", e.getMessage());
+                    node.put("_raw_result", rawResultJson);
+                    return mapper.writeValueAsString(node);
+                } catch (Exception ex2) {
+                    return rawResultJson;
+                }
+            }
+        }
+        return rawResultJson;
     }
 
     // ========== Git Tool ==========
@@ -767,6 +881,14 @@ public class ToolCallingConfig {
         String result = taskPlannerTool.executeListActivePlans(Map.of());
         notifyToolTokens("list_active_plans", "", result);
         return result;
+    }
+
+    public ThinkingStallDetector getThinkingStallDetector() {
+        return thinkingStallDetector;
+    }
+
+    public WebSearchFallbackStrategy getWebSearchFallbackStrategy() {
+        return webSearchFallbackStrategy;
     }
 
     // ========== Streaming Line Edit Tools (DISABLED - using text format instead) ==========

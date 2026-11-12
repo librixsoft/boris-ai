@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.tooling.ToolDefinition;
 import com.boris.edit.StreamingFileWriter;
 import com.boris.context.ProjectContext;
+import com.boris.context.SessionWorkspaceGuard;
 import com.boris.cli.ui.PlanModeManager;
 import com.boris.exceptions.PlanModeException;
 
@@ -50,6 +51,9 @@ public class WriteTool {
 
         // Resolver ruta relativa usando el proyecto actual
         pathStr = ProjectContext.resolveRelativePath(pathStr);
+
+        // Guard del workspace de sesión: solo .md directo en plans/ dentro de .boris/{sessionId}
+        SessionWorkspaceGuard.assertWritable(pathStr);
 
         // Validar plan mode antes de escribir
         if (!planModeManager.canWrite(pathStr)) {

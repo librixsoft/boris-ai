@@ -7,6 +7,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.stereotype.Component;
 
 import com.boris.context.ProjectContext;
+import com.boris.context.SessionDirectoryResolver;
+import com.boris.exceptions.BorisException;
 
 @Component
 public class PlanModeManager {
@@ -35,20 +37,21 @@ public class PlanModeManager {
         if (!path.getFileName().toString().endsWith(".md")) {
             return false;
         }
-        Path projectRoot = ProjectContext.projectRootOrCurrent();
-        if (projectRoot == null) {
+        Path plansDir;
+        try {
+            plansDir = SessionDirectoryResolver.plansDirectory();
+        } catch (BorisException e) {
             return false;
         }
-        Path plansDir = projectRoot.resolve(".boris").resolve("plans").toAbsolutePath().normalize();
         return path.startsWith(plansDir);
     }
 
     public Path getPlansDirectory() {
-        Path projectRoot = ProjectContext.projectRootOrCurrent();
-        if (projectRoot == null) {
+        try {
+            return SessionDirectoryResolver.plansDirectory();
+        } catch (BorisException e) {
             return null;
         }
-        return projectRoot.resolve(".boris").resolve("plans").toAbsolutePath().normalize();
     }
 
     public void initializeFromSettings(PlanMode planMode) {

@@ -12,6 +12,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.boris.cli.ui.PlanMode;
 import com.boris.cli.ui.PlanModeManager;
+import com.boris.context.ProjectContext;
+import com.boris.context.SearchSessionContext;
+import com.boris.context.SessionDirectoryResolver;
 import com.boris.exceptions.PlanModeException;
 
 class WriteToolTest {
@@ -24,6 +27,14 @@ class WriteToolTest {
     @BeforeEach
     void setUp() {
         planModeManager = new PlanModeManager();
+        ProjectContext.setProjectPath(tempDir.toString());
+        SearchSessionContext.setSessionId("test-session");
+    }
+
+    @AfterEach
+    void tearDown() {
+        ProjectContext.clear();
+        SearchSessionContext.clear();
     }
 
     @Test
@@ -131,8 +142,7 @@ class WriteToolTest {
     @Test
     void execute_escribeCorrectamente_whenModoPlanYRutaValida() throws Exception {
         planModeManager.setMode(PlanMode.PLAN);
-        Path projectRoot = Paths.get(System.getProperty("user.dir"));
-        Path plansDir = projectRoot.resolve(".boris").resolve("plans");
+        Path plansDir = SessionDirectoryResolver.plansDirectory();
         Files.createDirectories(plansDir);
         Path file = plansDir.resolve("plan.md");
         WriteTool tool = new WriteTool(planModeManager);

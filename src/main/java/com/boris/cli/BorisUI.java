@@ -41,6 +41,7 @@ import com.boris.cli.ui.ModelSelector;
 import com.boris.cli.ui.HeaderBar;
 import com.boris.cli.ui.HintBar;
 import com.boris.cli.ui.InputArea;
+import com.boris.cli.ui.SessionIdBar;
 import com.boris.cli.ui.StatusBar;
 import com.boris.cli.ui.PlanModeManager;
 import com.boris.cli.ui.ThinkingSpinner;
@@ -173,9 +174,10 @@ public class BorisUI {
         });
 
         Panel root = new Panel(new BorderLayout());
-        Panel topPanel = new Panel(new LinearLayout(Direction.VERTICAL));
-        topPanel.addComponent(headerBar);
-        topPanel.addComponent(createVerticalSpacer());
+        Panel topPanel = new Panel(new BorderLayout());
+        topPanel.addComponent(headerBar, BorderLayout.Location.LEFT);
+        SessionIdBar sessionIdBar = new SessionIdBar();
+        topPanel.addComponent(sessionIdBar, BorderLayout.Location.RIGHT);
         root.addComponent(topPanel, BorderLayout.Location.TOP);
         root.addComponent(chatPanel, BorderLayout.Location.CENTER);
 
