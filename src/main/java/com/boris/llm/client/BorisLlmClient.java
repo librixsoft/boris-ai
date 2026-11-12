@@ -24,6 +24,8 @@ import com.boris.tooling.ToolBlockProtocol;
 import com.boris.tooling.WriteArgsPreviewStreamer;
 import com.boris.tooling.engine.ToolRegistry;
 import com.boris.llm.think.ThinkingStallDetector;
+import com.boris.cli.ui.PlanModeManager;
+import com.boris.cli.ui.PlanMode;
 
 /**
  * Cliente HTTP nativo para LLM compatible sin dependencias de Spring AI.
@@ -361,8 +363,20 @@ public class BorisLlmClient {
             Supplier<Boolean> isAborted) throws Exception {
 
         List<ChatMessage> fullMessages = new ArrayList<>();
-        if (systemPrompt != null && !systemPrompt.isBlank()) {
-            fullMessages.add(ChatMessage.system(systemPrompt));
+        String effectiveSystemPrompt = systemPrompt;
+        if (PlanModeManager.shared().getMode() == PlanMode.PLAN) {
+            String modeInfo = PlanModeManager.shared().getModeInfo();
+            effectiveSystemPrompt = (effectiveSystemPrompt != null ? effectiveSystemPrompt + "\n\n" : "")
+                    + "===== MODO PLAN (ACTIVO) =====\n"
+                    + modeInfo
+                    + "\n"
+                    + "En este modo solo podés escribir archivos .md directamente en el directorio de planes indicado arriba.\n"
+                    + "Cualquier intento de escribir fuera de ese directorio será bloqueado.\n"
+                    + "Para salir del modo plan usá el comando /plan off.\n"
+                    + "===== FIN MODO PLAN =====";
+        }
+        if (effectiveSystemPrompt != null && !effectiveSystemPrompt.isBlank()) {
+            fullMessages.add(ChatMessage.system(effectiveSystemPrompt));
         }
         if (conversation != null) {
             fullMessages.addAll(conversation);

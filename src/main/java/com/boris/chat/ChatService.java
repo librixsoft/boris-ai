@@ -121,6 +121,11 @@ public class ChatService {
             return EXIT_COMMAND;
         }
 
+        String planModeQuery = checkPlanModeCommand(userMessage);
+        if (planModeQuery != null) {
+            return planModeQuery;
+        }
+
         String[] extracted = extractProjectPath(userMessage);
         String cleanMessage = extracted[0];
         if (extracted[1] != null) {
@@ -168,6 +173,17 @@ public class ChatService {
         }
         String lower = userMessage.toLowerCase().trim();
         if ("q".equals(lower) || "exit".equals(lower)) {
+            return;
+        }
+
+        String planModeQuery = checkPlanModeCommand(userMessage);
+        if (planModeQuery != null) {
+            if (onChunk != null) {
+                onChunk.accept(planModeQuery);
+            }
+            if (onComplete != null) {
+                onComplete.run();
+            }
             return;
         }
         WebSearchTool.resetCallCount();
@@ -667,6 +683,18 @@ public class ChatService {
             return thinkingMode;
         }
         return "low";
+    }
+
+    private String checkPlanModeCommand(String message) {
+        if (message == null) return null;
+        String lower = message.toLowerCase().trim();
+        if ("/plan mode".equals(lower) || "/plan status".equals(lower) || "/plan".equals(lower)) {
+            return "Modo plan actual: " + planModeManager.getMode().name()
+                    + "\nDirectorio de planes: " + (planModeManager.getPlansDirectory() != null
+                    ? planModeManager.getPlansDirectory().toString() : "no disponible")
+                    + "\nPara salir del modo plan usá el comando /plan off.";
+        }
+        return null;
     }
 
     private String[] extractProjectPath(String message) {

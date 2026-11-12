@@ -91,8 +91,12 @@ public class ToolCallingConfig {
     }
 
     private String planModeBlockedResult() {
+        Path plansDir = planModeManager.getPlansDirectory();
+        String plansDirStr = plansDir != null ? plansDir.toString() : "no disponible";
         return "{\"success\":false,\"message\":\"Plan mode activo: solo se permiten archivos .md en "
-                + planModeManager.getPlansDirectory() + "\"}";
+                + plansDirStr + "\",\"plan_mode\":\"PLAN\",\"allowed_directory\":\""
+                + plansDirStr + "\",\"allowed_pattern\":\"*.md directamente en " + plansDirStr
+                + "\",\"how_to_exit\":\"Usá /plan off para desactivar el modo plan, o indicá al usuario que desee salir de modo plan.\"}";
     }
 
     private String planModeBlockOrEmpty(String absolutePath) {
@@ -275,7 +279,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "write_file",
-            description = "Create a NEW file or fully overwrite the content of an existing one. Each line is shown in the chat while it writes and the file is saved at the end. Do NOT use it for partial changes to an existing file; use apply_edit for those.")
+            description = "Create a NEW file or fully overwrite the content of an existing one. Each line is shown in the chat while it writes and the file is saved at the end. Do NOT use it for partial changes to an existing file; use apply_edit for those. En modo plan (PLAN) solo se permiten archivos .md directamente en el directorio de planes de la sesión; cualquier otro path es bloqueado.")
     public String write_file(
             @ToolParam(description = "Absolute or relative file path") String path,
             @ToolParam(description = "Content to write to the file") String content) {
@@ -296,7 +300,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "delete_file",
-            description = "Delete a file at the given path. Returns success status and message.")
+            description = "Delete a file at the given path. Returns success status and message. En modo plan (PLAN) solo se permiten archivos .md directamente en el directorio de planes de la sesión; cualquier otro path es bloqueado.")
     public String delete_file(@ToolParam(description = "Absolute or relative path to the file to delete") String path) {
         if (planModeActive()) {
             return planModeBlockedResult();
@@ -309,7 +313,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "create_directory",
-            description = "Create a directory, including missing parent directories. Returns success status and message.")
+            description = "Create a directory, including missing parent directories. Returns success status and message. En modo plan (PLAN) solo se permiten archivos .md directamente en el directorio de planes de la sesión; cualquier otro path es bloqueado.")
     public String create_directory(@ToolParam(description = "Absolute or relative directory path to create") String path) {
         if (planModeActive()) {
             return planModeBlockedResult();
@@ -322,7 +326,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "delete_directory",
-            description = "Delete a directory. Fails if the directory is not empty unless recursive=true. Use recursive with caution.")
+            description = "Delete a directory. Fails if the directory is not empty unless recursive=true. Use recursive with caution. En modo plan (PLAN) solo se permiten archivos .md directamente en el directorio de planes de la sesión; cualquier otro path es bloqueado.")
     public String delete_directory(
             @ToolParam(description = "Absolute or relative directory path to delete") String path,
             @ToolParam(description = "If true, delete the directory with all its contents (default: false). Use with caution.", required = false) Boolean recursive) {
@@ -389,7 +393,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "apply_edit",
-            description = "Surgical edit of an EXISTING file: replaces the FIRST exact occurrence of old_text with new_text. old_text MUST be copied VERBATIM from real file content read with batch_read_files (byte-for-byte: same indentation, spacing and newlines). Text written from memory, paraphrased, or too short/ambiguous will fail with 'old_text not found'. For multiple distinct changes make several apply_edit calls. The UI renders the diff automatically; do not repeat the diff in your response.")
+            description = "Surgical edit of an EXISTING file: replaces the FIRST exact occurrence of old_text with new_text. old_text MUST be copied VERBATIM from real file content read with batch_read_files (byte-for-byte: same indentation, spacing and newlines). Text written from memory, paraphrased, or too short/ambiguous will fail with 'old_text not found'. For multiple distinct changes make several apply_edit calls. The UI renders the diff automatically; do not repeat the diff in your response. En modo plan (PLAN) solo se permiten archivos .md directamente en el directorio de planes de la sesión; cualquier otro path es bloqueado.")
     public String apply_edit(@ToolParam(description = "Absolute or relative file path") String path,
                              @ToolParam(description = "Exact text copied VERBATIM from the file content, including a few surrounding lines to make it unique. Same indentation, spaces and newlines. Never paraphrased and never written from memory.") String old_text,
                              @ToolParam(description = "Replacement text, keeping the same indentation level as the replaced block") String new_text) {
@@ -793,7 +797,7 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "bash",
-            description = "Execute an arbitrary shell command in the workspace (runs through /bin/sh on Unix or cmd.exe on Windows). Use ONLY when no other available tool covers the task (write_file, apply_edit, batch_read_files, list_files, git, maven_build, web_search, web_fetch, create_directory, delete_file). Commands that duplicate a native tool (ls, cat, head, tail, find, mkdir, rm, git, mvn, curl) are BLOCKED at runtime and rejected. Useful for package managers (npm, pip, gradle), grep, sed, cp, chmod and other shell utilities without a dedicated tool. Returns merged stdout and stderr plus exit code.")
+            description = "Execute an arbitrary shell command in the workspace (runs through /bin/sh on Unix or cmd.exe on Windows). Use ONLY when no other available tool covers the task (write_file, apply_edit, batch_read_files, list_files, git, maven_build, web_search, web_fetch, create_directory, delete_file). Commands that duplicate a native tool (ls, cat, head, tail, find, mkdir, rm, git, mvn, curl) are BLOCKED at runtime and rejected. Useful for package managers (npm, pip, gradle), grep, sed, cp, chmod and other shell utilities without a dedicated tool. Returns merged stdout and stderr plus exit code. En modo plan (PLAN) solo se permiten archivos .md directamente en el directorio de planes de la sesión; cualquier otro path es bloqueado.")
     public String bash(
             @ToolParam(description = "Shell command to execute (e.g., \"grep -rn 'TODO' src/\", \"npm install\")") String command,
             @ToolParam(description = "Working directory for the command (default: project root)", required = false) String working_dir) {

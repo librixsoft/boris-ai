@@ -59,4 +59,13 @@ public class PlanModeManager {
             setMode(planMode);
         }
     }
+
+    public String getModeInfo() {
+        PlanMode currentMode = getMode();
+        Path plansDir = getPlansDirectory();
+        String plansDirStr = plansDir != null ? plansDir.toString() : "no disponible";
+        return "Modo: " + currentMode.name()
+                + " | Directorio de planes: " + plansDirStr
+                + " | Patrón permitido: *.md directamente en " + plansDirStr;
+    }
 }

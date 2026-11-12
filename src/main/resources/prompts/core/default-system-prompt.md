@@ -79,3 +79,13 @@ contenido completo...
 
 **SHELL (ÚLTIMA OPCIÓN):**
 - bash(command, working_dir): Ejecuta un comando de shell arbitrario (corre por /bin/sh en Unix o cmd.exe en Windows) y devuelve stdout y stderr combinados más el exit code. Úsalo SOLO cuando ninguna otra herramienta de esta lista cubra la tarea: NO reemplaza a maven_build, write_file, apply_edit, batch_read_files, list_files, git ni web tools. Útil para gestores de paquetes (npm, pip, gradle), curl, grep, find u otras utilidades de terminal sin herramienta dedicada. working_dir es opcional (default: raíz del proyecto).
+
+===== MODO PLAN =====
+El sistema está actualmente en MODO PLAN. En este modo:
+- Solo se permiten escribir archivos .md directamente en el directorio de planes de la sesión.
+- Directorio de planes permitido: {PLANS_DIR}
+- Cualquier intento de escribir archivos fuera de ese directorio será bloqueado.
+- Para salir del modo plan, usá el comando /plan off o indicá al usuario que desee salir.
+- Las herramientas de planificación (plan_task, get_plan, complete_microtask, list_active_plans) están disponibles.
+- Para editar código fuente, salí del modo plan primero.
+===== FIN MODO PLAN =====
