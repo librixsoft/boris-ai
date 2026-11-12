@@ -19,6 +19,7 @@ public class BashTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final int TIMEOUT_SECONDS = 120;
+    private static final int MAX_OUTPUT_CHARS = 20_000;
     private static final ReentrantLock SHELL_LOCK = new ReentrantLock();
 
     public static String execute(Map<String, Object> args) {
@@ -46,25 +47,54 @@ public class BashTool {
                 : new ProcessBuilder("/bin/sh", "-c", command);
         pb.directory(workDir);
         pb.redirectErrorStream(true);
+        // Redirigir stdin desde /dev/null para evitar que procesos interactivos se cuelguen
+        pb.redirectInput(ProcessBuilder.Redirect.from(new File("/dev/null")));
 
         SHELL_LOCK.lock();
         try {
             Process process = pb.start();
             StringBuilder output = new StringBuilder();
 
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append("\n");
+            // Drenar stdout/stderr en un hilo de fondo (Virtual Thread) mientras el hilo principal
+            // espera con waitFor real. Esto evita que reader.readLine() bloquee el timeout.
+            Thread drainThread = Thread.startVirtualThread(() -> {
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        output.append(line).append("\n");
+                        if (output.length() > MAX_OUTPUT_CHARS) {
+                            output.setLength(MAX_OUTPUT_CHARS);
+                            break;
+                        }
+                    }
+                } catch (IOException ignored) {
                 }
-            }
+            });
 
             boolean completed = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (!completed) {
+                // Matar el proceso y sus descendientes
                 process.destroyForcibly();
+                try {
+                    process.descendants().forEach(ProcessHandle::destroyForcibly);
+                } catch (Exception ignored) {
+                }
+                drainThread.interrupt();
+                try {
+                    drainThread.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
                 return formatOutput(false, "Error: command timed out after " + TIMEOUT_SECONDS + " seconds",
                         process.exitValue(), output.toString().trim());
+            }
+
+            drainThread.interrupt();
+            try {
+                drainThread.join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
 
             int exitCode = process.exitValue();

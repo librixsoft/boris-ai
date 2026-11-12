@@ -10,7 +10,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 
 import com.boris.chat.ChatService;
-import com.boris.chat.DecomposableChatService;
 import com.boris.llm.client.BorisLlmClient;
 import com.boris.llm.think.ThinkModeResolver;
 import com.boris.settings.Settings;
@@ -18,8 +17,6 @@ import com.boris.skill.SkillExecutor;
 import com.boris.skill.SkillLoader;
 import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
-import com.boris.task.decomposition.TaskDecompositionService;
-import com.boris.task.decomposition.TaskDecompositionService.DecompositionConfig;
 import com.boris.tooling.engine.ToolRegistry;
 import com.boris.tooling.integration.ToolCallingConfig;
 
@@ -107,22 +104,5 @@ public class ServiceConfiguration {
         } catch (Exception ignored) {}
 
         return service;
-    }
-
-    @Bean
-    @Lazy
-    public DecomposableChatService decomposableChatService(ChatService chatService) {
-        Consumer<String> defaultCallback = System.out::println;
-        return new DecomposableChatService(chatService, defaultCallback, DecompositionConfig.defaults());
-    }
-
-    @Bean
-    @Lazy
-    public TaskDecompositionService taskDecompositionService(ChatService chatService) {
-        return new TaskDecompositionService(
-                chatService::sendMessage,
-                System.out::println,
-                DecompositionConfig.defaults()
-        );
     }
 }

@@ -69,6 +69,53 @@ class ThinkingStallDetectorTest {
     }
 
     @Test
+    void jsonWhitespaceAndKeyOrderVariants_detectStall() {
+        ThinkingStallDetector d = detector();
+
+        ThinkingStallDetector.ToolCallSignature first =
+                new ThinkingStallDetector.ToolCallSignature("list_files", "{\"path\": \"/Users/x\", \"recursive\": true}");
+        ThinkingStallDetector.ToolCallSignature second =
+                new ThinkingStallDetector.ToolCallSignature("list_files", "{\"recursive\":true,\"path\":\"/Users/x\"}");
+        ThinkingStallDetector.ToolCallSignature third =
+                new ThinkingStallDetector.ToolCallSignature("list_files", "{ \"recursive\" : true , \"path\" : \"/Users/x\" }");
+
+        assertFalse(d.recordThinking("", List.of(first)));
+        assertFalse(d.recordThinking("", List.of(second)));
+        assertEquals(1, d.getConsecutiveNonProgressiveIterations());
+        assertFalse(d.recordThinking("", List.of(third)));
+        assertTrue(d.recordThinking("", List.of(first)));
+        assertTrue(d.isStallDetected());
+    }
+
+    @Test
+    void jsonNumberRepresentationVariants_detectStall() {
+        ThinkingStallDetector d = detector();
+
+        ThinkingStallDetector.ToolCallSignature integerForm =
+                new ThinkingStallDetector.ToolCallSignature("list_files", "{\"path\":\"/x\",\"max_depth\":5}");
+        ThinkingStallDetector.ToolCallSignature doubleForm =
+                new ThinkingStallDetector.ToolCallSignature("list_files", "{\"max_depth\":5.0,\"path\":\"/x\"}");
+        ThinkingStallDetector.ToolCallSignature spacedForm =
+                new ThinkingStallDetector.ToolCallSignature("list_files", "{ \"path\": \"/x\", \"max_depth\": 5 }");
+
+        assertFalse(d.recordThinking("", List.of(integerForm)));
+        assertFalse(d.recordThinking("", List.of(doubleForm)));
+        assertFalse(d.recordThinking("", List.of(spacedForm)));
+        assertTrue(d.recordThinking("", List.of(integerForm)));
+        assertTrue(d.isStallDetected());
+    }
+
+    @Test
+    void jsonDistinctValuesAfterCanonicalization_noStall() {
+        ThinkingStallDetector d = detector();
+
+        assertFalse(d.recordThinking("", List.of(listFiles("/Users/x"))));
+        assertFalse(d.recordThinking("", List.of(listFiles("/Users/y"))));
+        assertFalse(d.isStallDetected());
+        assertEquals(0, d.getConsecutiveNonProgressiveIterations());
+    }
+
+    @Test
     void thinkingOnlyRepetitive_detectsStall() {
         ThinkingStallDetector d = detector();
 
@@ -105,5 +152,16 @@ class ThinkingStallDetectorTest {
         // After reset, first identical call should not count as non-progressive
         assertFalse(d.recordThinking("", List.of(listFiles("/Users/..."))));
         assertEquals(0, d.getConsecutiveNonProgressiveIterations());
+    }
+
+    @Test
+    void sameToolNameConsecutiveExceedsLimit_detectsStall() {
+        ThinkingStallDetector d = new ThinkingStallDetector(3, 10, 3);
+
+        assertFalse(d.recordThinking("", List.of(new ThinkingStallDetector.ToolCallSignature("bash", "{\"command\":\"find -maxdepth 3\"}"))));
+        assertFalse(d.recordThinking("", List.of(new ThinkingStallDetector.ToolCallSignature("bash", "{\"command\":\"find -maxdepth 4\"}"))));
+        assertFalse(d.recordThinking("", List.of(new ThinkingStallDetector.ToolCallSignature("bash", "{\"command\":\"find -maxdepth 5\"}"))));
+        assertTrue(d.recordThinking("", List.of(new ThinkingStallDetector.ToolCallSignature("bash", "{\"command\":\"find -maxdepth 6\"}"))));
+        assertTrue(d.isStallDetected());
     }
 }

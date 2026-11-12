@@ -4,8 +4,6 @@ import java.util.Map;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-import com.boris.cli.ui.PlanMode;
-
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Settings {
     private ModelConfig model;
@@ -19,7 +17,6 @@ public class Settings {
     private Boolean thinkingEnabled;
     private String thinkingMode;
     private Map<String, Object> options;
-    private PlanMode planMode;
 
     // Agent thinking limits
     private Integer agentThinkingMaxIterations;
@@ -71,9 +68,6 @@ public class Settings {
 
     public Map<String, Object> getOptions() { return options; }
     public void setOptions(Map<String, Object> options) { this.options = options; }
-
-    public PlanMode getPlanMode() { return planMode; }
-    public void setPlanMode(PlanMode planMode) { this.planMode = planMode; }
 
     public Integer getAgentThinkingMaxIterations() { return agentThinkingMaxIterations; }
     public void setAgentThinkingMaxIterations(Integer agentThinkingMaxIterations) { this.agentThinkingMaxIterations = agentThinkingMaxIterations; }

@@ -14,7 +14,6 @@ import java.util.regex.Pattern;
 import com.boris.edit.StreamingFileWriter;
 import com.boris.exceptions.ChatException;
 import com.boris.exceptions.ChatException.ErrorType;
-import com.boris.exceptions.PlanModeException;
 import com.boris.llm.client.BorisLlmClient;
 import com.boris.llm.client.ChatMessage;
 import com.boris.llm.client.ChatRequest;
@@ -31,7 +30,6 @@ import com.boris.settings.SettingsManager;
 import com.boris.task.TaskAborter;
 import com.boris.context.ProjectContext;
 import com.boris.tooling.tool.WebSearchTool;
-import com.boris.cli.ui.PlanModeManager;
 import com.boris.tooling.tool.WriteTool;
 
 public class ChatService {
@@ -55,7 +53,6 @@ public class ChatService {
     private volatile ToolRegistry toolRegistry;
     private volatile String systemPrompt;
     private final StreamingFileWriter fileWriter;
-    private final PlanModeManager planModeManager;
     private final WriteTool writeTool;
     private static final Pattern THINKING_PATTERN = Pattern.compile("(?is)<(think|thinking|thought|reasoning)>(.*?)</\\1>");
     private static final Pattern ORPHAN_THINK_TAGS = Pattern.compile("(?i)</?(?:think|thinking|thought|reasoning)>");
@@ -76,10 +73,6 @@ public class ChatService {
     }
 
     public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode, String modelName) {
-        this(llmClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, thinkingEnabled, thinkingMode, modelName, PlanModeManager.shared());
-    }
-
-    public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory, boolean thinkingEnabled, String thinkingMode, String modelName, PlanModeManager planModeManager) {
         this.llmClientSupplier = llmClientSupplier;
         this.botName = botName;
         this.taskAborter = taskAborter;
@@ -90,8 +83,7 @@ public class ChatService {
         this.thinkingEnabled = thinkingEnabled;
         this.thinkingMode = thinkingMode;
         this.modelName = modelName;
-        this.planModeManager = planModeManager;
-        this.writeTool = new WriteTool(planModeManager);
+        this.writeTool = new WriteTool();
         this.fileWriter = new StreamingFileWriter();
         if (taskAborter != null && modelName != null) {
             taskAborter.setActiveModel(modelName);
@@ -119,11 +111,6 @@ public class ChatService {
         String lower = userMessage.toLowerCase().trim();
         if ("q".equals(lower) || "exit".equals(lower)) {
             return EXIT_COMMAND;
-        }
-
-        String planModeQuery = checkPlanModeCommand(userMessage);
-        if (planModeQuery != null) {
-            return planModeQuery;
         }
 
         String[] extracted = extractProjectPath(userMessage);
@@ -176,16 +163,6 @@ public class ChatService {
             return;
         }
 
-        String planModeQuery = checkPlanModeCommand(userMessage);
-        if (planModeQuery != null) {
-            if (onChunk != null) {
-                onChunk.accept(planModeQuery);
-            }
-            if (onComplete != null) {
-                onComplete.run();
-            }
-            return;
-        }
         WebSearchTool.resetCallCount();
 
         String[] extracted = extractProjectPath(userMessage);
@@ -319,13 +296,6 @@ public class ChatService {
             try {
                 ToolProgressNotifier.notify("write_file", "Escribiendo: " + blockPath);
 
-                // Validar plan mode antes de escribir
-                String absolutePath = ProjectContext.resolveRelativePath(blockPath != null ? blockPath : "");
-                if (!planModeManager.canWrite(absolutePath)) {
-                    DiffLineNotifier.notify("⚠ Plan mode activo: solo se permiten archivos .md en " + planModeManager.getPlansDirectory());
-                    return;
-                }
-
                 result = writeTool.execute(java.util.Map.of(
                         "path", blockPath != null ? blockPath : "",
                         "content", blockContent != null ? blockContent : ""));
@@ -339,8 +309,6 @@ public class ChatService {
                 String message = extractJsonProperty(result, "error");
                 DiffLineNotifier.notify("⚠ write_file no guardo " + blockPath + (message != null ? ": " + message : ""));
             }
-        } catch (PlanModeException e) {
-            DiffLineNotifier.notify("⚠ " + e.getMessage());
         } catch (Exception e) {
             DiffLineNotifier.notify("⚠ Error guardando " + blockPath + ": " + e.getMessage());
         }
@@ -479,7 +447,7 @@ public class ChatService {
         ToolRegistry registry = ToolCallingConfig.buildToolRegistry(s);
         String prompt = ToolCallingConfig.loadSystemPrompt(s);
 
-        ChatService service = new ChatService(() -> client, botName, aborter, historySize, enableHistory, thinkingEnabled, thinkingMode, modelName, PlanModeManager.shared());
+        ChatService service = new ChatService(() -> client, botName, aborter, historySize, enableHistory, thinkingEnabled, thinkingMode, modelName);
         service.setSettings(s);
         service.setToolRegistry(registry);
         service.setSystemPrompt(prompt);
@@ -683,18 +651,6 @@ public class ChatService {
             return thinkingMode;
         }
         return "low";
-    }
-
-    private String checkPlanModeCommand(String message) {
-        if (message == null) return null;
-        String lower = message.toLowerCase().trim();
-        if ("/plan mode".equals(lower) || "/plan status".equals(lower) || "/plan".equals(lower)) {
-            return "Modo plan actual: " + planModeManager.getMode().name()
-                    + "\nDirectorio de planes: " + (planModeManager.getPlansDirectory() != null
-                    ? planModeManager.getPlansDirectory().toString() : "no disponible")
-                    + "\nPara salir del modo plan usá el comando /plan off.";
-        }
-        return null;
     }
 
     private String[] extractProjectPath(String message) {

@@ -4,7 +4,6 @@ import com.boris.tooling.engine.ToolRegistry;
 import com.boris.tooling.integration.ToolCallingConfig;
 import com.boris.settings.Settings;
 import com.boris.settings.ModelConfig;
-import com.boris.cli.ui.PlanModeManager;
 import com.boris.exceptions.WebSearchLimitException;
 import com.boris.exceptions.WebSearchDuplicateQueryException;
 import org.junit.jupiter.api.*;
@@ -22,9 +21,7 @@ class WebSearchToolTest {
                 new com.boris.tooling.tool.SystemInfoTool(),
                 new com.boris.tooling.tool.PdfGenerationTool(),
                 new com.boris.tooling.tool.OfficeDocumentTool(),
-                new com.boris.task.decomposition.TaskPlannerTool(),
-                new Settings(new ModelConfig("http://localhost:11434", "test"), null),
-                PlanModeManager.shared()
+                new Settings(new ModelConfig("http://localhost:11434", "test"), null)
         );
     }
 

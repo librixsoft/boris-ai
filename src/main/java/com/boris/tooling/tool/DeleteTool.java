@@ -37,7 +37,6 @@ public class DeleteTool {
             return formatOutput(false, "Error: path is required");
         }
 
-        // Resolver ruta y aplicar guard del workspace de sesión
         pathStr = ProjectContext.resolveRelativePath(pathStr);
         SessionWorkspaceGuard.assertWritable(pathStr);
 

@@ -10,16 +10,35 @@ import java.util.stream.Collectors;
  */
 public class ThinkingStallDetector {
 
+    public static final int DEFAULT_MAX_SAME_TOOL_ITERATIONS = 4;
+
     private final int maxStallIterations;
     private final int maxThinkingIterations;
+    private final int maxSameToolIterations;
     private int consecutiveThinkingOnlyIterations;
     private int consecutiveNonProgressiveIterations;
+    private int consecutiveSameToolIterations;
     private String lastThinkingHash;
     private String lastToolCallHash;
+    private String lastToolNames;
 
     public ThinkingStallDetector(int maxStallIterations, int maxThinkingIterations) {
+        this(maxStallIterations, maxThinkingIterations, DEFAULT_MAX_SAME_TOOL_ITERATIONS);
+    }
+
+    public ThinkingStallDetector(int maxStallIterations, int maxThinkingIterations, int maxSameToolIterations) {
+        if (maxStallIterations < 1) {
+            throw new IllegalArgumentException("maxStallIterations debe ser >= 1");
+        }
+        if (maxThinkingIterations < 1) {
+            throw new IllegalArgumentException("maxThinkingIterations debe ser >= 1");
+        }
+        if (maxSameToolIterations < 1) {
+            throw new IllegalArgumentException("maxSameToolIterations debe ser >= 1");
+        }
         this.maxStallIterations = maxStallIterations;
         this.maxThinkingIterations = maxThinkingIterations;
+        this.maxSameToolIterations = maxSameToolIterations;
         reset();
     }
 
@@ -43,6 +62,8 @@ public class ThinkingStallDetector {
             }
             lastThinkingHash = currentHash;
             lastToolCallHash = null;
+            lastToolNames = null;
+            consecutiveSameToolIterations = 0;
         } else if (!isThinkingOnly) {
             // Hubo tool calls: resetear thinking-only counter
             consecutiveThinkingOnlyIterations = 0;
@@ -55,19 +76,42 @@ public class ThinkingStallDetector {
             }
             lastToolCallHash = currentToolHash;
             lastThinkingHash = null;
+
+            // Detectar iteraciones consecutivas con el mismo conjunto de herramientas.
+            // Para herramientas de modificación (apply_edit, write_file) se incluyen los
+            // argumentos canonicalizados para que llamadas con distintos argumentos
+            // rompan la racha y no se consideren estancamiento.
+            String currentToolNames = toolCalls.stream()
+                    .map(tc -> {
+                        if (isModificationTool(tc.name())) {
+                            return tc.name() + ":" + ToolCallCanonicalizer.canonicalize(tc.arguments());
+                        }
+                        return tc.name();
+                    })
+                    .sorted()
+                    .collect(Collectors.joining(","));
+            if (lastToolNames != null && lastToolNames.equals(currentToolNames)) {
+                consecutiveSameToolIterations++;
+            } else {
+                consecutiveSameToolIterations = 0;
+            }
+            lastToolNames = currentToolNames;
         } else {
             // Sin thinking ni tool calls: turno vacío
             consecutiveThinkingOnlyIterations = 0;
             consecutiveNonProgressiveIterations = 0;
+            consecutiveSameToolIterations = 0;
             lastThinkingHash = null;
             lastToolCallHash = null;
+            lastToolNames = null;
         }
 
         return isStallDetected();
     }
 
     public boolean isStallDetected() {
-        return consecutiveNonProgressiveIterations >= maxStallIterations;
+        return consecutiveNonProgressiveIterations >= maxStallIterations
+                || consecutiveSameToolIterations >= maxSameToolIterations;
     }
 
     public boolean isThinkingLimitReached() {
@@ -82,11 +126,26 @@ public class ThinkingStallDetector {
         return consecutiveNonProgressiveIterations;
     }
 
+    public int getConsecutiveSameToolIterations() {
+        return consecutiveSameToolIterations;
+    }
+
     public void reset() {
         consecutiveThinkingOnlyIterations = 0;
         consecutiveNonProgressiveIterations = 0;
+        consecutiveSameToolIterations = 0;
         lastThinkingHash = null;
         lastToolCallHash = null;
+        lastToolNames = null;
+    }
+
+    private static boolean isModificationTool(String toolName) {
+        return "write_file".equals(toolName)
+                || "apply_edit".equals(toolName)
+                || "revert_edit".equals(toolName)
+                || "delete_file".equals(toolName)
+                || "delete_directory".equals(toolName)
+                || "create_directory".equals(toolName);
     }
 
     private static String hashContent(String content) {
@@ -101,7 +160,7 @@ public class ThinkingStallDetector {
             return "null";
         }
         String combined = toolCalls.stream()
-                .map(tc -> tc.name() + ":" + (tc.arguments() != null ? tc.arguments() : "{}"))
+                .map(tc -> tc.name() + ":" + ToolCallCanonicalizer.canonicalize(tc.arguments()))
                 .sorted()
                 .collect(Collectors.joining("||"));
         return Integer.toString(combined.hashCode());

@@ -17,7 +17,7 @@ class StatusBarTest {
     private static final String ANSI_ESCAPE_EXAMPLE = "\u001b[38;2;255;0;0m";
 
     private static StatusBar createStatusBar() {
-        return new StatusBar(Runnable::run, new PlanModeManager());
+        return new StatusBar(Runnable::run);
     }
 
     @Test
@@ -74,37 +74,6 @@ class StatusBarTest {
         assertEquals(UiTheme.IDLE, statusBar.spinnerColor());
         assertEquals(UiTheme.ACCENT, statusBar.infoColor());
         assertFalse(statusBar.infoText().contains("\u001b"));
-    }
-
-    @Test
-    void togglePlanModeCambiaModoYLabelDelToggle() {
-        PlanModeManager planModeManager = new PlanModeManager();
-        StatusBar statusBar = new StatusBar(Runnable::run, planModeManager);
-
-        assertEquals(PlanMode.WRITE, planModeManager.getMode());
-        assertTrue(statusBar.planModeToggleLabel().contains("WRITE MODE"));
-
-        statusBar.togglePlanMode();
-
-        assertEquals(PlanMode.PLAN, planModeManager.getMode());
-        assertTrue(statusBar.planModeToggleLabel().contains("PLAN MODE"));
-
-        statusBar.togglePlanMode();
-
-        assertEquals(PlanMode.WRITE, planModeManager.getMode());
-        assertTrue(statusBar.planModeToggleLabel().contains("WRITE MODE"));
-    }
-
-    @Test
-    void togglePlanModeNoModificaElInfoText() {
-        PlanModeManager planModeManager = new PlanModeManager();
-        StatusBar statusBar = new StatusBar(Runnable::run, planModeManager);
-        statusBar.showTokenStatus(new TokenCounter(128000));
-        String infoAntes = statusBar.infoText();
-
-        statusBar.togglePlanMode();
-
-        assertEquals(infoAntes, statusBar.infoText());
     }
 
     @Test

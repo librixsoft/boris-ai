@@ -46,7 +46,6 @@ public class EditTool {
         // Resolver ruta relativa usando el proyecto actual
         pathStr = ProjectContext.resolveRelativePath(pathStr);
 
-        // Guard del workspace de sesión
         SessionWorkspaceGuard.assertWritable(pathStr);
 
         if (oldText == null || oldText.isEmpty()) {
@@ -115,7 +114,6 @@ public class EditTool {
         // Resolver ruta relativa usando el proyecto actual
         pathStr = ProjectContext.resolveRelativePath(pathStr);
 
-        // Guard del workspace de sesión
         SessionWorkspaceGuard.assertWritable(pathStr);
 
         if (oldText == null || oldText.isEmpty()) {

@@ -58,6 +58,8 @@ public class StreamingFileWriter {
     private boolean inToolBlock = false;
     private String currentToolName = null;
     private final StringBuilder toolArgsBuffer = new StringBuilder();
+    // Última firma de tool renderizada para dedup visual en el mismo stream
+    private String lastToolSignature = null;
 
     private FileSaver saveFunction;
 
@@ -171,7 +173,12 @@ public class StreamingFileWriter {
         if (inToolBlock) {
             if (BLOCK_END.matcher(trimmed).matches()) {
                 inToolBlock = false;
-                emitToolSummaryLine(currentToolName, toolArgsBuffer.toString().trim());
+                String jsonArgs = toolArgsBuffer.toString().trim();
+                String signature = currentToolName + "|" + jsonArgs;
+                if (!signature.equals(lastToolSignature)) {
+                    emitToolSummaryLine(currentToolName, jsonArgs);
+                    lastToolSignature = signature;
+                }
                 toolArgsBuffer.setLength(0);
                 currentToolName = null;
                 return null; // Silenciar el cierre ```
@@ -222,6 +229,7 @@ public class StreamingFileWriter {
 
         String sanitizedPath = com.boris.tooling.tool.WriteTool.sanitizeTargetPath(path);
         String resolvedPath = ProjectContext.resolveRelativePath(sanitizedPath);
+
         currentFilePath = resolvedPath;
         currentLanguage = language;
         lineNumber = 0;
@@ -295,6 +303,7 @@ public class StreamingFileWriter {
         inToolBlock = false;
         currentToolName = null;
         toolArgsBuffer.setLength(0);
+        lastToolSignature = null;
     }
 
     private void resetFileState() {
@@ -306,6 +315,7 @@ public class StreamingFileWriter {
         inToolBlock = false;
         currentToolName = null;
         toolArgsBuffer.setLength(0);
+        lastToolSignature = null;
     }
 
     public void reset() {
@@ -402,7 +412,6 @@ public class StreamingFileWriter {
             case "get_system_info" -> "ℹ️";
             case "generate_pdf" -> "📄";
             case "create_office_document" -> "📊";
-            case "plan_task", "get_plan", "complete_microtask", "list_active_plans" -> "📋";
             case "streaming_line_start", "streaming_line_write", "streaming_line_end" -> "✍️";
             default -> "🔧";
         };

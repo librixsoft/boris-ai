@@ -18,9 +18,7 @@ import com.knuddels.jtokkit.api.EncodingRegistry;
 import com.knuddels.jtokkit.api.EncodingType;
 
 import com.boris.exceptions.BorisException;
-import com.boris.exceptions.PlanModeException;
 import com.boris.exceptions.SearchContextWriterException;
-import com.boris.cli.ui.PlanMode;
 import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
@@ -48,8 +46,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.boris.tooling.ToolProgressNotifier;
 import com.boris.context.ProjectContext;
 import com.boris.tooling.ToolResultNotifier;
-import com.boris.task.decomposition.TaskPlannerTool;
-import com.boris.cli.ui.PlanModeManager;
 import com.boris.llm.think.ThinkingStallDetector;
 import com.boris.tooling.integration.WebSearchFallbackStrategy;
 
@@ -86,38 +82,13 @@ public class ToolCallingConfig {
         }
     }
 
-    private boolean planModeActive() {
-        return planModeManager.getMode() == PlanMode.PLAN;
-    }
-
-    private String planModeBlockedResult() {
-        Path plansDir = planModeManager.getPlansDirectory();
-        String plansDirStr = plansDir != null ? plansDir.toString() : "no disponible";
-        return "{\"success\":false,\"message\":\"Plan mode activo: solo se permiten archivos .md en "
-                + plansDirStr + "\",\"plan_mode\":\"PLAN\",\"allowed_directory\":\""
-                + plansDirStr + "\",\"allowed_pattern\":\"*.md directamente en " + plansDirStr
-                + "\",\"how_to_exit\":\"Usá /plan off para desactivar el modo plan, o indicá al usuario que desee salir de modo plan.\"}";
-    }
-
-    private String planModeBlockOrEmpty(String absolutePath) {
-        if (!planModeActive()) {
-            return "";
-        }
-        if (absolutePath == null || planModeManager.canWrite(absolutePath)) {
-            return "";
-        }
-        return planModeBlockedResult();
-    }
-
     // Core tools (no parallel alternative needed)
     private final DeleteTool deleteTool;
     private final EditTool editTool;
     private final SystemInfoTool systemInfoTool;
     private final PdfGenerationTool pdfGenerationTool;
     private final OfficeDocumentTool officeDocumentTool;
-    private final TaskPlannerTool taskPlannerTool;
     private final Settings settings;
-    private final PlanModeManager planModeManager;
     private final WriteTool writeTool;
     private final ThinkingStallDetector thinkingStallDetector;
     private final WebSearchFallbackStrategy webSearchFallbackStrategy;
@@ -135,18 +106,14 @@ public class ToolCallingConfig {
                             SystemInfoTool systemInfoTool,
                             PdfGenerationTool pdfGenerationTool,
                             OfficeDocumentTool officeDocumentTool,
-                            TaskPlannerTool taskPlannerTool,
-                            Settings settings,
-                            PlanModeManager planModeManager) {
+                            Settings settings) {
         this.deleteTool = deleteTool;
         this.editTool = editTool;
         this.systemInfoTool = systemInfoTool;
         this.pdfGenerationTool = pdfGenerationTool;
         this.officeDocumentTool = officeDocumentTool;
-        this.taskPlannerTool = taskPlannerTool;
         this.settings = settings;
-        this.planModeManager = planModeManager;
-        this.writeTool = new WriteTool(planModeManager);
+        this.writeTool = new WriteTool();
 
         // Inicializar detector de estancamiento y fallback de búsqueda
         int maxThinkingIterations = settings != null
@@ -239,16 +206,13 @@ public class ToolCallingConfig {
     }
 
     private static ToolCallingConfig createDefaultConfig(Settings settings) {
-        PlanModeManager planModeManager = PlanModeManager.shared();
         return new ToolCallingConfig(
                 new DeleteTool(),
                 new EditTool(),
                 new SystemInfoTool(),
                 new PdfGenerationTool(),
                 new OfficeDocumentTool(),
-                new TaskPlannerTool(),
-                settings,
-                planModeManager
+                settings
         );
     }
 
@@ -279,19 +243,13 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "write_file",
-            description = "Create a NEW file or fully overwrite the content of an existing one. Each line is shown in the chat while it writes and the file is saved at the end. Do NOT use it for partial changes to an existing file; use apply_edit for those. En modo plan (PLAN) solo se permiten archivos .md directamente en el directorio de planes de la sesión; cualquier otro path es bloqueado.")
+            description = "Create a NEW file or fully overwrite the content of an existing one. Each line is shown in the chat while it writes and the file is saved at the end. Do NOT use it for partial changes to an existing file; use apply_edit for those.")
     public String write_file(
             @ToolParam(description = "Absolute or relative file path") String path,
             @ToolParam(description = "Content to write to the file") String content) {
         String mainModelName = settings != null && settings.getModel() != null && settings.getModel().getName() != null
                 ? settings.getModel().getName() : "main";
         ToolProgressNotifier.notify("write_file", "Escribiendo con " + mainModelName + " (flujo normal): " + path);
-
-        // Validar plan mode antes de escribir
-        String blocked = planModeBlockOrEmpty(ProjectContext.resolveRelativePath(path));
-        if (!blocked.isEmpty()) {
-            return blocked;
-        }
 
         String result = writeTool.execute(Map.of("path", path, "content", content != null ? content : ""));
         notifyToolTokens("write_file", path + "\n" + content, result);
@@ -300,11 +258,8 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "delete_file",
-            description = "Delete a file at the given path. Returns success status and message. En modo plan (PLAN) solo se permiten archivos .md directamente en el directorio de planes de la sesión; cualquier otro path es bloqueado.")
+            description = "Delete a file at the given path. Returns success status and message.")
     public String delete_file(@ToolParam(description = "Absolute or relative path to the file to delete") String path) {
-        if (planModeActive()) {
-            return planModeBlockedResult();
-        }
         ToolProgressNotifier.notify("delete_file", "Eliminando: " + path);
         String result = deleteTool.execute(Map.of("path", path));
         notifyToolTokens("delete_file", path, result);
@@ -313,11 +268,8 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "create_directory",
-            description = "Create a directory, including missing parent directories. Returns success status and message. En modo plan (PLAN) solo se permiten archivos .md directamente en el directorio de planes de la sesión; cualquier otro path es bloqueado.")
+            description = "Create a directory, including missing parent directories. Returns success status and message.")
     public String create_directory(@ToolParam(description = "Absolute or relative directory path to create") String path) {
-        if (planModeActive()) {
-            return planModeBlockedResult();
-        }
         ToolProgressNotifier.notify("create_directory", "Creando directorio: " + path);
         String result = CreateDirectoryTool.execute(Map.of("path", path != null ? path : ""));
         notifyToolTokens("create_directory", path != null ? path : "", result);
@@ -326,14 +278,11 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "delete_directory",
-            description = "Delete a directory. Fails if the directory is not empty unless recursive=true. Use recursive with caution. En modo plan (PLAN) solo se permiten archivos .md directamente en el directorio de planes de la sesión; cualquier otro path es bloqueado.")
+            description = "Delete a directory. Fails if the directory is not empty unless recursive=true. Use recursive with caution.")
     public String delete_directory(
             @ToolParam(description = "Absolute or relative directory path to delete") String path,
             @ToolParam(description = "If true, delete the directory with all its contents (default: false). Use with caution.", required = false) Boolean recursive) {
         boolean deleteRecursively = recursive != null && recursive;
-        if (planModeActive()) {
-            return planModeBlockedResult();
-        }
         ToolProgressNotifier.notify("delete_directory", (deleteRecursively ? "Eliminando recursivamente: " : "Eliminando: ") + path);
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("path", path != null ? path : "");
@@ -345,20 +294,12 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "list_files",
-            description = "List files and directories in a given path. Lists recursively by default (depth 5) and returns a compact tree. To locate files by name in one call, pass a glob in 'filter' (e.g., filter: \"*Dashboard*\").")
+            description = "List files and directories in a given path. Returns a flat, readable listing: directories first with prefix 'd ', files with prefix 'f ' and readable size. Use a subdirectory path to narrow the scope.")
     public String list_files(
-            @ToolParam(description = "Directory path to list (absolute or relative)") String path,
-            @ToolParam(description = "Preferred glob filter matched against the whole relative path (e.g., *Dashboard*, pom.xml, src/**/*Test.java). Avoids exploring directories level by level.", required = false) String filter,
-            @ToolParam(description = "If true, list files recursively (default: true). Use false only for a flat single-directory listing.", required = false) Boolean recursive,
-            @ToolParam(description = "Maximum depth for recursive listing (default: 5)", required = false) Integer max_depth,
-            @ToolParam(description = "Optional glob pattern matched against file names only (e.g., *.java, *.ts)", required = false) String pattern) {
+            @ToolParam(description = "Directory path to list (absolute or relative)") String path) {
         ToolProgressNotifier.notify("list_files", "Listando: " + path);
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("path", path != null ? path : ".");
-        if (filter != null) args.put("filter", filter);
-        if (recursive != null) args.put("recursive", recursive);
-        if (max_depth != null) args.put("max_depth", max_depth);
-        if (pattern != null) args.put("pattern", pattern);
         String result = ListFilesTool.execute(args);
         notifyListing("list_files", result);
         notifyToolTokens("list_files", path != null ? path : ".", result);
@@ -393,15 +334,11 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "apply_edit",
-            description = "Surgical edit of an EXISTING file: replaces the FIRST exact occurrence of old_text with new_text. old_text MUST be copied VERBATIM from real file content read with batch_read_files (byte-for-byte: same indentation, spacing and newlines). Text written from memory, paraphrased, or too short/ambiguous will fail with 'old_text not found'. For multiple distinct changes make several apply_edit calls. The UI renders the diff automatically; do not repeat the diff in your response. En modo plan (PLAN) solo se permiten archivos .md directamente en el directorio de planes de la sesión; cualquier otro path es bloqueado.")
+            description = "Surgical edit of an EXISTING file: replaces the FIRST exact occurrence of old_text with new_text. old_text MUST be copied VERBATIM from real file content read with batch_read_files (byte-for-byte: same indentation, spacing and newlines). Text written from memory, paraphrased, or too short/ambiguous will fail with 'old_text not found'. For multiple distinct changes make several apply_edit calls. The UI renders the diff automatically; do not repeat the diff in your response.")
     public String apply_edit(@ToolParam(description = "Absolute or relative file path") String path,
                              @ToolParam(description = "Exact text copied VERBATIM from the file content, including a few surrounding lines to make it unique. Same indentation, spaces and newlines. Never paraphrased and never written from memory.") String old_text,
                              @ToolParam(description = "Replacement text, keeping the same indentation level as the replaced block") String new_text) {
         ToolProgressNotifier.notify("apply_edit", "Editando archivo: " + path);
-        String blocked = planModeBlockOrEmpty(ProjectContext.resolveRelativePath(path));
-        if (!blocked.isEmpty()) {
-            return blocked;
-        }
         String inputText = path + "\n" + old_text + "\n" + new_text;
         String result = EditTool.apply_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
         notifyToolTokens("apply_edit", inputText, result);
@@ -415,10 +352,6 @@ public class ToolCallingConfig {
                               @ToolParam(description = "Exact text currently in the file that you want to remove (the result of your previous edit)") String old_text,
                               @ToolParam(description = "Original text to restore in its place") String new_text) {
         String inputText = path + "\n" + old_text + "\n" + new_text;
-        String blocked = planModeBlockOrEmpty(ProjectContext.resolveRelativePath(path));
-        if (!blocked.isEmpty()) {
-            return blocked;
-        }
         String result = EditTool.revert_edit(Map.of("path", path, "old_text", old_text, "new_text", new_text));
         notifyToolTokens("revert_edit", inputText, result);
         return result;
@@ -439,9 +372,6 @@ public class ToolCallingConfig {
     public String generate_pdf(@ToolParam(description = "Content to convert to PDF (HTML, Markdown, or plain text)") String content,
                               @ToolParam(description = "Output file path for the PDF") String outputPath,
                               @ToolParam(description = "Type of content: 'html', 'markdown', or 'text'") String contentType) {
-        if (planModeActive()) {
-            return planModeBlockedResult();
-        }
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("content", content);
         args.put("outputPath", outputPath);
@@ -460,10 +390,7 @@ public class ToolCallingConfig {
             @ToolParam(description = "Absolute or relative output file path") String outputPath,
             @ToolParam(description = "Document title") String title,
             @ToolParam(description = "Document content (plain text; for tables use pipe-separated: col1|col2|col3; separate columns with ---)") String content,
-              @ToolParam(description = "JSON object with complete styling: {primaryColor, secondaryColor, accentColor, textColor, backgroundColor, fontFamily, headerFontSize, bodyFontSize, boldTitle, italicBody, underlineHeaders, marginTop, marginBottom, marginLeft, marginRight, lineSpacing, layout (oneColumn|twoColumn|threeColumn|grid), style (corporate|modern|minimal|colorful), headerStyle, borderStyle, borderWidth, shadowEffect, and table styling colors}") java.util.Map<String, Object> customization) {
-        if (planModeActive()) {
-            return planModeBlockedResult();
-        }
+               @ToolParam(description = "JSON object with complete styling: {primaryColor, secondaryColor, accentColor, textColor, backgroundColor, fontFamily, headerFontSize, bodyFontSize, boldTitle, italicBody, underlineHeaders, marginTop, marginBottom, marginLeft, marginRight, lineSpacing, layout (oneColumn|twoColumn|threeColumn|grid), style (corporate|modern|minimal|colorful), headerStyle, borderStyle, borderWidth, shadowEffect, and table styling colors}") java.util.Map<String, Object> customization) {
         Map<String, Object> params = new java.util.LinkedHashMap<>();
         params.put("documentType", documentType);
         params.put("outputPath", outputPath);
@@ -625,10 +552,6 @@ public class ToolCallingConfig {
             return "{\"success\": false, \"error\": \"Command is required\"}";
         }
 
-        if (planModeActive()) {
-            return planModeBlockedResult();
-        }
-
         ToolProgressNotifier.notify("git", "git " + command + (args != null ? " " + args : ""));
 
         Map<String, Object> toolArgs = new java.util.LinkedHashMap<>();
@@ -672,10 +595,6 @@ public class ToolCallingConfig {
     public String maven_build(
             @ToolParam(description = "Maven goal: compile, test, package, clean, verify, install, 'clean compile', 'clean test', 'clean package', 'test-compile' (default: compile)", required = false) String goal,
             @ToolParam(description = "Project directory (optional, default: current workspace)", required = false) String project_path) {
-
-        if (planModeActive()) {
-            return planModeBlockedResult();
-        }
 
         // Solo permitir goals seguros
         java.util.Set<String> allowedGoals = java.util.Set.of(
@@ -752,13 +671,10 @@ public class ToolCallingConfig {
     // ========== Shell Tool ==========
 
     private static final Map<String, String> SHELL_NATIVE_TOOL_DUPLICATES = Map.ofEntries(
-            Map.entry("ls", "list_files"),
-            Map.entry("dir", "list_files"),
-            Map.entry("find", "list_files"),
-            Map.entry("cat", "batch_read_files"),
-            Map.entry("type", "batch_read_files"),
-            Map.entry("head", "batch_read_files"),
-            Map.entry("tail", "batch_read_files"),
+            // Comandos de solo lectura desbloqueados: el modelo puede usarlos directamente
+            // sin rebotear hacia list_files / batch_read_files.
+            // Mantener bloqueadas: herramientas con efectos secundarios destructivos
+            // o comandos con herramientas nativas dedicadas complejas.
             Map.entry("mkdir", "create_directory"),
             Map.entry("rm", "delete_file"),
             Map.entry("rmdir", "delete_directory"),
@@ -797,17 +713,13 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "bash",
-            description = "Execute an arbitrary shell command in the workspace (runs through /bin/sh on Unix or cmd.exe on Windows). Use ONLY when no other available tool covers the task (write_file, apply_edit, batch_read_files, list_files, git, maven_build, web_search, web_fetch, create_directory, delete_file). Commands that duplicate a native tool (ls, cat, head, tail, find, mkdir, rm, git, mvn, curl) are BLOCKED at runtime and rejected. Useful for package managers (npm, pip, gradle), grep, sed, cp, chmod and other shell utilities without a dedicated tool. Returns merged stdout and stderr plus exit code. En modo plan (PLAN) solo se permiten archivos .md directamente en el directorio de planes de la sesión; cualquier otro path es bloqueado.")
+            description = "Execute an arbitrary shell command in the workspace (runs through /bin/sh on Unix or cmd.exe on Windows). Use ONLY when no other available tool covers the task (write_file, apply_edit, batch_read_files, list_files, git, maven_build, web_search, web_fetch, create_directory, delete_file). Read-only commands (ls, dir, find, cat, head, tail) are allowed and do not duplicate native tools. Blocked: destructive or complex commands (rm, mkdir, git, mvn, curl, wget). Useful for package managers (npm, pip, gradle), grep, sed, cp, chmod and other shell utilities without a dedicated tool. Returns merged stdout and stderr plus exit code.")
     public String bash(
             @ToolParam(description = "Shell command to execute (e.g., \"grep -rn 'TODO' src/\", \"npm install\")") String command,
             @ToolParam(description = "Working directory for the command (default: project root)", required = false) String working_dir) {
 
         if (command == null || command.isBlank()) {
             return "{\"success\": false, \"exit_code\": -1, \"message\": \"Error: command is required\"}";
-        }
-
-        if (planModeActive()) {
-            return planModeBlockedResult();
         }
 
         String duplicateTool = resolveDuplicateNativeTool(command);
@@ -828,62 +740,6 @@ public class ToolCallingConfig {
         String result = BashTool.execute(toolArgs);
         notifyToolTokens("bash", command, result);
         ToolResultNotifier.notifyQueryResult("bash", command, result);
-        return result;
-    }
-
-    // ========== Task Decomposition Tools ==========
-
-    @Tool(
-            name = "plan_task",
-            description = "Analyze a complex task and decompose it into ordered microtasks. Use this BEFORE starting tasks that involve multiple files, new components, or architectural changes. Returns a plan ID and list of steps to execute.")
-    public String plan_task(
-            @ToolParam(description = "The task to analyze and decompose into microtasks") String task_description,
-            @ToolParam(description = "Maximum number of microtasks to generate (default: 10)") Integer max_steps) {
-        Map<String, Object> args = new java.util.LinkedHashMap<>();
-        args.put("task_description", task_description);
-        if (max_steps != null) {
-            args.put("max_steps", max_steps);
-        }
-        String result = taskPlannerTool.executePlanTask(args);
-        notifyToolTokens("plan_task", task_description, result);
-        return result;
-    }
-
-    @Tool(
-            name = "get_plan",
-            description = "Get the current status and progress of a task plan.")
-    public String get_plan(
-            @ToolParam(description = "The ID of the plan to retrieve") String plan_id) {
-        String result = taskPlannerTool.executeGetPlan(Map.of("plan_id", plan_id));
-        notifyToolTokens("get_plan", plan_id, result);
-        return result;
-    }
-
-    @Tool(
-            name = "complete_microtask",
-            description = "Mark a microtask as completed and get the next task to execute. Call this after finishing each step in a plan.")
-    public String complete_microtask(
-            @ToolParam(description = "The ID of the plan") String plan_id,
-            @ToolParam(description = "The order number of the completed microtask") Integer task_order,
-            @ToolParam(description = "Summary of what was accomplished") String resultSummary) {
-        Map<String, Object> args = new java.util.LinkedHashMap<>();
-        args.put("plan_id", plan_id);
-        args.put("task_order", task_order);
-        if (resultSummary != null) {
-            args.put("result", resultSummary);
-        }
-        String inputText = plan_id + "\n" + task_order + "\n" + (resultSummary != null ? resultSummary : "");
-        String result = taskPlannerTool.executeCompleteMicrotask(args);
-        notifyToolTokens("complete_microtask", inputText, result);
-        return result;
-    }
-
-    @Tool(
-            name = "list_active_plans",
-            description = "List all active task plans and their progress.")
-    public String list_active_plans() {
-        String result = taskPlannerTool.executeListActivePlans(Map.of());
-        notifyToolTokens("list_active_plans", "", result);
         return result;
     }
 

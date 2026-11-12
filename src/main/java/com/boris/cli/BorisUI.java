@@ -43,7 +43,6 @@ import com.boris.cli.ui.HintBar;
 import com.boris.cli.ui.InputArea;
 import com.boris.cli.ui.SessionIdBar;
 import com.boris.cli.ui.StatusBar;
-import com.boris.cli.ui.PlanModeManager;
 import com.boris.cli.ui.ThinkingSpinner;
 import com.boris.cli.ui.ToastPopup;
 import com.boris.cli.ui.TokenCounter;
@@ -130,12 +129,7 @@ public class BorisUI {
             transcript.appendLine(line);
         });
 
-        PlanModeManager planModeManager = PlanModeManager.shared();
-        if (settings != null && settings.getPlanMode() != null) {
-            planModeManager.initializeFromSettings(settings.getPlanMode());
-        }
-
-        StatusBar statusBar = new StatusBar(uiExecutor, planModeManager);
+        StatusBar statusBar = new StatusBar(uiExecutor);
         chatPanel.setClipboardCopyListener(() -> {
             ToastPopup toast = new ToastPopup("Texto copiado al portapapeles", uiExecutor);
             toast.showFor(gui, 2);
@@ -216,7 +210,6 @@ public class BorisUI {
             hintBar.setToolDetailsVisible(showDetails);
             hintBar.showHiddenDetailsHint(showDetails ? 0 : transcript.getHiddenDetailsCount());
         });
-        inputArea.setPlanModeToggleHandler(statusBar::togglePlanMode);
         inputArea.setLayoutData(LinearLayout.createLayoutData(LinearLayout.Alignment.Fill));
         footer.addComponent(inputArea);
         footer.addComponent(createVerticalSpacer());

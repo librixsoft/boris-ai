@@ -10,17 +10,10 @@ import com.boris.tooling.ToolDefinition;
 import com.boris.edit.StreamingFileWriter;
 import com.boris.context.ProjectContext;
 import com.boris.context.SessionWorkspaceGuard;
-import com.boris.cli.ui.PlanModeManager;
-import com.boris.exceptions.PlanModeException;
 
 public class WriteTool {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private final PlanModeManager planModeManager;
-
-    public WriteTool(PlanModeManager planModeManager) {
-        this.planModeManager = planModeManager;
-    }
 
     public static ToolDefinition write_file() {
         var pathProp = Map.of("type", "string", "description", "Absolute or relative file path");
@@ -52,13 +45,7 @@ public class WriteTool {
         // Resolver ruta relativa usando el proyecto actual
         pathStr = ProjectContext.resolveRelativePath(pathStr);
 
-        // Guard del workspace de sesión: solo .md directo en plans/ dentro de .boris/{sessionId}
         SessionWorkspaceGuard.assertWritable(pathStr);
-
-        // Validar plan mode antes de escribir
-        if (!planModeManager.canWrite(pathStr)) {
-            throw new PlanModeException("Plan mode activo: solo se permiten archivos .md en " + planModeManager.getPlansDirectory());
-        }
 
         if (content == null) {
             content = "";

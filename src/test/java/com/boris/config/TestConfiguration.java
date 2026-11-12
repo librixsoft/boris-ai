@@ -24,18 +24,10 @@ import com.boris.tooling.parallel.BatchWebFetchTool;
 
 import com.boris.tooling.parallel.BatchListDirectoriesTool;
 import com.boris.tooling.parallel.ParallelSearchTool;
-import com.boris.task.decomposition.TaskPlannerTool;
 import com.boris.tooling.integration.ToolCallingConfig;
-import com.boris.cli.ui.PlanModeManager;
 
 @Configuration
 public class TestConfiguration {
-
-    @Bean
-    @Primary
-    public PlanModeManager planModeManager() {
-        return new PlanModeManager();
-    }
 
     @Bean
     @Primary
@@ -115,11 +107,6 @@ public class TestConfiguration {
         return new OfficeDocumentTool();
     }
 
-    @Bean
-    public TaskPlannerTool taskPlannerTool() {
-        return new TaskPlannerTool();
-    }
-
     // Parallel tools
     @Bean
     public BatchReadFileTool batchReadFileTool() {
@@ -149,18 +136,14 @@ public class TestConfiguration {
                                                SystemInfoTool systemInfoTool,
                                                PdfGenerationTool pdfGenerationTool,
                                                OfficeDocumentTool officeDocumentTool,
-                                               TaskPlannerTool taskPlannerTool,
-                                               Settings settings,
-                                               PlanModeManager planModeManager) {
+                                               Settings settings) {
         return new ToolCallingConfig(
                 deleteTool,
                 editTool,
                 systemInfoTool,
                 pdfGenerationTool,
                 officeDocumentTool,
-                taskPlannerTool,
-                settings,
-                planModeManager
+                settings
         );
     }
 }

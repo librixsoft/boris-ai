@@ -32,6 +32,15 @@ class BorisLlmClientPendingTest {
                                  @ToolParam(description = "new_text") String new_text) {
             return "{\"success\":true,\"diff\":\"+ new code\"}";
         }
+
+        @Tool(name = "bash", description = "Ejecuta comando bash")
+        public String bash(@ToolParam(description = "command") String command) {
+            if (command != null && command.startsWith("find")) {
+                return "{\"success\": false, \"exit_code\": -1, \"message\": \"Command blocked: '" + command
+                        + "' duplicates the native tool 'list_files'. Use the registered 'list_files' tool instead of bash.\"}";
+            }
+            return "{\"success\":true,\"output\":\"ok\"}";
+        }
     }
 
     static class MockBorisLlmClient extends BorisLlmClient {
@@ -168,5 +177,117 @@ class BorisLlmClientPendingTest {
         );
         assertFalse(foundNudge);
         assertEquals(2, client.getRecordedRequests().size());
+    }
+
+    @Test
+    void textToolBlockPayload_isNotCorruptedWithGarbageText() throws Exception {
+        MockBorisLlmClient client = new MockBorisLlmClient();
+        // Turno 1: el modelo emite un tool block en texto (protocolo ```tool:)
+        client.enqueueResponse(createTextResponse("Explorando...\n```tool:list_files {\"path\":\"/x\"}\n```"));
+        // Turno 2: texto final
+        client.enqueueResponse(createTextResponse("Listo."));
+
+        List<ChatMessage> conv = List.of(ChatMessage.user("Explora el proyecto"));
+        BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
+                conv, "test-model", "system", mockRegistry, null, 0.7, null, () -> false
+        );
+
+        assertEquals("Listo.", turn.response());
+
+        boolean payloadSent = client.getRecordedRequests().stream().anyMatch(req ->
+                req.messages().stream().anyMatch(m ->
+                        m.content() != null && m.content().contains("[TOOL_RESULTS]"))
+        );
+        assertTrue(payloadSent);
+
+        boolean corruptedPayloadFound = client.getRecordedRequests().stream().anyMatch(req ->
+                req.messages().stream().anyMatch(m ->
+                        m.content() != null && m.content().contains("emporada"))
+        );
+        assertFalse(corruptedPayloadFound);
+    }
+
+    @Test
+    void repeatedIdenticalToolCallsAcrossTurn_stopsWithIncompleteState() throws Exception {
+        MockBorisLlmClient client = new MockBorisLlmClient();
+        // Mismo tool con mismos argumentos 3 veces consecutivas: el deduplicador
+        // devuelve [DUPLICADO] en la 2da y [STOPPED] en la 3ra.
+        client.enqueueResponse(createToolResponse("Leyendo...", "read_file", "{\"path\":\"Foo.java\"}"));
+        client.enqueueResponse(createToolResponse("Leyendo...", "read_file", "{\"path\":\"Foo.java\"}"));
+        client.enqueueResponse(createToolResponse("Leyendo...", "read_file", "{\"path\":\"Foo.java\"}"));
+        // Respuesta final que nunca debería consumirse si el deduplicador corta antes
+        client.enqueueResponse(createTextResponse("Fin."));
+
+        List<ChatMessage> conv = List.of(ChatMessage.user("Explora el proyecto"));
+        BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
+                conv, "test-model", "system", mockRegistry, null, 0.7, null, () -> false
+        );
+
+        // El deduplicador detiene el turno tras 3 llamadas idénticas consecutivas
+        assertEquals(TaskExecutionState.INCOMPLETE, client.getTaskState());
+        assertTrue(turn.response().contains("STOPPED") || turn.response().contains("repitió"));
+
+        // 2 requests: la 3ra es detectada como STOPPED y no se envía al modelo
+        assertEquals(2, client.getRecordedRequests().size());
+    }
+
+    @Test
+    void textToolBlockLoopWithEmptyReasoning_stopsWithIncompleteState() throws Exception {
+        MockBorisLlmClient client = new MockBorisLlmClient();
+        // Mismo tool block de texto 3 veces consecutivas: el deduplicador
+        // devuelve [DUPLICADO] en la 2da y [STOPPED] en la 3ra.
+        client.enqueueResponse(createTextResponse("Explorando...\n```tool:list_files {\"path\":\"/x\"}\n```"));
+        client.enqueueResponse(createTextResponse("Explorando...\n```tool:list_files {\"path\":\"/x\"}\n```"));
+        client.enqueueResponse(createTextResponse("Explorando...\n```tool:list_files {\"path\":\"/x\"}\n```"));
+        // Respuesta final que nunca debería consumirse si el deduplicador corta antes
+        client.enqueueResponse(createTextResponse("Fin."));
+
+        List<ChatMessage> conv = List.of(ChatMessage.user("Crea un plan"));
+        BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
+                conv, "test-model", "system", mockRegistry, null, 0.7, null, () -> false
+        );
+
+        // El deduplicador detiene el turno tras 3 llamadas idénticas consecutivas
+        assertEquals(TaskExecutionState.INCOMPLETE, client.getTaskState());
+        assertTrue(turn.response().contains("STOPPED") || turn.response().contains("repitió"));
+
+        // 2 requests: la 3ra es detectada como STOPPED y no se envía al modelo
+        assertEquals(2, client.getRecordedRequests().size());
+    }
+
+    @Test
+    void consecutiveBlockedCommands_stopsWithIncompleteState() throws Exception {
+        MockBorisLlmClient client = new MockBorisLlmClient();
+        client.enqueueResponse(createToolResponse("Buscando...", "bash", "{\"command\":\"find . -maxdepth 3\"}"));
+        client.enqueueResponse(createToolResponse("Buscando...", "bash", "{\"command\":\"find . -maxdepth 4\"}"));
+        client.enqueueResponse(createToolResponse("Buscando...", "bash", "{\"command\":\"find . -maxdepth 5\"}"));
+        client.enqueueResponse(createTextResponse("Fin."));
+
+        List<ChatMessage> conv = List.of(ChatMessage.user("Busca archivos"));
+        BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
+                conv, "test-model", "system", mockRegistry, null, 0.7, null, () -> false
+        );
+
+        assertEquals(TaskExecutionState.INCOMPLETE, client.getTaskState());
+        assertTrue(turn.response().contains("bucle") || turn.response().contains("bloqueado"));
+        assertEquals(3, client.getRecordedRequests().size());
+    }
+
+    @Test
+    void textToolBlockBlockedCommands_stopsWithIncompleteState() throws Exception {
+        MockBorisLlmClient client = new MockBorisLlmClient();
+        client.enqueueResponse(createTextResponse("Buscando...\n```tool:bash {\"command\":\"find . -maxdepth 3\"}\n```"));
+        client.enqueueResponse(createTextResponse("Buscando...\n```tool:bash {\"command\":\"find . -maxdepth 4\"}\n```"));
+        client.enqueueResponse(createTextResponse("Buscando...\n```tool:bash {\"command\":\"find . -maxdepth 5\"}\n```"));
+        client.enqueueResponse(createTextResponse("Fin."));
+
+        List<ChatMessage> conv = List.of(ChatMessage.user("Busca archivos"));
+        BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
+                conv, "test-model", "system", mockRegistry, null, 0.7, null, () -> false
+        );
+
+        assertEquals(TaskExecutionState.INCOMPLETE, client.getTaskState());
+        assertTrue(turn.response().contains("bucle") || turn.response().contains("bloqueado"));
+        assertEquals(3, client.getRecordedRequests().size());
     }
 }

@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.boris.exceptions.ChatException;
 import com.boris.exceptions.ChatException.ErrorType;
+import com.boris.exceptions.ToolLoopException;
 import com.boris.exceptions.WebSearchFallbackException;
 import com.boris.task.TaskExecutionState;
 import com.boris.task.TaskStateNotifier;
@@ -24,8 +25,8 @@ import com.boris.tooling.ToolBlockProtocol;
 import com.boris.tooling.WriteArgsPreviewStreamer;
 import com.boris.tooling.engine.ToolRegistry;
 import com.boris.llm.think.ThinkingStallDetector;
-import com.boris.cli.ui.PlanModeManager;
-import com.boris.cli.ui.PlanMode;
+import com.boris.llm.think.ToolCallDeduplicator;
+import com.boris.llm.think.ToolProgressGuard;
 
 /**
  * Cliente HTTP nativo para LLM compatible sin dependencias de Spring AI.
@@ -177,6 +178,17 @@ public class BorisLlmClient {
     private static final java.util.regex.Pattern STREAMING_EDIT_PATTERN =
             java.util.regex.Pattern.compile("```\\w+:[^\\n]+");
 
+    private static final int MAX_IDENTICAL_TOOL_EXECUTIONS_PER_TURN = 1;
+    private static final int MAX_CONSECUTIVE_BLOCKED_COMMANDS = 3;
+
+    private boolean isCommandBlocked(String toolResult) {
+        if (toolResult == null || toolResult.isBlank()) {
+            return false;
+        }
+        return toolResult.contains("Command blocked:")
+                || toolResult.contains("duplicates the native tool");
+    }
+
     private boolean isModificationResult(String toolName, String toolResult) {
         if (toolResult == null || toolResult.isBlank()) {
             return false;
@@ -228,6 +240,14 @@ public class BorisLlmClient {
         var accumulators = new java.util.LinkedHashMap<Integer, ToolCallAccumulator>();
         WriteArgsPreviewStreamer previewStreamer = new WriteArgsPreviewStreamer();
 
+        // Compuera: se cierra al detectar el primer bloque ```tool:...``` completo.
+        // Esto evita que el modelo emita decenas de bloques repetidos en un único stream.
+        boolean[] gateClosed = {false};
+        int[] emittedContentLength = {0};
+
+        Supplier<Boolean> combinedAborted = () -> gateClosed[0]
+                || (isAborted != null && Boolean.TRUE.equals(isAborted.get()));
+
         chatStream(request, chunk -> {
             if (chunk == null || chunk.choices() == null || chunk.choices().isEmpty()) {
                 return;
@@ -248,7 +268,6 @@ public class BorisLlmClient {
                         String line = reasoningLine.substring(0, newlineIndex);
                         reasoningLine.delete(0, newlineIndex + 1);
                         if (!line.isBlank()) {
-                            // Sanitizar cualquier tag de thinking existente en el contenido y recortar espacios sobrantes
                             String sanitizedLine = line.replaceAll("(?i)</?(think|thinking|thought|reasoning)>", "").trim();
                             if (!sanitizedLine.isBlank()) {
                                 onChunk.accept("<thinking>" + sanitizedLine + "</thinking>\n");
@@ -264,7 +283,6 @@ public class BorisLlmClient {
                     String pendingLine = reasoningLine.toString();
                     reasoningLine.setLength(0);
                     if (!pendingLine.isBlank()) {
-                        // Sanitizar cualquier tag de thinking existente en el contenido y recortar espacios sobrantes
                         String sanitizedLine = pendingLine.replaceAll("(?i)</?(think|thinking|thought|reasoning)>", "").trim();
                         if (!sanitizedLine.isBlank()) {
                             onChunk.accept("<thinking>" + sanitizedLine + "</thinking>\n");
@@ -273,10 +291,25 @@ public class BorisLlmClient {
                 }
                 String contentText = delta.content();
                 content.append(contentText);
+
+                // Detectar fin del primer bloque ```tool:...``` cerrado.
+                // Al encontrarlo, truncamos el buffer y activamos la compuerta para abortar el stream.
+                if (!gateClosed[0]) {
+                    int endIdx = ToolBlockProtocol.endOfFirstClosedBlock(content.toString());
+                    if (endIdx > 0) {
+                        // Truncar el contenido en el punto donde termina el primer bloque tool:
+                        int oldLength = content.length();
+                        content.setLength(endIdx);
+                        // Ajustar la longitud emitida para no re-enviar el bloque truncado
+                        if (emittedContentLength[0] > endIdx) {
+                            emittedContentLength[0] = endIdx;
+                        }
+                        gateClosed[0] = true;
+                    }
+                }
+
                 if (onChunk != null) {
                     // Sanitizar tags de thinking que el modelo pueda haber emitido en content
-                    // (el modelo puede ponerlos en content en vez de reasoningContent,
-                    // especialmente tras resultados de tools)
                     String sanitizedContent = contentText.replaceAll("(?i)</?(?:think|thinking|thought|reasoning)>", "");
                     if (!sanitizedContent.isEmpty()) {
                         onChunk.accept(sanitizedContent);
@@ -300,7 +333,7 @@ public class BorisLlmClient {
                     }
                 }
             }
-        }, null, null, isAborted);
+        }, null, null, combinedAborted);
 
         if (onChunk != null && reasoningStarted[0] && reasoningLine.length() > 0) {
             String pendingLine = reasoningLine.toString().trim();
@@ -364,17 +397,6 @@ public class BorisLlmClient {
 
         List<ChatMessage> fullMessages = new ArrayList<>();
         String effectiveSystemPrompt = systemPrompt;
-        if (PlanModeManager.shared().getMode() == PlanMode.PLAN) {
-            String modeInfo = PlanModeManager.shared().getModeInfo();
-            effectiveSystemPrompt = (effectiveSystemPrompt != null ? effectiveSystemPrompt + "\n\n" : "")
-                    + "===== MODO PLAN (ACTIVO) =====\n"
-                    + modeInfo
-                    + "\n"
-                    + "En este modo solo podés escribir archivos .md directamente en el directorio de planes indicado arriba.\n"
-                    + "Cualquier intento de escribir fuera de ese directorio será bloqueado.\n"
-                    + "Para salir del modo plan usá el comando /plan off.\n"
-                    + "===== FIN MODO PLAN =====";
-        }
         if (effectiveSystemPrompt != null && !effectiveSystemPrompt.isBlank()) {
             fullMessages.add(ChatMessage.system(effectiveSystemPrompt));
         }
@@ -385,9 +407,14 @@ public class BorisLlmClient {
         StringBuilder totalThinking = new StringBuilder();
         int iterationCount = 0;
         final int MAX_TOOL_ITERATIONS = 50;
-
+        int consecutiveBlockedCommands = 0;
         // Detector de estancamiento por thinking repetitivo
         final ThinkingStallDetector stallDetector = new ThinkingStallDetector(3, 10);
+        // Deduplicador inteligente: reemplaza la política punitiva de RepeatedToolCallGuard.
+        final ToolCallDeduplicator toolCallDeduplicator = new ToolCallDeduplicator();
+        final ToolProgressGuard toolProgressGuard = new ToolProgressGuard();
+        int consecutiveEmptyIterations = 0;
+        List<ThinkingStallDetector.ToolCallSignature> pendingTextToolSignatures = new ArrayList<>();
 
         boolean taskPending = false;
         boolean hasModified = false;
@@ -477,7 +504,11 @@ public class BorisLlmClient {
             }
 
             // Detectar estancamiento por thinking repetitivo sin tool calls
-            List<ThinkingStallDetector.ToolCallSignature> toolCallSignatures = new java.util.ArrayList<>();
+            // Las firmas de tool blocks de texto ejecutados en la iteración anterior
+            // se combinan aquí para que el detector también los vea.
+            List<ThinkingStallDetector.ToolCallSignature> toolCallSignatures =
+                    new ArrayList<>(pendingTextToolSignatures);
+            pendingTextToolSignatures.clear();
             if (assistantMsg.toolCalls() != null) {
                 for (ToolCall tc : assistantMsg.toolCalls()) {
                     if (tc.function() != null) {
@@ -510,10 +541,39 @@ public class BorisLlmClient {
             }
 
             List<ToolCall> toolCalls = assistantMsg.toolCalls();
+            // Truncar cleanContent al cierre del primer bloque ```tool:...``` para evitar
+            // procesar bloques repetidos emitidos por el modelo en un mismo turno.
+            String cleanContentTruncated = cleanContent;
+            int endIdx = ToolBlockProtocol.endOfFirstClosedBlock(cleanContent);
+            if (endIdx > 0) {
+                cleanContentTruncated = cleanContent.substring(0, endIdx);
+            }
             List<ToolBlockProtocol.ToolBlock> textToolBlocks =
-                    (toolCalls == null || toolCalls.isEmpty()) && toolRegistry != null && !cleanContent.isBlank()
-                            ? ToolBlockProtocol.parse(cleanContent)
+                    (toolCalls == null || toolCalls.isEmpty()) && toolRegistry != null && !cleanContentTruncated.isBlank()
+                            ? ToolBlockProtocol.parse(cleanContentTruncated)
                             : java.util.List.of();
+
+            // Detección de iteraciones vacías: LLM devuelve texto sin tool calls y sin thinking
+            boolean hasToolCalls = toolCalls != null && !toolCalls.isEmpty();
+            boolean hasTextToolBlocks = !textToolBlocks.isEmpty();
+            if (!hasToolCalls && !hasTextToolBlocks) {
+                if (assistantMsg.reasoningContent() == null || assistantMsg.reasoningContent().isBlank()) {
+                    consecutiveEmptyIterations++;
+                    if (consecutiveEmptyIterations >= 3) {
+                        TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                        String warningMsg = "\n\n⚠️ El agente no ha realizado ninguna acción en 3 iteraciones consecutivas. Deteniendo para evitar bucle.";
+                        if (onChunk != null) {
+                            emitText(warningMsg, onChunk);
+                        }
+                        String thinkingResult = buildThinkingResult(totalThinking);
+                        return new ChatTurn(warningMsg.trim(), thinkingResult);
+                    }
+                } else {
+                    consecutiveEmptyIterations = 0;
+                }
+            } else {
+                consecutiveEmptyIterations = 0;
+            }
 
             if (toolCalls == null || toolCalls.isEmpty() || toolRegistry == null) {
                 if (!textToolBlocks.isEmpty()) {
@@ -530,6 +590,26 @@ public class BorisLlmClient {
                             return new ChatTurn("", null);
                         }
 
+                        // Deduplicación: si la firma ya fue ejecutada en este turno,
+                        // devolver el resultado previo al modelo sin volver a ejecutar.
+                        String duplicateMsg = toolCallDeduplicator.recordExecution(
+                                block.toolName(), block.jsonArguments(), null);
+                        if (duplicateMsg != null) {
+                            if (duplicateMsg.startsWith("[STOPPED]")) {
+                                TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                                String thinkingResult = buildThinkingResult(totalThinking);
+                                return new ChatTurn(duplicateMsg, thinkingResult);
+                            }
+                            resultsPayload.append("<tool name=\"").append(block.toolName()).append("\">\n")
+                                    .append(duplicateMsg)
+                                    .append("\n</tool>\n");
+                            continue;
+                        }
+
+                        pendingTextToolSignatures.add(new ThinkingStallDetector.ToolCallSignature(
+                                block.toolName(),
+                                block.jsonArguments() != null ? block.jsonArguments() : "{}"));
+
                         String toolResult;
                         try {
                             toolResult = toolRegistry.execute(block.toolName(), block.jsonArguments());
@@ -537,8 +617,41 @@ public class BorisLlmClient {
                             toolResult = "Error ejecutando " + block.toolName() + ": " + e.getMessage();
                         }
 
+                        // Actualizar el resultado guardado en el deduplicador para futuras llamadas duplicadas
+                        toolCallDeduplicator.recordExecution(block.toolName(), block.jsonArguments(), toolResult);
+
+                        // Post-check: detectar falta de progreso informativo (mismo resultado consecutivo)
+                        boolean progressLoop = toolProgressGuard.recordResult(
+                                block.toolName(), block.jsonArguments(), toolResult);
+                        if (progressLoop) {
+                            TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                            String warningMsg = "\n\n⚠️ Se detectó un bucle de progreso: la herramienta '"
+                                    + block.toolName() + "' devolvió el mismo resultado consecutivamente. Deteniendo el agente.";
+                            if (onChunk != null) {
+                                emitText(warningMsg, onChunk);
+                            }
+                            String thinkingResult = buildThinkingResult(totalThinking);
+                            return new ChatTurn(warningMsg.trim(), thinkingResult);
+                        }
+
                         taskPending = true;
                         TaskStateNotifier.setState(TaskExecutionState.TASK_IN_PROGRESS);
+
+                        if (isCommandBlocked(toolResult)) {
+                            consecutiveBlockedCommands++;
+                            if (consecutiveBlockedCommands >= MAX_CONSECUTIVE_BLOCKED_COMMANDS) {
+                                TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                                String warningMsg = "\n\n⚠️ El agente intentó ejecutar " + MAX_CONSECUTIVE_BLOCKED_COMMANDS
+                                        + " comandos bloqueados consecutivamente. Deteniendo el agente para evitar un bucle infinito.";
+                                if (onChunk != null) {
+                                    emitText(warningMsg, onChunk);
+                                }
+                                String thinkingResult = buildThinkingResult(totalThinking);
+                                return new ChatTurn(warningMsg.trim(), thinkingResult);
+                            }
+                        } else {
+                            consecutiveBlockedCommands = 0;
+                        }
 
                         if (isModificationResult(block.toolName(), toolResult)) {
                             hasModified = true;
@@ -548,7 +661,6 @@ public class BorisLlmClient {
                                 .append(toolResult)
                                 .append("\n</tool>\n");
                     }
-                    resultsPayload.append("emporada");
 
                     fullMessages.add(ChatMessage.user(resultsPayload.toString()));
                     continue;
@@ -597,6 +709,19 @@ public class BorisLlmClient {
                 String toolArgs = call.function() != null ? call.function().arguments() : "{}";
                 String toolResult;
 
+                // Deduplicación: si la firma ya fue ejecutada en este turno,
+                // devolver el resultado previo al modelo sin volver a ejecutar.
+                String duplicateMsg = toolCallDeduplicator.recordExecution(toolName, toolArgs, null);
+                if (duplicateMsg != null) {
+                    if (duplicateMsg.startsWith("[STOPPED]")) {
+                        TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                        String thinkingResult = buildThinkingResult(totalThinking);
+                        return new ChatTurn(duplicateMsg, thinkingResult);
+                    }
+                    fullMessages.add(ChatMessage.tool(call.id(), duplicateMsg));
+                    continue;
+                }
+
                 if (nativeCallIndexes != null) {
                     streamedMessage.previewStreamer().prepareExecution(nativeCallIndexes.get(callIndex));
                 }
@@ -617,9 +742,41 @@ public class BorisLlmClient {
                     WriteArgsPreviewStreamer.clearLivePreview();
                 }
 
+                // Actualizar el resultado guardado en el deduplicador para futuras llamadas duplicadas
+                toolCallDeduplicator.recordExecution(toolName, toolArgs, toolResult);
+
+                // Post-check: detectar falta de progreso informativo (mismo resultado consecutivo)
+                boolean progressLoop = toolProgressGuard.recordResult(toolName, toolArgs, toolResult);
+                if (progressLoop) {
+                    TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                    String warningMsg = "\n\n⚠️ Se detectó un bucle de progreso: la herramienta '"
+                            + toolName + "' devolvió el mismo resultado consecutivamente. Deteniendo el agente.";
+                    if (onChunk != null) {
+                        emitText(warningMsg, onChunk);
+                    }
+                    String thinkingResult = buildThinkingResult(totalThinking);
+                    return new ChatTurn(warningMsg.trim(), thinkingResult);
+                }
+
                 // En cuanto se invoca CUALQUIER herramienta, se activa taskPending
                 taskPending = true;
                 TaskStateNotifier.setState(TaskExecutionState.TASK_IN_PROGRESS);
+
+                if (isCommandBlocked(toolResult)) {
+                    consecutiveBlockedCommands++;
+                    if (consecutiveBlockedCommands >= MAX_CONSECUTIVE_BLOCKED_COMMANDS) {
+                        TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                        String warningMsg = "\n\n⚠️ El agente intentó ejecutar " + MAX_CONSECUTIVE_BLOCKED_COMMANDS
+                                + " comandos bloqueados consecutivamente. Deteniendo el agente para evitar un bucle infinito.";
+                        if (onChunk != null) {
+                            emitText(warningMsg, onChunk);
+                        }
+                        String thinkingResult = buildThinkingResult(totalThinking);
+                        return new ChatTurn(warningMsg.trim(), thinkingResult);
+                    }
+                } else {
+                    consecutiveBlockedCommands = 0;
+                }
 
                 // Verificamos si esta herramienta aplicó una modificación real
                 if (isModificationResult(toolName, toolResult)) {

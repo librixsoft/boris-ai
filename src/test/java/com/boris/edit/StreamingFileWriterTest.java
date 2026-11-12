@@ -1,5 +1,6 @@
 package com.boris.edit;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -11,6 +12,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.boris.tooling.DiffLineNotifier;
+import com.boris.context.ProjectContext;
+import com.boris.context.SearchSessionContext;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,6 +31,14 @@ class StreamingFileWriterTest {
         notifications = new ArrayList<>();
         DiffLineNotifier.clearListeners();
         DiffLineNotifier.addListener(notifications::add);
+        ProjectContext.setProjectPath(tempDir.toString());
+        SearchSessionContext.setSessionId("test-session");
+    }
+
+    @AfterEach
+    void tearDown() {
+        ProjectContext.clear();
+        SearchSessionContext.clear();
     }
 
     @Test

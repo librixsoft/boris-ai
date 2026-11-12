@@ -39,7 +39,6 @@ public class InputArea extends Panel {
     private ModelSelector modelSelector;
     private Transcript transcript;
     private ToolDetailsToggleListener toolDetailsToggleListener;
-    private Runnable planModeToggleHandler;
 
     public InputArea(CommandHistory commandHistory, AtomicBoolean waiting, int scrollStep, InputListener listener) {
         this(commandHistory, waiting, scrollStep, listener, null);
@@ -109,10 +108,6 @@ public class InputArea extends Panel {
 
     public void setToolDetailsToggleListener(ToolDetailsToggleListener listener) {
         this.toolDetailsToggleListener = listener;
-    }
-
-    public void setPlanModeToggleHandler(Runnable handler) {
-        this.planModeToggleHandler = handler;
     }
 
     public TextBox getTextBox() {
@@ -299,13 +294,6 @@ public class InputArea extends Panel {
                 commandMenu.selectNext();
                 return false;
             }
-        }
-
-        if (type == KeyType.ReverseTab) {
-            if (planModeToggleHandler != null) {
-                planModeToggleHandler.run();
-            }
-            return false;
         }
 
         if (type == KeyType.ArrowUp) {

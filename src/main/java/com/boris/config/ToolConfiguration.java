@@ -17,20 +17,13 @@ import com.boris.tooling.parallel.BatchWebFetchTool;
 
 import com.boris.tooling.parallel.BatchListDirectoriesTool;
 import com.boris.tooling.parallel.ParallelSearchTool;
-import com.boris.task.decomposition.TaskPlannerTool;
-import com.boris.cli.ui.PlanModeManager;
 
 @Configuration
 public class ToolConfiguration {
 
     @Bean
-    public PlanModeManager planModeManager() {
-        return PlanModeManager.shared();
-    }
-
-    @Bean
-    public WriteTool writeTool(PlanModeManager planModeManager) {
-        return new WriteTool(planModeManager);
+    public WriteTool writeTool() {
+        return new WriteTool();
     }
 
     @Bean
@@ -66,11 +59,6 @@ public class ToolConfiguration {
     @Bean
     public OfficeDocumentTool officeDocumentTool() {
         return new OfficeDocumentTool();
-    }
-
-    @Bean
-    public TaskPlannerTool taskPlannerTool() {
-        return new TaskPlannerTool();
     }
 
     // Parallel tools

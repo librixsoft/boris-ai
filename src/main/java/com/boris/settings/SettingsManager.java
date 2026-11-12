@@ -131,26 +131,4 @@ public class SettingsManager {
             MAPPER.writeValue(settingsFileObj, objectNode);
         }
     }
-
-    /**
-     * Update the plan mode in settings.json at the default path.
-     */
-    public void updatePlanMode(com.boris.cli.ui.PlanMode planMode) throws IOException {
-        updatePlanMode(DEFAULT_SETTINGS_PATH, planMode);
-    }
-
-    /**
-     * Update the plan mode in a specific settings file.
-     * Preserves all other fields.
-     */
-    public void updatePlanMode(String path, com.boris.cli.ui.PlanMode planMode) throws IOException {
-        Path settingsFile = Paths.get(path);
-        ensureExists(path);
-        java.io.File settingsFileObj = settingsFile.toFile();
-        JsonNode root = MAPPER.readTree(settingsFileObj);
-        if (root instanceof ObjectNode objectNode) {
-            objectNode.put("planMode", planMode.name());
-            MAPPER.writeValue(settingsFileObj, objectNode);
-        }
-    }
 }

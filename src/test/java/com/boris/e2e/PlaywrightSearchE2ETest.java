@@ -4,14 +4,10 @@ import com.boris.context.ProjectContext;
 import com.boris.context.SearchSessionContext;
 import com.boris.context.SessionDirectoryResolver;
 import com.boris.exceptions.BorisException;
-import com.boris.exceptions.PlanModeException;
 import com.boris.exceptions.WebSearchDuplicateQueryException;
 import com.boris.exceptions.WebSearchLimitException;
 import com.boris.tooling.tool.SearchContextWriter;
 import com.boris.tooling.tool.WebSearchTool;
-import com.boris.tooling.tool.WriteTool;
-import com.boris.cli.ui.PlanMode;
-import com.boris.cli.ui.PlanModeManager;
 import com.microsoft.playwright.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -352,24 +348,6 @@ public class PlaywrightSearchE2ETest {
         String content = Files.readString(file);
         assertTrue(content.contains(urls), "Debe contener las URLs del fetch");
         assertTrue(content.contains("Contenido extraído (1500 caracteres)"), "Debe contener el detalle del fetch");
-    }
-
-    @Test
-    void planModeGuardaPlanesEnSesionDeTest() throws Exception {
-        PlanModeManager.shared().setMode(PlanMode.PLAN);
-        Path plansDir = SessionDirectoryResolver.plansDirectory();
-        Path planFile = plansDir.resolve("test-plan.md");
-
-        WriteTool tool = new WriteTool(PlanModeManager.shared());
-        String result = tool.execute(java.util.Map.of("path", planFile.toString(), "content", "# Plan de prueba"));
-
-        assertTrue(result.contains("\"success\":true"), "El plan debe escribirse dentro de la sesión");
-        assertTrue(Files.exists(planFile), "El archivo del plan debe existir");
-        assertEquals("# Plan de prueba", Files.readString(planFile));
-
-        // Un path fuera de la carpeta de planes de la sesión debe ser rechazado
-        assertThrows(PlanModeException.class,
-            () -> tool.execute(java.util.Map.of("path", "/tmp/fuera-de-sesion.md", "content", "x")));
     }
 
     @Test
