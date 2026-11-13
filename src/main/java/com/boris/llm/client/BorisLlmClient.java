@@ -27,6 +27,7 @@ import com.boris.tooling.engine.ToolRegistry;
 import com.boris.llm.think.ThinkingStallDetector;
 import com.boris.llm.think.ToolCallDeduplicator;
 import com.boris.llm.think.ToolProgressGuard;
+import com.boris.llm.think.DirectoryDrillingGuard;
 
 /**
  * Cliente HTTP nativo para LLM compatible sin dependencias de Spring AI.
@@ -413,6 +414,10 @@ public class BorisLlmClient {
         // Deduplicador inteligente: reemplaza la política punitiva de RepeatedToolCallGuard.
         final ToolCallDeduplicator toolCallDeduplicator = new ToolCallDeduplicator();
         final ToolProgressGuard toolProgressGuard = new ToolProgressGuard();
+        // Guardia anti-drilling: detecta cuando el modelo baja nivel por nivel en list_files.
+        final DirectoryDrillingGuard drillingGuard = new DirectoryDrillingGuard();
+        // Resetear la guardia anti-drilling al inicio de cada turno (llamada a executeChatWithTools).
+        drillingGuard.reset();
         int consecutiveEmptyIterations = 0;
         List<ThinkingStallDetector.ToolCallSignature> pendingTextToolSignatures = new ArrayList<>();
 
@@ -620,6 +625,20 @@ public class BorisLlmClient {
                         // Actualizar el resultado guardado en el deduplicador para futuras llamadas duplicadas
                         toolCallDeduplicator.recordExecution(block.toolName(), block.jsonArguments(), toolResult);
 
+                        // Guardia anti-drilling: detectar drilling en list_files.
+                        if ("list_files".equals(block.toolName())) {
+                            String listPath = extractToolArg(block.jsonArguments(), "path");
+                            if (listPath != null && drillingGuard.recordDirectoryAccess(listPath)) {
+                                TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                                String warningMsg = "\n\n⚠️ Se detectó drilling en list_files: el modelo está bajando nivel por nivel en lugar de usar el parámetro depth. Deteniendo el agente.";
+                                if (onChunk != null) {
+                                    emitText(warningMsg, onChunk);
+                                }
+                                String thinkingResult = buildThinkingResult(totalThinking);
+                                return new ChatTurn(warningMsg.trim(), thinkingResult);
+                            }
+                        }
+
                         // Post-check: detectar falta de progreso informativo (mismo resultado consecutivo)
                         boolean progressLoop = toolProgressGuard.recordResult(
                                 block.toolName(), block.jsonArguments(), toolResult);
@@ -745,6 +764,20 @@ public class BorisLlmClient {
                 // Actualizar el resultado guardado en el deduplicador para futuras llamadas duplicadas
                 toolCallDeduplicator.recordExecution(toolName, toolArgs, toolResult);
 
+                // Guardia anti-drilling: detectar drilling en list_files.
+                if ("list_files".equals(toolName)) {
+                    String listPath = extractToolArg(toolArgs, "path");
+                    if (listPath != null && drillingGuard.recordDirectoryAccess(listPath)) {
+                        TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
+                        String warningMsg = "\n\n⚠️ Se detectó drilling en list_files: el modelo está bajando nivel por nivel en lugar de usar el parámetro depth. Deteniendo el agente.";
+                        if (onChunk != null) {
+                            emitText(warningMsg, onChunk);
+                        }
+                        String thinkingResult = buildThinkingResult(totalThinking);
+                        return new ChatTurn(warningMsg.trim(), thinkingResult);
+                    }
+                }
+
                 // Post-check: detectar falta de progreso informativo (mismo resultado consecutivo)
                 boolean progressLoop = toolProgressGuard.recordResult(toolName, toolArgs, toolResult);
                 if (progressLoop) {
@@ -797,6 +830,24 @@ public class BorisLlmClient {
         for (String line : lines) {
             onChunk.accept(line);
         }
+    }
+
+    /**
+     * Extrae un valor de string de un argumento JSON de tool.
+     */
+    private static String extractToolArg(String jsonArgs, String argName) {
+        if (jsonArgs == null || jsonArgs.isBlank()) {
+            return null;
+        }
+        try {
+            var node = MAPPER.readTree(jsonArgs);
+            if (node.has(argName) && !node.get(argName).isNull()) {
+                return node.get(argName).asText();
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+        return null;
     }
 
     /**

@@ -294,12 +294,16 @@ public class ToolCallingConfig {
 
     @Tool(
             name = "list_files",
-            description = "List files and directories in a given path. Returns a flat, readable listing: directories first with prefix 'd ', files with prefix 'f ' and readable size. Use a subdirectory path to narrow the scope.")
+            description = "List files and directories in a given path. Returns a flat, readable listing: directories first with prefix 'd ', files with prefix 'f ' and readable size. Supports a 'depth' parameter (default 3, max 5) to control traversal depth. Use a subdirectory path to narrow the scope.")
     public String list_files(
-            @ToolParam(description = "Directory path to list (absolute or relative)") String path) {
+            @ToolParam(description = "Directory path to list (absolute or relative)") String path,
+            @ToolParam(description = "Depth of directory traversal (1 = immediate children only, default 3, max 5)") Integer depth) {
         ToolProgressNotifier.notify("list_files", "Listando: " + path);
         Map<String, Object> args = new java.util.LinkedHashMap<>();
         args.put("path", path != null ? path : ".");
+        if (depth != null) {
+            args.put("depth", depth);
+        }
         String result = ListFilesTool.execute(args);
         notifyListing("list_files", result);
         notifyToolTokens("list_files", path != null ? path : ".", result);

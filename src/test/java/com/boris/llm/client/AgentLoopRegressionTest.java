@@ -197,4 +197,53 @@ class AgentLoopRegressionTest {
         assertTrue(turn.response().contains("STOPPED") || turn.response().contains("repitió") || turn.response().contains("bucle"),
                 "La respuesta debe advertir sobre el bucle de listado de archivos");
     }
+
+    @Test
+    @DisplayName("Regresión list_files drilling: el agente se frena tras 3 niveles de drilling")
+    void listFilesDrilling_abortsAt3Levels() throws Exception {
+        MockAgentClient client = new MockAgentClient();
+
+        // El modelo intenta drilling: / → /src → /src/main → /src/main/java
+        client.enqueueResponse(createToolResponse("Listando /", "list_files", "{\"path\":\"/\"}"));
+        client.enqueueResponse(createToolResponse("Listando /src", "list_files", "{\"path\":\"/src\"}"));
+        client.enqueueResponse(createToolResponse("Listando /src/main", "list_files", "{\"path\":\"/src/main\"}"));
+        client.enqueueResponse(createToolResponse("Listando /src/main/java", "list_files", "{\"path\":\"/src/main/java\"}"));
+        client.enqueueResponse(createTextResponse("Terminado."));
+
+        List<ChatMessage> conv = List.of(ChatMessage.user("Explora el proyecto"));
+        BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
+                conv, "test-model", "system-prompt", registry, null, 0.7, null, () -> false
+        );
+
+        assertNotNull(turn);
+        // El agente debe frenarse antes de completar el drilling (3 niveles)
+        assertTrue(client.getRecordedRequests().size() <= 4,
+                "El agente no debe hacer más de 4 llamadas; iteraciones: " + client.getRecordedRequests().size());
+        assertEquals(TaskExecutionState.INCOMPLETE, client.getTaskState(),
+                "El estado debe ser INCOMPLETE al frenar el drilling");
+        assertTrue(turn.response().contains("drilling") || turn.response().contains("bucle"),
+                "La respuesta debe advertir sobre el drilling");
+    }
+
+    @Test
+    @DisplayName("Regresión list_files no-drilling: múltiples rutas no jerárquicas no frenan")
+    void listFilesNonDrilling_allowsMultiplePaths() throws Exception {
+        MockAgentClient client = new MockAgentClient();
+
+        // Rutas no jerárquicas: /a, /b, /c
+        client.enqueueResponse(createToolResponse("Listando /a", "list_files", "{\"path\":\"/a\"}"));
+        client.enqueueResponse(createToolResponse("Listando /b", "list_files", "{\"path\":\"/b\"}"));
+        client.enqueueResponse(createToolResponse("Listando /c", "list_files", "{\"path\":\"/c\"}"));
+        client.enqueueResponse(createTextResponse("Terminado."));
+
+        List<ChatMessage> conv = List.of(ChatMessage.user("Explora el proyecto"));
+        BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
+                conv, "test-model", "system-prompt", registry, null, 0.7, null, () -> false
+        );
+
+        assertNotNull(turn);
+        // No debe frenarse por drilling
+        assertEquals(TaskExecutionState.IDLE, client.getTaskState(),
+                "El estado debe ser IDLE al completar sin drilling");
+    }
 }

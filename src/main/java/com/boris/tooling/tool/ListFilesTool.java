@@ -24,9 +24,14 @@ public class ListFilesTool {
 
     public static ToolDefinition list_files() {
         var pathProp = Map.of("type", "string", "description", "Directory path to list (absolute or relative)");
+        var depthProp = Map.of(
+                "type", "integer",
+                "description", "Depth of directory traversal (1 = immediate children only, default 3, max 5)",
+                "default", 3);
 
         var properties = new LinkedHashMap<String, Object>();
         properties.put("path", pathProp);
+        properties.put("depth", depthProp);
 
         var schema = new LinkedHashMap<String, Object>();
         schema.put("type", "object");
@@ -34,7 +39,7 @@ public class ListFilesTool {
 
         return ToolDefinition.of(
                 "list_files",
-                "List files and directories in a given path. Returns a flat, readable listing: directories first with prefix 'd ', files with prefix 'f ' and readable size. Use a subdirectory path to narrow the scope.",
+                "List files and directories in a given path. Returns a flat, readable listing: directories first with prefix 'd ', files with prefix 'f ' and readable size. Supports a 'depth' parameter (default 3, max 5) to control traversal depth. Use a subdirectory path to narrow the scope.",
                 schema);
     }
 
@@ -81,8 +86,10 @@ public class ListFilesTool {
 
             Set<String> gitignoreRegexes = loadGitignorePatterns(basePath);
 
+            int depth = readDepth(args);
+
             List<Path> collected = new ArrayList<>();
-            try (Stream<Path> stream = Files.walk(basePath, 1)) {
+            try (Stream<Path> stream = Files.walk(basePath, depth)) {
                 stream.filter(p -> !p.equals(basePath))
                       .filter(p -> !isIgnored(basePath, p, gitignoreRegexes))
                       .filter(p -> !ProjectContext.isInsideAgentWorkspace(basePath.resolve(p).toAbsolutePath()))
@@ -133,6 +140,19 @@ public class ListFilesTool {
         } catch (IOException e) {
             return formatOutput(false, "Error listing directory: " + e.getMessage(), null);
         }
+    }
+
+    private static int readDepth(Map<String, Object> args) {
+        Object depthObj = args.get("depth");
+        int depth;
+        if (depthObj == null) {
+            depth = 3;
+        } else if (depthObj instanceof Number) {
+            depth = ((Number) depthObj).intValue();
+        } else {
+            depth = Integer.parseInt(String.valueOf(depthObj));
+        }
+        return Math.max(1, Math.min(5, depth));
     }
 
     private static String readableSize(long bytes) {
