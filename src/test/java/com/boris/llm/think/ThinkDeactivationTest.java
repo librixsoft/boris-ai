@@ -81,7 +81,8 @@ class ThinkDeactivationTest {
         Path file = tempDir.resolve("settings.json");
         Files.writeString(file, """
                 {"model": {"baseUrl": "http://localhost:11434", "name": "granite4.2:8b"},
-                 "maxHistorySize": 20, "temperature": 0.1, "contextWindow": 42000}""");
+                 "maxHistorySize": 20, "temperature": 0.1, "contextWindow": 42000,
+                 "logsEnabled": true}""");
         Settings s = new SettingsManager().loadSettings(file.toString());
         assertNotNull(s);
         assertNull(s.getOptions());

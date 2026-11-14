@@ -1,10 +1,14 @@
 package com.boris.cli;
 
+import java.nio.file.Path;
+
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import com.boris.chat.ChatService;
 import com.boris.config.BorisConfiguration;
 import com.boris.context.SearchSessionContext;
+import com.boris.context.SessionLogResolver;
+import com.boris.context.SessionLogWriter;
 import com.boris.settings.Settings;
 import com.boris.skill.SkillManager;
 import com.boris.task.TaskAborter;
@@ -30,7 +34,15 @@ public class BorisApp implements Runnable {
             // Generar sessionId para el registro de búsquedas en .boris/searchs/{SESION}.md
             SearchSessionContext.setSessionId(SearchSessionContext.generateSessionId());
 
+            // Configurar logging de sesión
+            boolean logsEnabled = settings.getLogsEnabled() != null ? settings.getLogsEnabled() : false;
+            Path logFile = SessionLogResolver.sessionLogFile();
+            SessionLogWriter sessionLogWriter = new SessionLogWriter(logFile, logsEnabled);
+            sessionLogWriter.logSessionStart();
+            chatService.setSessionLogWriter(sessionLogWriter);
+
             BorisUI ui = new BorisUI(chatService, skillManager, taskAborter, settings);
+            ui.setSessionLogWriter(sessionLogWriter);
             ui.start();
         } catch (Exception e) {
             throw new RuntimeException(e);

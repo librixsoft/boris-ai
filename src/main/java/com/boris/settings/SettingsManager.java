@@ -58,6 +58,7 @@ public class SettingsManager {
         defaultSettings.setContextWindow(10000);
         defaultSettings.setThinkingEnabled(true);
         defaultSettings.setThinkingMode("think");
+        defaultSettings.setLogsEnabled(true);
 
         String defaultJson = MAPPER.writeValueAsString(defaultSettings);
         Files.writeString(path, defaultJson, StandardCharsets.UTF_8);
@@ -70,7 +71,12 @@ public class SettingsManager {
         }
         String json = Files.readString(settingsFile, StandardCharsets.UTF_8);
         try {
-            return MAPPER.readValue(json, Settings.class);
+            Settings settings = MAPPER.readValue(json, Settings.class);
+            if (settings.getLogsEnabled() == null) {
+                throw new com.boris.exceptions.BorisException(
+                        "La configuracion 'logs.enabled' es obligatoria en el archivo de settings: " + path);
+            }
+            return settings;
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new com.boris.exceptions.BorisException(
                     "Invalid JSON in settings file: " + path

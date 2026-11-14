@@ -31,6 +31,7 @@ class LlmClientTest {
             new com.boris.settings.ModelConfig("http://localhost:11434/v1", "qwen3.6-35b-64k"),
             null
         );
+        settings.setLogsEnabled(true);
 
         Path settingsFile = tempDir.resolve("settings.json");
         Files.writeString(settingsFile, MAPPER.writeValueAsString(settings));

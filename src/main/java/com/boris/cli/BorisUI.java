@@ -31,6 +31,7 @@ import com.boris.task.TaskAborter;
 import com.boris.tooling.DiffLineNotifier;
 import com.boris.tooling.ToolProgressNotifier;
 import com.boris.tooling.ToolResultNotifier;
+import com.boris.context.SessionLogWriter;
 
 import com.boris.cli.ui.BorisWindow;
 import com.boris.cli.ui.ChatController;
@@ -61,6 +62,7 @@ public class BorisUI {
     private final TaskAborter taskAborter;
     private final TokenCounter tokenCounter;
     private final Settings settings;
+    private SessionLogWriter sessionLogWriter;
 
     private Screen screen;
     private MultiWindowTextGUI gui;
@@ -79,6 +81,10 @@ public class BorisUI {
             contextWindowLimit = this.settings.getContextWindow();
         }
         this.tokenCounter = new TokenCounter(contextWindowLimit);
+    }
+
+    public void setSessionLogWriter(SessionLogWriter sessionLogWriter) {
+        this.sessionLogWriter = sessionLogWriter;
     }
 
     public void start() throws Exception {
@@ -230,6 +236,9 @@ public class BorisUI {
         try {
             window.waitUntilClosed();
         } finally {
+            if (sessionLogWriter != null) {
+                sessionLogWriter.logSessionEnd();
+            }
             screen.stopScreen();
         }
     }

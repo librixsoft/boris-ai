@@ -30,6 +30,9 @@ public class Settings {
     private Integer maxConcurrentCommandExecutions;
     private Long ioTimeoutMs;
 
+    // Session logging
+    private Boolean logsEnabled;
+
     public Settings() {}
 
     public Settings(ModelConfig model, Map<String, String> env) {
@@ -93,6 +96,9 @@ public class Settings {
     
     public Long getIoTimeoutMs() { return ioTimeoutMs; }
     public void setIoTimeoutMs(Long ioTimeoutMs) { this.ioTimeoutMs = ioTimeoutMs; }
+
+    public Boolean getLogsEnabled() { return logsEnabled; }
+    public void setLogsEnabled(Boolean logsEnabled) { this.logsEnabled = logsEnabled; }
 
     @JsonIgnore
     public String getReasoningEffort() {

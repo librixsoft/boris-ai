@@ -18,5 +18,6 @@
   "agentThinkingMaxIterations": 10,
   "agentThinkingMaxStallIterations": 3,
   "agentThinkingEnableStallDetection": true,
-  "agentThinkingFallbackOnSearchFailure": true
+  "agentThinkingFallbackOnSearchFailure": true,
+  "logsEnabled": true
 }

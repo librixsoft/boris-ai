@@ -31,6 +31,7 @@ import com.boris.task.TaskAborter;
 import com.boris.context.ProjectContext;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
+import com.boris.context.SessionLogWriter;
 
 public class ChatService {
 
@@ -63,6 +64,7 @@ public class ChatService {
             "/etc", "/usr", "/bin", "/sbin", "/lib", "/lib64", "/boot", "/dev", "/proc", "/sys",
             "/System", "/Library", "/Applications", "/private", "/var", "/root");
     private volatile String currentProjectPath;
+    private SessionLogWriter sessionLogWriter;
 
     public ChatService(Supplier<BorisLlmClient> llmClientSupplier, String botName, TaskAborter taskAborter, int maxHistorySize, boolean enableHistory) {
         this(llmClientSupplier, botName, taskAborter, maxHistorySize, enableHistory, true, "think", "");
@@ -105,6 +107,10 @@ public class ChatService {
             throw new com.boris.exceptions.BorisException("User message cannot be null or empty");
         }
 
+        if (sessionLogWriter != null) {
+            sessionLogWriter.logEvent("USER", userMessage);
+        }
+
         if (taskAborter != null && taskAborter.isAborted()) {
             return null;
         }
@@ -139,11 +145,20 @@ public class ChatService {
                 // Keep the outer thinking block intact; only nested reasoning tags
                 // inside the content are removed for display.
                 String thinkingDisplay = sanitizeThinkingTags(thinkingContent);
+                if (sessionLogWriter != null) {
+                    sessionLogWriter.logEvent("BOT", finalResponse != null ? finalResponse : "");
+                }
                 return "*%s*\n<thinking>\n%s\n</thinking>\n%s".formatted(botName, thinkingDisplay, finalResponse != null ? finalResponse : "");
+            }
+            if (sessionLogWriter != null) {
+                sessionLogWriter.logEvent("BOT", finalResponse != null ? finalResponse : "");
             }
             return "*%s* %s".formatted(botName, finalResponse != null ? finalResponse : "");
         } catch (Exception e) {
             ThinkContextHolder.clearAll();
+            if (sessionLogWriter != null) {
+                sessionLogWriter.logEvent("ERROR", classifyError(e).name() + ": " + e.getMessage());
+            }
             if (taskAborter != null && taskAborter.isAborted()) {
                 return null;
             }
@@ -154,6 +169,9 @@ public class ChatService {
     public void sendMessageStream(String userMessage, Consumer<String> onChunk, Runnable onComplete) {
         if (userMessage == null || userMessage.trim().isEmpty()) {
             throw new ChatException("El mensaje no puede estar vacío", ErrorType.INVALID_INPUT);
+        }
+        if (sessionLogWriter != null) {
+            sessionLogWriter.logEvent("USER", userMessage);
         }
         if (taskAborter != null && taskAborter.isAborted()) {
             return;
@@ -247,6 +265,10 @@ public class ChatService {
                 trimHistory();
             }
 
+            if (sessionLogWriter != null) {
+                sessionLogWriter.logEvent("BOT", finalResponse != null ? finalResponse : "");
+            }
+
             if (turn != null && turn.thinking() != null && !turn.thinking().isBlank()) {
                 this.lastThinkingContent = turn.thinking();
                 ThinkContextHolder.setLastThinking(turn.thinking());
@@ -263,6 +285,9 @@ public class ChatService {
             }
         } catch (Exception e) {
             ThinkContextHolder.clearAll();
+            if (sessionLogWriter != null) {
+                sessionLogWriter.logEvent("ERROR", classifyError(e).name() + ": " + e.getMessage());
+            }
             if (taskAborter != null && taskAborter.isAborted()) {
                 if (onComplete != null) {
                     onComplete.run();
@@ -521,6 +546,10 @@ public class ChatService {
 
     public String getSystemPrompt() {
         return systemPrompt;
+    }
+
+    public void setSessionLogWriter(SessionLogWriter sessionLogWriter) {
+        this.sessionLogWriter = sessionLogWriter;
     }
 
     private BorisLlmClient getActiveClient() {
