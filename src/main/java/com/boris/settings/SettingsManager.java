@@ -73,8 +73,7 @@ public class SettingsManager {
         try {
             Settings settings = MAPPER.readValue(json, Settings.class);
             if (settings.getLogsEnabled() == null) {
-                throw new com.boris.exceptions.BorisException(
-                        "La configuracion 'logs.enabled' es obligatoria en el archivo de settings: " + path);
+                settings.setLogsEnabled(true);
             }
             return settings;
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
