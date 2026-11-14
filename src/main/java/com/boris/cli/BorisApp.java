@@ -6,6 +6,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 
 import com.boris.chat.ChatService;
 import com.boris.config.BorisConfiguration;
+import com.boris.context.ProjectContext;
 import com.boris.context.SearchSessionContext;
 import com.boris.context.SessionLogResolver;
 import com.boris.context.SessionLogWriter;
@@ -30,6 +31,9 @@ public class BorisApp implements Runnable {
             SkillManager skillManager = context.getBean(SkillManager.class);
             TaskAborter taskAborter = context.getBean(TaskAborter.class);
             Settings settings = context.getBean(Settings.class);
+
+            // Inicializar project path al directorio de trabajo actual
+            ProjectContext.setProjectPath(System.getProperty("user.dir"));
 
             // Generar sessionId para el registro de búsquedas en .boris/searchs/{SESION}.md
             SearchSessionContext.setSessionId(SearchSessionContext.generateSessionId());
