@@ -41,4 +41,11 @@ public final class SessionDirectoryResolver {
     public static Path plansDirectory() {
         return sessionDirectory().resolve("plans");
     }
+
+    /**
+     * Devuelve el archivo de memoria de exploración persistente: {sessionDir}/exploration.md.
+     */
+    public static Path explorationFile() {
+        return sessionDirectory().resolve("exploration.md");
+    }
 }

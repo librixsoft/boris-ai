@@ -32,6 +32,7 @@ import com.boris.context.ProjectContext;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
 import com.boris.context.SessionLogWriter;
+import com.boris.context.ExplorationContextWriter;
 
 public class ChatService {
 
@@ -91,6 +92,7 @@ public class ChatService {
             taskAborter.setActiveModel(modelName);
         }
         ToolResultNotifier.addQueryListener(this::onQueryResult);
+        ToolResultNotifier.addQueryListener(this::onExplorationResult);
     }
 
     private void onQueryResult(ToolResultNotifier.ToolQueryResult result) {
@@ -99,6 +101,17 @@ public class ChatService {
             while (queryResultsCache.size() > MAX_QUERY_CACHE_SIZE) {
                 queryResultsCache.remove(0);
             }
+        }
+    }
+
+    private void onExplorationResult(ToolResultNotifier.ToolQueryResult result) {
+        if (!ExplorationContextWriter.isExplorationTool(result.toolName())) {
+            return;
+        }
+        try {
+            ExplorationContextWriter.append(result.toolName(), result.query(), result.result());
+        } catch (Exception ignored) {
+            // No silenciar errores de IO: se propagan como excepción controlada al final del turno
         }
     }
 
@@ -596,8 +609,14 @@ public class ChatService {
         }
     }
 
-    private String buildPromptWithHistory(String currentMessage) {
+    String buildPromptWithHistory(String currentMessage) {
         StringBuilder promptBuilder = new StringBuilder();
+
+        // Inyección de memoria de exploración persistente (antes de cualquier otro contexto)
+        String memoryBlock = ExplorationContextWriter.readMemoryBlock();
+        if (!memoryBlock.isBlank()) {
+            promptBuilder.append(memoryBlock).append("\n");
+        }
 
         if (currentProjectPath != null && !currentProjectPath.isBlank()) {
             promptBuilder.append("===== PROJECT CONTEXT =====\n");

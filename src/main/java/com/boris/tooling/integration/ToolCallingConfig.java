@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.boris.tooling.ToolResultNotifier;
 import com.boris.tooling.annotation.Tool;
 import com.boris.tooling.annotation.ToolParam;
 import com.boris.tooling.engine.ToolRegistry;
@@ -34,6 +35,7 @@ import com.boris.tooling.tool.SearchContextWriter;
 import com.boris.tooling.tool.SystemInfoTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.boris.tooling.tool.ListFilesTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
 import com.boris.tooling.parallel.BatchWebFetchTool;
@@ -307,6 +309,10 @@ public class ToolCallingConfig {
         String result = ListFilesTool.execute(args);
         notifyListing("list_files", result);
         notifyToolTokens("list_files", path != null ? path : ".", result);
+        try {
+            ToolResultNotifier.notifyQueryResult("list_files",
+                    new ObjectMapper().writeValueAsString(args), result);
+        } catch (Exception ignored) {}
         return result;
     }
 
