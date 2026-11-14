@@ -5,7 +5,7 @@ import com.googlecode.lanterna.gui2.Label;
 public class HintBar extends Label {
 
     private static final String HINT_SEPARATOR = "  ·  ";
-    private static final String BASE_HINTS = "/ comandos" + HINT_SEPARATOR + "ESC: abortar" + HINT_SEPARATOR + "↑↓: historial" + HINT_SEPARATOR + "^N: nueva línea";
+    private static final String BASE_HINTS = "/ comandos" + HINT_SEPARATOR + "^N: nueva línea";
 
     private boolean toolDetailsVisible = false;
     private int hiddenCount = 0;
