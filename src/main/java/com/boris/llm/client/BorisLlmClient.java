@@ -332,11 +332,11 @@ public class BorisLlmClient {
             }
         }
 
-        // Filtrar bloques tool del contenido para la UI: mostrar solo prosa
-        String filteredContent = ToolBlockProtocol.filterToolBlocks(content.toString());
-
-        // Extraer bloques tool de texto del contenido completo
-        List<ToolBlockProtocol.ToolBlock> textToolBlocks = ToolBlockProtocol.parse(filteredContent);
+        // El contenido del mensaje streamed se conserva crudo (sin filtrar bloques tool)
+        // para que el bucle pueda parsearlos, ejecutarlos y mantenerlos en el historial,
+        // igual que en el path sincronico.
+        String rawContentStr = content.toString();
+        List<ToolBlockProtocol.ToolBlock> textToolBlocks = ToolBlockProtocol.parse(rawContentStr);
 
         List<ToolCall> nativeToolCalls = new ArrayList<>();
         List<Integer> nativeCallIndexes = new ArrayList<>();
@@ -350,7 +350,7 @@ public class BorisLlmClient {
         }
 
         ChatMessage streamedMessage = ChatMessage.assistant(
-                filteredContent,
+                rawContentStr,
                 nativeToolCalls.isEmpty() ? null : nativeToolCalls,
                 reasoning.length() > 0 ? reasoning.toString() : null);
 
@@ -463,11 +463,15 @@ public class BorisLlmClient {
                 assistantMsg = response.getFirstMessage();
             }
 
+            boolean hasStreamedTextToolBlocks = streamedMessage != null
+                    && streamedMessage.textToolBlocks() != null
+                    && !streamedMessage.textToolBlocks().isEmpty();
             boolean emptyAssistantTurn = assistantMsg == null
                     || (streamedMessage != null
                             && (assistantMsg.content() == null || assistantMsg.content().isBlank())
                             && (assistantMsg.toolCalls() == null || assistantMsg.toolCalls().isEmpty())
-                            && (assistantMsg.reasoningContent() == null || assistantMsg.reasoningContent().isBlank()));
+                            && (assistantMsg.reasoningContent() == null || assistantMsg.reasoningContent().isBlank())
+                            && !hasStreamedTextToolBlocks);
 
             if (emptyAssistantTurn) {
                 if (taskPending) {
