@@ -10,6 +10,7 @@ import com.boris.tooling.tool.GitTool;
 import com.boris.tooling.tool.OfficeDocumentTool;
 import com.boris.tooling.tool.PdfGenerationTool;
 import com.boris.tooling.tool.SystemInfoTool;
+import com.boris.tooling.tool.BrowserVisionUiTool;
 import com.boris.tooling.tool.WebSearchTool;
 import com.boris.tooling.tool.WriteTool;
 import com.boris.tooling.parallel.BatchReadFileTool;
@@ -80,5 +81,10 @@ public class ToolConfiguration {
     @Bean
     public ParallelSearchTool parallelSearchTool() {
         return new ParallelSearchTool();
+    }
+
+    @Bean
+    public BrowserVisionUiTool browserVisionUiTool() {
+        return new BrowserVisionUiTool();
     }
 }

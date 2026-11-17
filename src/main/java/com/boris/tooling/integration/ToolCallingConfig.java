@@ -24,6 +24,7 @@ import com.boris.llm.LlmClient;
 import com.boris.settings.Settings;
 import com.boris.settings.SettingsManager;
 import com.boris.tooling.tool.BashTool;
+import com.boris.tooling.tool.BrowserVisionUiTool;
 import com.boris.tooling.tool.CreateDirectoryTool;
 import com.boris.tooling.tool.DeleteDirectoryTool;
 import com.boris.tooling.tool.DeleteTool;
@@ -92,6 +93,7 @@ public class ToolCallingConfig {
     private final OfficeDocumentTool officeDocumentTool;
     private final Settings settings;
     private final WriteTool writeTool;
+    private final BrowserVisionUiTool browserVisionUiTool;
     private final ThinkingStallDetector thinkingStallDetector;
     private final WebSearchFallbackStrategy webSearchFallbackStrategy;
 
@@ -116,6 +118,7 @@ public class ToolCallingConfig {
         this.officeDocumentTool = officeDocumentTool;
         this.settings = settings;
         this.writeTool = new WriteTool();
+        this.browserVisionUiTool = new BrowserVisionUiTool();
 
         // Inicializar detector de estancamiento y fallback de búsqueda
         int maxThinkingIterations = settings != null
@@ -473,6 +476,23 @@ public class ToolCallingConfig {
         String brief = buildFetchResultBrief(result);
         result = appendSearchLogWithFallback("web_fetch", urlsStr, brief, result);
 
+        return result;
+    }
+
+    @Tool(
+            name = "browser_ui_action",
+            description = "Abre automáticamente una ventana visible de Chromium gestionada por Playwright y automatiza tareas visualmente (Google, LinkedIn, etc.) simulando mouse y teclado humano sin tocar el DOM. No requiere Google Chrome abierto, ni depuración remota, ni comandos en terminal. Ejecuta siempre esta herramienta directamente cuando te pidan interactuar o buscar en el navegador.")
+    public String browser_ui_action(
+            @ToolParam(name = "target_domain", description = "Dominio o URL de la pestaña objetivo (ej. 'google.com', 'linkedin.com'). Dejar vacío para usar la pestaña activa actual.", required = false) String target_domain,
+            @ToolParam(name = "click_target_text", description = "Texto visual del elemento o botón a pulsar (ej. 'Buscar con Google', 'Conectar', 'Buscar', 'Enviar').", required = false) String click_target_text,
+            @ToolParam(name = "type_text", description = "Texto a escribir en el campo activo o enfocado (opcional).", required = false) String type_text,
+            @ToolParam(name = "press_key_after", description = "Tecla física a presionar después de escribir (ej. 'Enter', 'Tab', o vacío).", required = false) String press_key_after,
+            @ToolParam(name = "scroll_direction", description = "Dirección de scroll si se requiere: 'down', 'up' o 'none'.", required = false) String scroll_direction) {
+        String domainDesc = target_domain != null && !target_domain.isBlank() ? target_domain : "pestaña activa";
+        ToolProgressNotifier.notify("browser_ui_action", "Ejecutando acción visual en navegador: " + domainDesc);
+        String result = browserVisionUiTool.executeBrowserAction(target_domain, click_target_text, type_text, press_key_after, scroll_direction);
+        String inputSummary = "domain=" + target_domain + " click=" + click_target_text + " type=" + type_text;
+        notifyToolTokens("browser_ui_action", inputSummary, result);
         return result;
     }
 

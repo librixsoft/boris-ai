@@ -35,6 +35,7 @@ class ToolCallingConfigTest {
         assertTrue(registry.hasTool("get_system_info"));
         assertTrue(registry.hasTool("generate_pdf"));
         assertTrue(registry.hasTool("create_office_document"));
+        assertTrue(registry.hasTool("browser_ui_action"));
     }
 
     @Test

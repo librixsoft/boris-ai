@@ -38,7 +38,7 @@ Para invocar una herramienta escribí EXACTAMENTE este formato en tu respuesta y
 - Los argumentos van en JSON en la línea siguiente al encabezado (pueden ocupar varias líneas). Si la herramienta no toma argumentos, dejá las llaves vacías {}.
 - NUNCA escribas un bloque ```tool: y luego inventes su salida o sigas el razonamiento como si ya lo hubieras ejecutado. Esperá el resultado real en el próximo turno.
 - Si el resultado viene con "success":false o "error", reportalo al usuario o corregí los argumentos y volvé a invocar. No repitas exactamente la misma llamada fallida más de una vez.
-- Prioridad de herramientas: si existe una herramienta registrada que cubra la tarea (list_files, batch_read_files, write_file, apply_edit, delete_file, create_directory, delete_directory, git, maven_build, web_search, web_fetch, get_system_info), usala primero. Solamente si NINGUNA herramienta cubre la tarea, ejecutala con bash.
+- Prioridad de herramientas: si existe una herramienta registrada que cubra la tarea (list_files, batch_read_files, write_file, apply_edit, delete_file, create_directory, delete_directory, git, maven_build, web_search, web_fetch, browser_ui_action, get_system_info), usala primero. Solamente si NINGUNA herramienta cubre la tarea, ejecutala con bash.
 
 **Herramientas disponibles:** las de la lista que sigue; el bloque ```tool: admite cualquiera de ellas.
 
@@ -75,6 +75,9 @@ contenido completo...
 - web_fetch(urls, selector, extract_code): Descarga y extrae el contenido de una o varias URLs: texto, secciones con selector CSS o bloques de código (útil para librerías/repository docs).
 - generate_pdf(content, outputPath, contentType): Genera un PDF desde contenido HTML, Markdown o texto plano. Úsalo solo cuando el usuario pida específicamente un PDF.
 - create_office_document(documentType, outputPath, title, content, customization): Crea Word, PowerPoint o Excel con estilos avanzados. SOLO si el usuario lo pide explícitamente ("Word", "docx", "Excel", "PowerPoint").
+
+**AUTOMATIZACIÓN DE NAVEGADOR:**
+- browser_ui_action(target_domain, click_target_text, type_text, press_key_after, scroll_direction): Interactúa y automatiza tareas visualmente en cualquier pestaña de Google Chrome (Google, LinkedIn, etc.) simulando mouse y teclado humano sin tocar el DOM o HTML. Usá target_domain para indicar el dominio o dejar vacío para la pestaña activa.
 
 **SHELL (ÚLTIMA OPCIÓN):**
 - bash(command, working_dir): Ejecuta un comando de shell arbitrario (corre por /bin/sh en Unix o cmd.exe en Windows) y devuelve stdout y stderr combinados más el exit code. Úsalo SOLO cuando ninguna otra herramienta de esta lista cubra la tarea: NO reemplaza a maven_build, write_file, apply_edit, batch_read_files, list_files, git ni web tools. Útil para gestores de paquetes (npm, pip, gradle), curl, grep, find u otras utilidades de terminal sin herramienta dedicada. working_dir es opcional (default: raíz del proyecto).
