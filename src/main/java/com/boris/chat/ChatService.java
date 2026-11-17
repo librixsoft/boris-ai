@@ -376,12 +376,14 @@ public class ChatService {
             className.contains("connectexception")) {
             return ErrorType.CONNECTION_ERROR;
         }
+        // InterruptedException antes de la heurística de "stream" para que
+        // una cancelación no se clasifique erróneamente como STREAMING_ERROR.
+        if (e instanceof InterruptedException) {
+            return ErrorType.ABORTED;
+        }
         if (msg.contains("stream") || className.contains("flux") ||
             className.contains("reactor")) {
             return ErrorType.STREAMING_ERROR;
-        }
-        if (e instanceof InterruptedException) {
-            return ErrorType.ABORTED;
         }
 
         Throwable cause = e.getCause();

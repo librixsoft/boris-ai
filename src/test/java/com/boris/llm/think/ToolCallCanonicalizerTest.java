@@ -41,4 +41,18 @@ class ToolCallCanonicalizerTest {
     void nonJsonInput_returnsTrimmedRawText() {
         assertEquals("not-json", ToolCallCanonicalizer.canonicalize("  not-json  "));
     }
+
+    @Test
+    void nullAndEmptyStringValuesAreEquivalentForBrowserArgs() {
+        assertEquals(
+                ToolCallCanonicalizer.canonicalize("{\"action\":\"scroll\",\"type_text\":null,\"press_key_after\":null}"),
+                ToolCallCanonicalizer.canonicalize("{\"action\":\"scroll\",\"type_text\":\"\",\"press_key_after\":\"\"}"));
+    }
+
+    @Test
+    void nullAndEmptyStringValuesAreEquivalentForWriteFileArgs() {
+        assertEquals(
+                ToolCallCanonicalizer.canonicalize("{\"path\":\"/x\",\"content\":null}"),
+                ToolCallCanonicalizer.canonicalize("{\"path\":\"/x\",\"content\":\"\"}"));
+    }
 }

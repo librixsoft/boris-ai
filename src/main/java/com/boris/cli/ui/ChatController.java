@@ -232,6 +232,10 @@ public class ChatController implements InputArea.InputListener {
         wasAborted.set(true);
         waiting.set(false);
         statusBar.showAborted();
+        long epochAtAbort;
+        synchronized (taskAborter) {
+            epochAtAbort = taskAborter.getAbortEpoch();
+        }
         Thread resetThread = new Thread(() -> {
             try {
                 Thread.sleep(150);
@@ -239,7 +243,7 @@ public class ChatController implements InputArea.InputListener {
                 Thread.currentThread().interrupt();
                 return;
             }
-            taskAborter.reset();
+            taskAborter.resetIfEpochUnchanged(epochAtAbort);
             messageQueue.resetAbort();
         });
         resetThread.setDaemon(true);

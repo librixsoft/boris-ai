@@ -89,7 +89,8 @@ public class ToolRegistry {
                         p.getType(),
                         p.getParameterizedType(),
                         paramDesc,
-                        required
+                        required,
+                        paramAnnotation != null ? paramAnnotation.allowedValues() : new String[0]
                 ));
             }
 
@@ -244,6 +245,9 @@ public class ToolRegistry {
             propMap.put("type", toJsonSchemaType(param.javaType()));
             if (param.description() != null && !param.description().isBlank()) {
                 propMap.put("description", param.description());
+            }
+            if (param.allowedValues() != null && param.allowedValues().length > 0) {
+                propMap.put("enum", List.of(param.allowedValues()));
             }
 
             if (param.javaType() == List.class) {

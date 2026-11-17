@@ -41,6 +41,18 @@ class BorisLlmClientPendingTest {
             }
             return "{\"success\":true,\"output\":\"ok\"}";
         }
+
+        private static final java.util.concurrent.atomic.AtomicInteger BROWSER_FAIL_SEQ =
+                new java.util.concurrent.atomic.AtomicInteger(0);
+
+        @Tool(name = "browser_ui_action", description = "Accion visual de browser")
+        public String browser_ui_action(@ToolParam(description = "action") String action,
+                                        @ToolParam(description = "click_target_text", required = false) String click_target_text,
+                                        @ToolParam(description = "type_text", required = false) String type_text) {
+            int seq = BROWSER_FAIL_SEQ.incrementAndGet();
+            return "{\"status\":\"failed\",\"action\":\"" + action + "\",\"screen_hash_after\":\"HASH" + seq
+                    + "\",\"url_after\":\"https://www.linkedin.com/attempt" + seq + "\"}";
+        }
     }
 
     static class MockBorisLlmClient extends BorisLlmClient {
@@ -288,6 +300,28 @@ class BorisLlmClientPendingTest {
 
         assertEquals(TaskExecutionState.INCOMPLETE, client.getTaskState());
         assertTrue(turn.response().contains("bucle") || turn.response().contains("bloqueado"));
+        assertEquals(3, client.getRecordedRequests().size());
+    }
+
+    @Test
+    void threeConsecutiveBrowserFailures_stopTurnWithControlledMessage() throws Exception {
+        MockBorisLlmClient client = new MockBorisLlmClient();
+        client.enqueueResponse(createToolResponse("Intentando...", "browser_ui_action",
+                "{\"action\":\"click_text\",\"click_target_text\":\"Buscar\"}"));
+        client.enqueueResponse(createToolResponse("Reintentando...", "browser_ui_action",
+                "{\"action\":\"click_text\",\"click_target_text\":\"Buscar jobs\"}"));
+        client.enqueueResponse(createToolResponse("Otra vez...", "browser_ui_action",
+                "{\"action\":\"click_text\",\"click_target_text\":\"Search\"}"));
+        client.enqueueResponse(createTextResponse("Fin."));
+
+        List<ChatMessage> conv = List.of(ChatMessage.user("Busca en linkedin"));
+        BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
+                conv, "test-model", "system", mockRegistry, null, 0.7, null, () -> false
+        );
+
+        assertEquals(TaskExecutionState.INCOMPLETE, client.getTaskState());
+        assertTrue(turn.response().contains("falló"),
+                "El mensaje debe informar los fallos consecutivos de browser: " + turn.response());
         assertEquals(3, client.getRecordedRequests().size());
     }
 }

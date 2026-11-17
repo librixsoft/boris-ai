@@ -50,7 +50,13 @@ public final class ToolCallCanonicalizer {
             objectNode.fieldNames().forEachRemaining(fieldNames::add);
             Collections.sort(fieldNames);
             for (String fieldName : fieldNames) {
-                normalized.set(fieldName, normalize(objectNode.get(fieldName)));
+                String lowerKey = fieldName.toLowerCase();
+                JsonNode value = normalize(objectNode.get(fieldName));
+                // Normalizar null a string vacío para equivalencia cosmética
+                if (value == null || value.isNull()) {
+                    value = MAPPER.getNodeFactory().textNode("");
+                }
+                normalized.set(lowerKey, value);
             }
             return normalized;
         }

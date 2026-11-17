@@ -1,18 +1,23 @@
 package com.boris.ui.automation;
 
 import java.nio.file.Path;
+import java.util.List;
 
+import com.boris.exceptions.BrowserActionTimeoutException;
 import com.boris.exceptions.BrowserLaunchFailedException;
+import com.boris.exceptions.BrowserTabNotFoundException;
 import com.boris.exceptions.UiActionExecutionException;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.PlaywrightException;
+import com.microsoft.playwright.options.LoadState;
 
 /**
  * Gestiona una sesión de navegador abierta por Playwright con una ventana visible
- * y un perfil persistente, reutilizando la misma página entre invocaciones.
+ * y un perfil persistente. Proporciona separación clara entre asegurar la página
+ * activa (sin navegar) y navegar a un destino explícito.
  */
 public class UiBrowserSessionManager implements AutoCloseable {
 
@@ -20,6 +25,7 @@ public class UiBrowserSessionManager implements AutoCloseable {
     public static final int DEFAULT_VIEWPORT_HEIGHT = 900;
     public static final Path DEFAULT_PROFILE_DIR =
         Path.of(System.getProperty("user.home"), ".boris", "playwright-profile");
+    public static final int DEFAULT_LOAD_TIMEOUT_MS = 30000;
 
     private final Path profileDir;
     private final int viewportWidth;
@@ -49,25 +55,105 @@ public class UiBrowserSessionManager implements AutoCloseable {
     }
 
     /**
+     * Devuelve la página activa, lanzando Chromium en la primera invocación o
+     * recreándola si la ventana fue cerrada. No navega a ningún destino.
+     *
+     * @return página activa de Playwright
+     */
+    public synchronized Page ensureActivePage() {
+        if (context == null) {
+            launch();
+        }
+
+        if (activePage == null || !activePage.isClosed()) {
+            // La página existe y no está cerrada
+            return activePage;
+        }
+
+        // La página fue cerrada: crear una nueva en el mismo contexto
+        activePage = context.newPage();
+        return activePage;
+    }
+
+    /**
+     * Navega a un destino explícito, esperando a que la página termine de cargar.
+     * Solo debe invocarse desde la acción open o cuando la página está en about:blank
+     * en la primera apertura.
+     *
+     * @param target dominio o URL objetivo
+     * @throws BrowserActionTimeoutException si la carga excede el timeout
+     */
+    public synchronized void navigateTo(String target) {
+        Page page = ensureActivePage();
+        String destinationUrl = toDestinationUrl(target);
+        page.navigate(destinationUrl);
+        waitForLoadState(page);
+    }
+
+    /**
      * Devuelve la página activa, lanzando Chromium en la primera invocación.
-     * Si se especifica un dominio o URL objetivo distinto al de la página actual,
-     * navega hacia ese destino.
+     * No navega: si se indica un dominio objetivo, verifica que exista una
+     * pestaña abierta con ese dominio; si no existe lanza
+     * BrowserTabNotFoundException. La navegación es responsabilidad de
+     * navigateTo, invocada sólo desde la acción open.
      *
      * @param targetUrlOrDomain dominio o URL objetivo; vacío o nulo reutiliza la página actual
      * @return página activa de Playwright
      */
     public synchronized Page getOrCreatePage(String targetUrlOrDomain) {
+        Page page = ensureActivePage();
+
+        if (targetUrlOrDomain != null && !targetUrlOrDomain.isBlank()) {
+            ensureDomainExists(targetUrlOrDomain);
+        }
+
+        page.bringToFront();
+        return page;
+    }
+
+    /**
+     * Espera a que la página termine de cargar hasta DOMContentLoaded con timeout.
+     */
+    private void waitForLoadState(Page page) {
+        try {
+            page.waitForLoadState(LoadState.DOMCONTENTLOADED,
+                new com.microsoft.playwright.Page.WaitForLoadStateOptions()
+                    .setTimeout(DEFAULT_LOAD_TIMEOUT_MS));
+        } catch (PlaywrightException e) {
+            throw new BrowserActionTimeoutException(
+                "La página no terminó de cargar dentro del timeout de " +
+                DEFAULT_LOAD_TIMEOUT_MS + " ms", e);
+        }
+    }
+
+    /**
+     * Devuelve todas las páginas abiertas en el contexto.
+     */
+    public synchronized List<Page> getAllPages() {
         if (context == null) {
-            launch();
+            return List.of();
         }
+        return context.pages();
+    }
 
-        if (targetUrlOrDomain != null && !targetUrlOrDomain.isBlank()
-                && !activePage.url().toLowerCase().contains(targetUrlOrDomain.toLowerCase())) {
-            activePage.navigate(toDestinationUrl(targetUrlOrDomain));
+    /**
+     * Verifica si el dominio dado existe entre las páginas abiertas.
+     * Lanza BrowserTabNotFoundException si no existe y no se ha pedido navegar.
+     */
+    public synchronized void ensureDomainExists(String targetDomain) {
+        if (targetDomain == null || targetDomain.isBlank()) {
+            return;
         }
-
-        activePage.bringToFront();
-        return activePage;
+        List<Page> pages = getAllPages();
+        String targetLower = targetDomain.toLowerCase();
+        for (Page page : pages) {
+            if (!page.isClosed() && page.url().toLowerCase().contains(targetLower)) {
+                return;
+            }
+        }
+        throw new BrowserTabNotFoundException(
+            "No hay ninguna pestaña abierta con el dominio '" + targetDomain +
+            "'. Use la acción 'open' para navegar a ese dominio primero.");
     }
 
     private void launch() {
@@ -76,7 +162,8 @@ public class UiBrowserSessionManager implements AutoCloseable {
         BrowserType.LaunchPersistentContextOptions options =
             new BrowserType.LaunchPersistentContextOptions()
                 .setHeadless(false)
-                .setViewportSize(viewportWidth, viewportHeight);
+                .setViewportSize(viewportWidth, viewportHeight)
+                .setDeviceScaleFactor(1);
 
         try {
             this.context = playwright.chromium().launchPersistentContext(profileDir, options);
@@ -112,5 +199,19 @@ public class UiBrowserSessionManager implements AutoCloseable {
         } catch (PlaywrightException e) {
             throw new UiActionExecutionException("Fallo al cerrar la sesión de Playwright", e);
         }
+    }
+
+    /**
+     * Devuelve el ancho del viewport configurado.
+     */
+    public int getViewportWidth() {
+        return viewportWidth;
+    }
+
+    /**
+     * Devuelve el alto del viewport configurado.
+     */
+    public int getViewportHeight() {
+        return viewportHeight;
     }
 }

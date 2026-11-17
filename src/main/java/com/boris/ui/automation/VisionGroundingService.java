@@ -1,5 +1,7 @@
 package com.boris.ui.automation;
 
+import java.util.List;
+
 import com.boris.ui.automation.model.VisualElementTarget;
 
 /**
@@ -18,4 +20,13 @@ public interface VisionGroundingService {
      * @throws VisualElementNotFoundException si el elemento no se encuentra
      */
     VisualElementTarget findVisualElement(byte[] screenshotPngBytes, String targetText);
+
+    /**
+     * Devuelve todos los textos visibles detectados en el screenshot con sus
+     * coordenadas y confianza. Es la capacidad de observación de la pantalla.
+     *
+     * @param screenshotPngBytes bytes PNG del screenshot del viewport
+     * @return lista de elementos visibles detectados
+     */
+    List<VisualElementTarget> findAllText(byte[] screenshotPngBytes);
 }

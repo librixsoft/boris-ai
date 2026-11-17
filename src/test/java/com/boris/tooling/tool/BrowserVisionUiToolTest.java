@@ -37,6 +37,8 @@ class BrowserVisionUiToolTest {
             java.lang.String.class,
             java.lang.String.class,
             java.lang.String.class,
+            java.lang.String.class,
+            java.lang.String.class,
             java.lang.String.class
         );
         assertNotNull(method.getAnnotation(com.boris.tooling.annotation.Tool.class),
@@ -47,6 +49,8 @@ class BrowserVisionUiToolTest {
     void browserVisionUiToolHasCorrectToolName() throws Exception {
         var method = com.boris.tooling.tool.BrowserVisionUiTool.class.getMethod(
             "executeBrowserAction",
+            java.lang.String.class,
+            java.lang.String.class,
             java.lang.String.class,
             java.lang.String.class,
             java.lang.String.class,

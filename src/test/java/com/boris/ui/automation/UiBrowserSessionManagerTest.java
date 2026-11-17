@@ -111,7 +111,7 @@ class UiBrowserSessionManagerTest {
     }
 
     @Test
-    void getOrCreatePageWithDomainNavigatesWhenCurrentUrlDoesNotMatch() {
+    void getOrCreatePageWithDomainNeverNavigatesExplicitly() {
         try (MockedStatic<Playwright> mocked = Mockito.mockStatic(Playwright.class)) {
             Playwright mockPlaywright = mock(Playwright.class);
             BrowserType mockChromium = mock(BrowserType.class);
@@ -129,8 +129,8 @@ class UiBrowserSessionManagerTest {
 
             UiBrowserSessionManager manager = new UiBrowserSessionManager(TEST_PROFILE_DIR, 1440, 900);
 
-            assertSame(mockPage, manager.getOrCreatePage("linkedin.com"));
-            verify(mockPage).navigate("https://linkedin.com");
+            assertSame(mockPage, manager.getOrCreatePage(null));
+            verify(mockPage, never()).navigate(anyString());
         }
     }
 
@@ -155,6 +155,86 @@ class UiBrowserSessionManagerTest {
 
             assertSame(mockPage, manager.getOrCreatePage("linkedin.com"));
             verify(mockPage, never()).navigate(anyString());
+        }
+    }
+
+    @Test
+    void getOrCreatePageWithDomainNotOpenThrowsBrowserTabNotFound() {
+        try (MockedStatic<Playwright> mocked = Mockito.mockStatic(Playwright.class)) {
+            Playwright mockPlaywright = mock(Playwright.class);
+            BrowserType mockChromium = mock(BrowserType.class);
+            BrowserContext mockContext = mock(BrowserContext.class);
+            Page mockPage = mock(Page.class);
+
+            mocked.when(Playwright::create).thenReturn(mockPlaywright);
+            when(mockPlaywright.chromium()).thenReturn(mockChromium);
+            when(mockChromium.launchPersistentContext(
+                    any(Path.class),
+                    any(BrowserType.LaunchPersistentContextOptions.class)))
+                .thenReturn(mockContext);
+            when(mockContext.pages()).thenReturn(List.of(mockPage));
+            when(mockPage.url()).thenReturn("https://example.com");
+
+            UiBrowserSessionManager manager = new UiBrowserSessionManager(TEST_PROFILE_DIR, 1440, 900);
+
+            assertThrows(com.boris.exceptions.BrowserTabNotFoundException.class, () ->
+                manager.getOrCreatePage("linkedin.com"));
+            verify(mockPage, never()).navigate(anyString());
+        }
+    }
+
+    @Test
+    void closedPageIsRecreatedOnNextAccess() {
+        try (MockedStatic<Playwright> mocked = Mockito.mockStatic(Playwright.class)) {
+            Playwright mockPlaywright = mock(Playwright.class);
+            BrowserType mockChromium = mock(BrowserType.class);
+            BrowserContext mockContext = mock(BrowserContext.class);
+            Page closedPage = mock(Page.class);
+            Page recreatedPage = mock(Page.class);
+
+            mocked.when(Playwright::create).thenReturn(mockPlaywright);
+            when(mockPlaywright.chromium()).thenReturn(mockChromium);
+            when(mockChromium.launchPersistentContext(
+                    any(Path.class),
+                    any(BrowserType.LaunchPersistentContextOptions.class)))
+                .thenReturn(mockContext);
+            when(mockContext.pages()).thenReturn(List.of(closedPage));
+            when(closedPage.isClosed()).thenReturn(true);
+            when(mockContext.newPage()).thenReturn(recreatedPage);
+
+            UiBrowserSessionManager manager = new UiBrowserSessionManager(TEST_PROFILE_DIR, 1440, 900);
+            manager.getOrCreatePage(null);
+            Page result = manager.getOrCreatePage(null);
+
+            assertSame(recreatedPage, result);
+            verify(mockContext).newPage();
+        }
+    }
+
+    @Test
+    void navigateToTimeoutThrowsBrowserActionTimeoutException() {
+        try (MockedStatic<Playwright> mocked = Mockito.mockStatic(Playwright.class)) {
+            Playwright mockPlaywright = mock(Playwright.class);
+            BrowserType mockChromium = mock(BrowserType.class);
+            BrowserContext mockContext = mock(BrowserContext.class);
+            Page mockPage = mock(Page.class);
+
+            mocked.when(Playwright::create).thenReturn(mockPlaywright);
+            when(mockPlaywright.chromium()).thenReturn(mockChromium);
+            when(mockChromium.launchPersistentContext(
+                    any(Path.class),
+                    any(BrowserType.LaunchPersistentContextOptions.class)))
+                .thenReturn(mockContext);
+            when(mockContext.pages()).thenReturn(List.of(mockPage));
+            org.mockito.Mockito.doThrow(new PlaywrightException("Timeout 30000ms exceeded"))
+                .when(mockPage).waitForLoadState(
+                    any(com.microsoft.playwright.options.LoadState.class),
+                    any(Page.WaitForLoadStateOptions.class));
+
+            UiBrowserSessionManager manager = new UiBrowserSessionManager(TEST_PROFILE_DIR, 1440, 900);
+
+            assertThrows(com.boris.exceptions.BrowserActionTimeoutException.class, () ->
+                manager.navigateTo("linkedin.com"));
         }
     }
 

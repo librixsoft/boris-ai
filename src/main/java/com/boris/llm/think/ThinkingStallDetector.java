@@ -145,7 +145,8 @@ public class ThinkingStallDetector {
                 || "revert_edit".equals(toolName)
                 || "delete_file".equals(toolName)
                 || "delete_directory".equals(toolName)
-                || "create_directory".equals(toolName);
+                || "create_directory".equals(toolName)
+                || "browser_ui_action".equals(toolName);
     }
 
     private static String hashContent(String content) {

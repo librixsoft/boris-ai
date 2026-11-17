@@ -8,7 +8,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public final class ToolBlockProtocol {
 
-    public record ToolBlock(String toolName, String jsonArguments) {}
+    public record ToolBlock(String toolName, String jsonArguments, boolean validJson) {
+    }
 
     private static final String BLOCK_MARKER = "```tool:";
     private static final String BLOCK_END = "```";
@@ -22,6 +23,7 @@ public final class ToolBlockProtocol {
      * ```` ```tool:...``` ```` cerrado. Si no hay ningún bloque cerrado, devuelve -1.
      * Soporta variantes compactas emitidas por modelos locales (ej. ```` ```tool:bash{"command":"ls"} ````
      * sin espacio entre el nombre y la llave de apertura).
+     * Maneja delimitadores duplicados (ej. ``` ``` ```) buscando el cierre en una línea propia.
      */
     public static int endOfFirstClosedBlock(String content) {
         if (content == null || content.isBlank()) {
@@ -31,13 +33,29 @@ public final class ToolBlockProtocol {
         if (markerIdx < 0) {
             return -1;
         }
-        // Buscar el cierre ``` después del marcador
+        // Buscar el cierre ``` en una línea propia después del marcador
         int searchStart = markerIdx + BLOCK_MARKER.length();
-        int endIdx = content.indexOf(BLOCK_END, searchStart);
-        if (endIdx < 0) {
-            return -1;
+        String remaining = content.substring(searchStart);
+        String[] remainingLines = remaining.split("\n", -1);
+        int offset = searchStart;
+        for (String line : remainingLines) {
+            if (line.trim().equals(BLOCK_END)) {
+                // Calcular el índice exacto del cierre
+                int lineStart = offset;
+                for (int j = 0; j < remainingLines.length; j++) {
+                    if (remainingLines[j].trim().equals(BLOCK_END)) {
+                        // Sumar longitudes de líneas anteriores + separadores
+                        int pos = searchStart;
+                        for (int k = 0; k < j; k++) {
+                            pos += remainingLines[k].length() + 1; // +1 para \n
+                        }
+                        return pos + remainingLines[j].length() + BLOCK_END.length();
+                    }
+                }
+            }
+            offset += line.length() + 1;
         }
-        return endIdx + BLOCK_END.length();
+        return -1;
     }
 
     private static int indexOfToolMarker(String content) {
@@ -56,8 +74,8 @@ public final class ToolBlockProtocol {
     /**
      * Extrae todos los bloques ```` ```tool:...``` ```` de {@code content}.
      * Valida el JSON de argumentos antes de devolver; si un bloque está truncado
-     * o tiene JSON inválido, se devuelve un {@link ToolBlock} con argumentos vacíos
-     * y el nombre de herramienta, para que el llamador pueda devolver un error estructurado.
+     * o tiene JSON inválido, se devuelve un {@link ToolBlock} con validJson=false,
+     * para que el llamador pueda devolver un error estructurado.
      */
     public static List<ToolBlock> parse(String content) {
         List<ToolBlock> blocks = new ArrayList<>();
@@ -89,10 +107,12 @@ public final class ToolBlockProtocol {
                     if (!rest.isEmpty() && rest.startsWith("{")) {
                         args.append(rest);
                     }
+                    boolean closed = false;
                     while (i < lines.length) {
                         String inner = lines[i];
                         i++;
                         if (inner.trim().equals(BLOCK_END)) {
+                            closed = true;
                             break;
                         }
                         if (args.length() > 0) {
@@ -100,7 +120,8 @@ public final class ToolBlockProtocol {
                         }
                         args.append(inner);
                     }
-                    blocks.add(new ToolBlock(toolName, args.toString()));
+                    boolean validJson = closed && validateJson(args.toString());
+                    blocks.add(new ToolBlock(toolName, args.toString(), validJson));
                     continue;
                 }
                 continue;
@@ -115,10 +136,12 @@ public final class ToolBlockProtocol {
             if (headerParts.length > 1 && !headerParts[1].isBlank()) {
                 args.append(headerParts[1].trim());
             }
+            boolean closed = false;
             while (i < lines.length) {
                 String inner = lines[i];
                 i++;
                 if (inner.trim().equals(BLOCK_END)) {
+                    closed = true;
                     break;
                 }
                 if (args.length() > 0) {
@@ -126,7 +149,8 @@ public final class ToolBlockProtocol {
                 }
                 args.append(inner);
             }
-            blocks.add(new ToolBlock(toolName, args.toString()));
+            boolean validJson = closed && validateJson(args.toString());
+            blocks.add(new ToolBlock(toolName, args.toString(), validJson));
         }
         return blocks;
     }
@@ -194,6 +218,38 @@ public final class ToolBlockProtocol {
         if (!validateJson(args)) {
             throw new IllegalArgumentException("Argumentos JSON inválidos o truncados en bloque tool: " + toolName);
         }
-        return new ToolBlock(toolName, args);
+        return new ToolBlock(toolName, args, true);
+    }
+
+    /**
+     * Filtra el texto de los bloques ```` ```tool:...``` ```` del contenido,
+     * devolviendo solo la prosa. Se usa para mostrar el contenido al usuario
+     * sin los bloques de tool crudos.
+     */
+    public static String filterToolBlocks(String content) {
+        if (content == null || content.isBlank()) {
+            return content;
+        }
+        String[] lines = content.split("\n", -1);
+        StringBuilder result = new StringBuilder();
+        boolean inBlock = false;
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (!inBlock && (trimmed.startsWith(BLOCK_MARKER) || trimmed.indexOf(BLOCK_MARKER) >= 0)) {
+                inBlock = true;
+                continue;
+            }
+            if (inBlock && trimmed.equals(BLOCK_END)) {
+                inBlock = false;
+                continue;
+            }
+            if (!inBlock) {
+                if (result.length() > 0) {
+                    result.append("\n");
+                }
+                result.append(line);
+            }
+        }
+        return result.toString();
     }
 }

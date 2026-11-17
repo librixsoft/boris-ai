@@ -14,6 +14,7 @@ public class TaskAborter {
     private volatile boolean aborted;
     private volatile String activeModelName;
     private volatile boolean generationInProgress;
+    private volatile long abortEpoch = 0;
 
     public void startTask(Thread task) {
         if (task == null) return;
@@ -68,6 +69,7 @@ public class TaskAborter {
 
     public synchronized void abort() {
         this.aborted = true;
+        this.abortEpoch++;
 
         // Interrupt all registered threads
         for (Thread task : activeTasks) {
@@ -100,6 +102,10 @@ public class TaskAborter {
      * Abort asynchronously in a daemon thread to avoid blocking the UI thread.
      */
     public void abortAsync() {
+        long epochAtAbort;
+        synchronized (this) {
+            epochAtAbort = abortEpoch;
+        }
         Thread abortThread = new Thread(() -> {
             try {
                 abort();
@@ -108,7 +114,7 @@ public class TaskAborter {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } finally {
-                reset();
+                resetIfEpochUnchanged(epochAtAbort);
             }
         });
         abortThread.setDaemon(true);
@@ -119,12 +125,29 @@ public class TaskAborter {
         return aborted;
     }
 
+    public synchronized long getAbortEpoch() {
+        return abortEpoch;
+    }
+
     public synchronized void reset() {
         this.aborted = false;
         this.generationInProgress = false;
         activeTasks.clear();
         activeProcesses.clear();
         abortHooks.clear();
+    }
+
+    /**
+     * Resetea el estado solo si la epoch de aborto no cambió (no hubo
+     * un nuevo abort() durante la espera). Usado por abortAsync y
+     * ChatController.onAbort para evitar que el reset compita con
+     * el hilo de generación interrumpido.
+     */
+    public synchronized void resetIfEpochUnchanged(long epochAtAbort) {
+        if (abortEpoch != epochAtAbort) {
+            return;
+        }
+        reset();
     }
 
     public int getActiveTaskCount() {

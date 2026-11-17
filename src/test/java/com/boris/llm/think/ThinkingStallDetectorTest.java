@@ -164,4 +164,47 @@ class ThinkingStallDetectorTest {
         assertTrue(d.recordThinking("", List.of(new ThinkingStallDetector.ToolCallSignature("bash", "{\"command\":\"find -maxdepth 6\"}"))));
         assertTrue(d.isStallDetected());
     }
+
+    private static ThinkingStallDetector.ToolCallSignature browserAction(String action, String detail) {
+        return new ThinkingStallDetector.ToolCallSignature("browser_ui_action",
+                "{\"action\":\"" + action + "\",\"detail\":\"" + detail + "\"}");
+    }
+
+    @Test
+    void fourBrowserActionsWithDistinctArgumentsDoNotStall() {
+        ThinkingStallDetector d = detector();
+
+        assertFalse(d.recordThinking("", List.of(browserAction("open", "linkedin.com"))));
+        assertFalse(d.recordThinking("", List.of(browserAction("focus_and_type", "Buscar"))));
+        assertFalse(d.recordThinking("", List.of(browserAction("press_key", "Enter"))));
+        assertFalse(d.recordThinking("", List.of(browserAction("scroll", "down"))));
+        assertFalse(d.isStallDetected());
+        assertEquals(0, d.getConsecutiveSameToolIterations());
+    }
+
+    @Test
+    void fourIdenticalBrowserActionsStall() {
+        ThinkingStallDetector d = detector();
+
+        assertFalse(d.recordThinking("", List.of(browserAction("click_text", "Buscar"))));
+        assertFalse(d.recordThinking("", List.of(browserAction("click_text", "Buscar"))));
+        assertFalse(d.recordThinking("", List.of(browserAction("click_text", "Buscar"))));
+        assertTrue(d.recordThinking("", List.of(browserAction("click_text", "Buscar"))));
+        assertTrue(d.isStallDetected());
+    }
+
+    @Test
+    void browserActionsWithCosmeticArgVariationsStall() {
+        ThinkingStallDetector d = detector();
+
+        assertFalse(d.recordThinking("", List.of(new ThinkingStallDetector.ToolCallSignature("browser_ui_action",
+                "{\"action\":\"scroll\",\"scroll_direction\":\"down\",\"type_text\":null}"))));
+        assertFalse(d.recordThinking("", List.of(new ThinkingStallDetector.ToolCallSignature("browser_ui_action",
+                "{\"type_text\":\"\",\"action\":\"scroll\",\"scroll_direction\":\"down\"}"))));
+        assertFalse(d.recordThinking("", List.of(new ThinkingStallDetector.ToolCallSignature("browser_ui_action",
+                "{\"action\":\"scroll\",\"scroll_direction\":\"down\",\"type_text\":\"\"}"))));
+        assertTrue(d.recordThinking("", List.of(new ThinkingStallDetector.ToolCallSignature("browser_ui_action",
+                "{\"scroll_direction\":\"down\",\"type_text\":null,\"action\":\"scroll\"}"))));
+        assertTrue(d.isStallDetected());
+    }
 }

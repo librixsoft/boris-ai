@@ -16,5 +16,12 @@ public record ToolParameter(
         Class<?> javaType,
         Type genericType,
         String description,
-        boolean required
-) {}
+        boolean required,
+        String[] allowedValues
+) {
+    public ToolParameter {
+        if (allowedValues == null) {
+            allowedValues = new String[0];
+        }
+    }
+}

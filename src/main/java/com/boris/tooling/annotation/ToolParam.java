@@ -31,4 +31,10 @@ public @interface ToolParam {
      * Indica si el parámetro es obligatorio. Por defecto true.
      */
     boolean required() default true;
+
+    /**
+     * Valores permitidos del parámetro para el JSON Schema (constraint enum).
+     * Vacío significa sin restricción de valores.
+     */
+    String[] allowedValues() default {};
 }

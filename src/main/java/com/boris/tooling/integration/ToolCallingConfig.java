@@ -483,15 +483,17 @@ public class ToolCallingConfig {
             name = "browser_ui_action",
             description = "Abre automáticamente una ventana visible de Chromium gestionada por Playwright y automatiza tareas visualmente (Google, LinkedIn, etc.) simulando mouse y teclado humano sin tocar el DOM. No requiere Google Chrome abierto, ni depuración remota, ni comandos en terminal. Ejecuta siempre esta herramienta directamente cuando te pidan interactuar o buscar en el navegador.")
     public String browser_ui_action(
+            @ToolParam(name = "action", description = "Acción a ejecutar: open (navegar al dominio), read_screen (leer texto visible), click_text (hacer clic sobre texto visible), focus_and_type (enfocar campo y escribir), press_key (presionar tecla), scroll (desplazar pantalla), screenshot (capturar pantalla).", required = false, allowedValues = {"open", "read_screen", "click_text", "focus_and_type", "press_key", "scroll", "screenshot"}) String action,
             @ToolParam(name = "target_domain", description = "Dominio o URL de la pestaña objetivo (ej. 'google.com', 'linkedin.com'). Dejar vacío para usar la pestaña activa actual.", required = false) String target_domain,
             @ToolParam(name = "click_target_text", description = "Texto visual del elemento o botón a pulsar (ej. 'Buscar con Google', 'Conectar', 'Buscar', 'Enviar').", required = false) String click_target_text,
+            @ToolParam(name = "focus_target_text", description = "Texto visual del campo a enfocar antes de escribir (ej. 'Buscar', 'Correo electrónico').", required = false) String focus_target_text,
             @ToolParam(name = "type_text", description = "Texto a escribir en el campo activo o enfocado (opcional).", required = false) String type_text,
-            @ToolParam(name = "press_key_after", description = "Tecla física a presionar después de escribir (ej. 'Enter', 'Tab', o vacío).", required = false) String press_key_after,
-            @ToolParam(name = "scroll_direction", description = "Dirección de scroll si se requiere: 'down', 'up' o 'none'.", required = false) String scroll_direction) {
+            @ToolParam(name = "press_key_after", description = "Tecla física a presionar después de escribir (ej. 'Enter', 'Tab', 'Escape').", required = false) String press_key_after,
+            @ToolParam(name = "scroll_direction", description = "Dirección de scroll: 'none', 'down' o 'up'.", required = false, allowedValues = {"none", "up", "down"}) String scroll_direction) {
         String domainDesc = target_domain != null && !target_domain.isBlank() ? target_domain : "pestaña activa";
         ToolProgressNotifier.notify("browser_ui_action", "Ejecutando acción visual en navegador: " + domainDesc);
-        String result = browserVisionUiTool.executeBrowserAction(target_domain, click_target_text, type_text, press_key_after, scroll_direction);
-        String inputSummary = "domain=" + target_domain + " click=" + click_target_text + " type=" + type_text;
+        String result = browserVisionUiTool.executeBrowserAction(action, target_domain, click_target_text, focus_target_text, type_text, press_key_after, scroll_direction);
+        String inputSummary = "domain=" + target_domain + " action=" + action + " click=" + click_target_text + " type=" + type_text;
         notifyToolTokens("browser_ui_action", inputSummary, result);
         return result;
     }
