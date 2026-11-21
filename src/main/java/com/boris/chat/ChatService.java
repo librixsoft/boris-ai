@@ -20,9 +20,6 @@ import com.boris.llm.client.ChatRequest;
 import com.boris.llm.think.ThinkContextHolder;
 import com.boris.llm.think.ThinkModeResolver;
 import com.boris.tooling.ToolResultNotifier;
-import com.boris.tooling.DiffLineNotifier;
-import com.boris.tooling.ToolProgressNotifier;
-import com.boris.tooling.WriteArgsPreviewStreamer;
 import com.boris.tooling.engine.ToolRegistry;
 import com.boris.tooling.integration.ToolCallingConfig;
 import com.boris.settings.Settings;
@@ -30,7 +27,6 @@ import com.boris.settings.SettingsManager;
 import com.boris.task.TaskAborter;
 import com.boris.context.ProjectContext;
 import com.boris.tooling.tool.WebSearchTool;
-import com.boris.tooling.tool.WriteTool;
 import com.boris.context.SessionLogWriter;
 import com.boris.context.ExplorationContextWriter;
 
@@ -55,7 +51,6 @@ public class ChatService {
     private volatile ToolRegistry toolRegistry;
     private volatile String systemPrompt;
     private final StreamingFileWriter fileWriter;
-    private final WriteTool writeTool;
     private static final Pattern THINKING_PATTERN = Pattern.compile("(?is)<(think|thinking|thought|reasoning)>(.*?)</\\1>");
     private static final Pattern ORPHAN_THINK_TAGS = Pattern.compile("(?i)</?(?:think|thinking|thought|reasoning)>");
     private static final Pattern PROJECT_PATH_PATTERN = Pattern.compile("^\\s*(/[^\\s]+|~/[^\\s]+)\\s+(.+)$", Pattern.DOTALL);
@@ -86,7 +81,6 @@ public class ChatService {
         this.thinkingEnabled = thinkingEnabled;
         this.thinkingMode = thinkingMode;
         this.modelName = modelName;
-        this.writeTool = new WriteTool();
         this.fileWriter = new StreamingFileWriter();
         if (taskAborter != null && modelName != null) {
             taskAborter.setActiveModel(modelName);
@@ -219,7 +213,6 @@ public class ChatService {
                 taskAborter.startTask(currentThread);
             }
 
-            fileWriter.reset();
             StringBuilder fullResponse = new StringBuilder();
 
             List<ChatMessage> conv = new ArrayList<>();
@@ -238,9 +231,6 @@ public class ChatService {
 
             ToolRegistry registry = this.toolRegistry != null ? this.toolRegistry :
                     (currentSettings != null ? ToolCallingConfig.buildToolRegistry(currentSettings) : null);
-
-            fileWriter.setSaveFunction((blockPath, blockContent, shownLines) ->
-                    saveBlockViaWriteFileTool(registry, blockPath, blockContent, shownLines));
 
             BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
                     conv,
@@ -269,8 +259,6 @@ public class ChatService {
                     },
                     () -> taskAborter != null && taskAborter.isAborted()
             );
-
-            fileWriter.finish();
 
             String finalResponse = fullResponse.length() > 0 ? fullResponse.toString() : (turn != null ? turn.response() : "");
             if (enableHistory && finalResponse != null && !finalResponse.isEmpty()) {
@@ -321,34 +309,6 @@ public class ChatService {
                 taskAborter.markGenerationEnd();
             }
             ThinkContextHolder.clearAll();
-        }
-    }
-
-    private void saveBlockViaWriteFileTool(ToolRegistry registry, String blockPath, String blockContent, int shownLines) {
-        if (registry == null || !registry.hasTool("write_file")) {
-            throw new IllegalStateException("saveBlockViaWriteFileTool requiere la tool write_file registrada");
-        }
-        try {
-            WriteArgsPreviewStreamer.setLivePreview(new WriteArgsPreviewStreamer.PreviewInfo(blockPath, shownLines));
-            String result;
-            try {
-                ToolProgressNotifier.notify("write_file", "Escribiendo: " + blockPath);
-
-                result = writeTool.execute(java.util.Map.of(
-                        "path", blockPath != null ? blockPath : "",
-                        "content", blockContent != null ? blockContent : ""));
-                ToolCallingConfig.notifyToolTokens("write_file",
-                        (blockPath != null ? blockPath : "") + "\n" + (blockContent != null ? blockContent : ""), result);
-            } finally {
-                WriteArgsPreviewStreamer.clearLivePreview();
-            }
-
-            if (result != null && result.contains("\"success\":false")) {
-                String message = extractJsonProperty(result, "error");
-                DiffLineNotifier.notify("⚠ write_file no guardo " + blockPath + (message != null ? ": " + message : ""));
-            }
-        } catch (Exception e) {
-            DiffLineNotifier.notify("⚠ Error guardando " + blockPath + ": " + e.getMessage());
         }
     }
 

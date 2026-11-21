@@ -18,12 +18,14 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * El modelo puede responder solo con un bloque tool en texto (sin prosa, sin
- * reasoning, sin tool calls nativas). El bucle con streaming debe ejecutarlo
- * en lugar de clasificar el turno como vacio y descartarlo.
+ * Pruebas de streaming para tool calls nativos.
+ * Verifica que los deltas de tool call se acumulen y se ejecuten completos,
+ * y que el path streaming funcione con tool calls nativos.
  */
 class BorisLlmClientStreamedToolBlockTest {
 
@@ -42,15 +44,15 @@ class BorisLlmClientStreamedToolBlockTest {
     }
 
     static class MockStreamClient extends BorisLlmClient {
-        private final Queue<List<String>> streamedResponses = new ArrayDeque<>();
-        private final List<String> recordedUserContents = new ArrayList<>();
+        private final Queue<List<Object>> streamedResponses = new ArrayDeque<>();
+        private final List<ChatRequest> recordedRequests = new ArrayList<>();
 
-        MockStreamClient() {
+        public MockStreamClient() {
             super("http://localhost:11434");
         }
 
-        public void enqueueStreamedResponse(List<String> contentPieces) {
-            streamedResponses.add(contentPieces);
+        public void enqueueStreamedResponse(List<Object> pieces) {
+            streamedResponses.add(pieces);
         }
 
         @Override
@@ -60,14 +62,18 @@ class BorisLlmClientStreamedToolBlockTest {
                                Consumer<Throwable> onError,
                                Supplier<Boolean> isAborted) {
             recordRequest(request);
-            List<String> pieces = streamedResponses.poll();
+            List<Object> pieces = streamedResponses.poll();
             if (pieces == null) {
                 pieces = List.of("Respuesta por defecto");
             }
-            for (String piece : pieces) {
-                ChatChunk chunk = new ChatChunk("id", List.of(new ChatChunk.ChunkChoice(
-                        0, new ChatChunk.Delta("assistant", piece, null, null), null)));
-                onChunk.accept(chunk);
+            for (Object piece : pieces) {
+                if (piece instanceof ChatChunk chunk) {
+                    onChunk.accept(chunk);
+                } else if (piece instanceof String str) {
+                    ChatChunk chunk = new ChatChunk("id", List.of(new ChatChunk.ChunkChoice(
+                            0, new ChatChunk.Delta("assistant", str, null, null), null)));
+                    onChunk.accept(chunk);
+                }
             }
             if (onComplete != null) {
                 onComplete.run();
@@ -75,17 +81,11 @@ class BorisLlmClientStreamedToolBlockTest {
         }
 
         private void recordRequest(ChatRequest request) {
-            List<ChatMessage> messages = request.messages();
-            if (messages != null && !messages.isEmpty()) {
-                ChatMessage last = messages.getLast();
-                if (last != null && last.content() != null) {
-                    recordedUserContents.add(last.content());
-                }
-            }
+            recordedRequests.add(request);
         }
 
-        public List<String> getRecordedUserContents() {
-            return recordedUserContents;
+        public List<ChatRequest> getRecordedRequests() {
+            return recordedRequests;
         }
     }
 
@@ -102,14 +102,26 @@ class BorisLlmClientStreamedToolBlockTest {
     }
 
     @Test
-    void streamedResponseWithOnlyToolBlock_executesToolAndCompletesTurn() throws Exception {
+    void streamedNativeToolCall_executesAndCompletesTurn() throws Exception {
         CountingBrowserTools tools = new CountingBrowserTools();
         ToolRegistry registry = ToolRegistry.from(tools);
         MockStreamClient client = new MockStreamClient();
-        client.enqueueStreamedResponse(List.of(
-                "```tool:browser_ui_action\n",
-                "{\"target_domain\": \"google.com\"}\n",
-                "```\n"));
+
+        // Chunk con tool call delta (id, name, arguments)
+        ChatChunk.ToolCallChunk tc = new ChatChunk.ToolCallChunk(
+                0, "call_1", "function",
+                new ToolCallFunction("browser_ui_action", "{\"target_domain\":\"google.com\"}")
+        );
+        ChatChunk.Delta deltaWithTool = new ChatChunk.Delta(
+                "assistant", null, null, List.of(tc)
+        );
+        ChatChunk.ChunkChoice choiceWithTool = new ChatChunk.ChunkChoice(0, deltaWithTool, null);
+        ChatChunk chunkWithTool = new ChatChunk("id", List.of(choiceWithTool));
+
+        client.enqueueStreamedResponse(List.<Object>of(
+                "Voy a abrir el navegador...",
+                chunkWithTool
+        ));
         client.enqueueStreamedResponse(List.of("Ventana del navegador abierta."));
 
         List<ChatMessage> conv = List.of(ChatMessage.user("abre una ventana de browser"));
@@ -118,33 +130,33 @@ class BorisLlmClientStreamedToolBlockTest {
                 }, () -> false);
 
         assertEquals(1, tools.browserCallCount(),
-                "El bloque tool de texto debe ejecutarse aunque el turno no tenga prosa");
+                "El tool call nativo en streaming debe ejecutarse");
         assertEquals("Ventana del navegador abierta.", turn.response());
 
-        boolean toolResultsSent = client.getRecordedUserContents().stream()
-                .anyMatch(c -> c.contains("[TOOL_RESULTS]"));
-        assertTrue(toolResultsSent, "El resultado de la tool debe enviarse al modelo en la siguiente iteración");
+        // El request siguiente debe contener el tool result con el call_id correcto
+        assertFalse(client.getRecordedRequests().isEmpty());
+        ChatRequest secondReq = client.getRecordedRequests().get(1);
+        assertNotNull(secondReq.messages());
+        boolean foundToolResult = secondReq.messages().stream()
+                .anyMatch(m -> "tool".equals(m.role()) && m.toolCallId() != null && m.toolCallId().equals("call_1"));
+        assertTrue(foundToolResult, "El request siguiente debe contener el tool result con call_id call_1");
     }
 
     @Test
-    void streamedResponseWithProseAndToolBlock_executesToolAndCompletesTurn() throws Exception {
+    void streamedResponseWithoutToolCalls_endsAsNormalChat() throws Exception {
         CountingBrowserTools tools = new CountingBrowserTools();
         ToolRegistry registry = ToolRegistry.from(tools);
         MockStreamClient client = new MockStreamClient();
-        client.enqueueStreamedResponse(List.of(
-                "Abriendo el navegador...\n",
-                "```tool:browser_ui_action\n",
-                "{\"target_domain\": \"google.com\"}\n",
-                "```\n"));
-        client.enqueueStreamedResponse(List.of("Listo."));
+        client.enqueueStreamedResponse(List.of("¡Hola! ¿Cómo estás?"));
 
-        List<ChatMessage> conv = List.of(ChatMessage.user("abre una ventana de browser"));
+        List<ChatMessage> conv = List.of(ChatMessage.user("Hola"));
         BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
                 conv, "test-model", "system", registry, null, 0.7, chunk -> {
                 }, () -> false);
 
-        assertEquals(1, tools.browserCallCount(),
-                "El bloque tool de texto debe ejecutarse en el path streaming");
-        assertEquals("Listo.", turn.response());
+        assertEquals("¡Hola! ¿Cómo estás?", turn.response());
+        assertEquals(TaskExecutionState.IDLE, client.getTaskState());
+        assertEquals(0, tools.browserCallCount(),
+                "No debe ejecutarse ninguna herramienta si el modelo no emite tool calls");
     }
 }

@@ -130,25 +130,27 @@ class AgentLoopRegressionTest {
     }
 
     @Test
-    @DisplayName("Regresión text tool blocks: bloques ```tool:bash con find incremental cortan en 3 intentos")
-    void incrementalMaxdepthFindTextBlocks_abortsImmediatelyAtMaxBlockedCommands() throws Exception {
+    @DisplayName("Regresión native tool calls: tool calls nativos con find incremental cortan en 3 intentos")
+    void incrementalMaxdepthFindNativeToolCalls_abortsImmediatelyAtMaxBlockedCommands() throws Exception {
         MockAgentClient client = new MockAgentClient();
 
         for (int depth = 3; depth <= 22; depth++) {
-            String block = "Buscando...\n```tool:bash {\"command\":\"find /workspace -maxdepth " + depth + " -type f 2>/dev/null\"}\n```";
-            client.enqueueResponse(createTextResponse(block));
+            String cmd = "{\"command\":\"find /workspace -maxdepth " + depth + " -type f 2>/dev/null\"}";
+            client.enqueueResponse(createToolResponse("Buscando en profundidad " + depth, "bash", cmd));
         }
         client.enqueueResponse(createTextResponse("Terminado."));
 
-        List<ChatMessage> conv = List.of(ChatMessage.user("cambia el theme"));
+        List<ChatMessage> conv = List.of(ChatMessage.user("cambia el theme de java tui lanterna a color tema claro"));
         BorisLlmClient.ChatTurn turn = client.executeChatWithTools(
                 conv, "test-model", "system-prompt", registry, null, 0.7, null, () -> false
         );
 
         assertNotNull(turn);
-        assertEquals(3, client.getRecordedRequests().size(), "Los text tool blocks deben frenarse en 3 intentos bloqueados");
-        assertEquals(TaskExecutionState.INCOMPLETE, client.getTaskState());
-        assertTrue(turn.response().contains("comandos bloqueados") || turn.response().contains("bucle"));
+        // Debe frenarse en exactamente 3 requests (límite de comandos bloqueados consecutivos)
+        assertEquals(3, client.getRecordedRequests().size(), "El agente no debe continuar intentando comandos bloqueados");
+        assertEquals(TaskExecutionState.INCOMPLETE, client.getTaskState(), "El estado debe ser INCOMPLETE al frenar el bucle");
+        assertTrue(turn.response().contains("comandos bloqueados") || turn.response().contains("bucle"),
+                "La respuesta debe advertir al usuario sobre el bucle o bloqueo");
     }
 
     @Test

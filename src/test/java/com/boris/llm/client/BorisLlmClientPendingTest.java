@@ -96,6 +96,14 @@ class BorisLlmClientPendingTest {
         return new ChatResponse("id", List.of(choice));
     }
 
+    private static ChatResponse createToolResponse(String text, String toolName, String toolArgs, String callId) {
+        ToolCallFunction fn = new ToolCallFunction(toolName, toolArgs);
+        ToolCall call = new ToolCall(callId, "function", fn);
+        ChatMessage msg = ChatMessage.assistant(text, List.of(call), null);
+        ChatResponse.Choice choice = new ChatResponse.Choice(0, msg, "tool_calls");
+        return new ChatResponse("id", List.of(choice));
+    }
+
     private ToolRegistry mockRegistry;
 
     @BeforeEach
@@ -192,10 +200,10 @@ class BorisLlmClientPendingTest {
     }
 
     @Test
-    void textToolBlockPayload_isNotCorruptedWithGarbageText() throws Exception {
+    void nativeToolCall_sendsToolResultWithCorrectCallId() throws Exception {
         MockBorisLlmClient client = new MockBorisLlmClient();
-        // Turno 1: el modelo emite un tool block en texto (protocolo ```tool:)
-        client.enqueueResponse(createTextResponse("Explorando...\n```tool:list_files {\"path\":\"/x\"}\n```"));
+        // Turno 1: read_file nativo
+        client.enqueueResponse(createToolResponse("Leyendo...", "read_file", "{\"path\":\"Foo.java\"}", "call_1"));
         // Turno 2: texto final
         client.enqueueResponse(createTextResponse("Listo."));
 
@@ -206,12 +214,13 @@ class BorisLlmClientPendingTest {
 
         assertEquals("Listo.", turn.response());
 
-        boolean payloadSent = client.getRecordedRequests().stream().anyMatch(req ->
-                req.messages().stream().anyMatch(m ->
-                        m.content() != null && m.content().contains("[TOOL_RESULTS]"))
-        );
-        assertTrue(payloadSent);
+        // El segundo request debe contener el tool result con el call_id correcto
+        boolean foundToolResult = client.getRecordedRequests().stream().skip(1).findFirst()
+                .orElseThrow().messages().stream()
+                .anyMatch(m -> "tool".equals(m.role()) && m.toolCallId() != null && m.toolCallId().equals("call_1"));
+        assertTrue(foundToolResult, "El tool result debe tener el call_id correcto");
 
+        // No debe haber texto corrupto en los payloads
         boolean corruptedPayloadFound = client.getRecordedRequests().stream().anyMatch(req ->
                 req.messages().stream().anyMatch(m ->
                         m.content() != null && m.content().contains("emporada"))
@@ -244,13 +253,12 @@ class BorisLlmClientPendingTest {
     }
 
     @Test
-    void textToolBlockLoopWithEmptyReasoning_stopsWithIncompleteState() throws Exception {
+    void nativeToolCall_loopWithEmptyReasoning_stopsWithIncompleteState() throws Exception {
         MockBorisLlmClient client = new MockBorisLlmClient();
-        // Mismo tool block de texto 3 veces consecutivas: el deduplicador
-        // devuelve [DUPLICADO] en la 2da y [STOPPED] en la 3ra.
-        client.enqueueResponse(createTextResponse("Explorando...\n```tool:list_files {\"path\":\"/x\"}\n```"));
-        client.enqueueResponse(createTextResponse("Explorando...\n```tool:list_files {\"path\":\"/x\"}\n```"));
-        client.enqueueResponse(createTextResponse("Explorando...\n```tool:list_files {\"path\":\"/x\"}\n```"));
+        // Mismo tool con mismos argumentos 3 veces consecutivas
+        client.enqueueResponse(createToolResponse("Explorando...", "read_file", "{\"path\":\"/x\"}", "call_1"));
+        client.enqueueResponse(createToolResponse("Explorando...", "read_file", "{\"path\":\"/x\"}", "call_2"));
+        client.enqueueResponse(createToolResponse("Explorando...", "read_file", "{\"path\":\"/x\"}", "call_3"));
         // Respuesta final que nunca debería consumirse si el deduplicador corta antes
         client.enqueueResponse(createTextResponse("Fin."));
 
@@ -286,11 +294,11 @@ class BorisLlmClientPendingTest {
     }
 
     @Test
-    void textToolBlockBlockedCommands_stopsWithIncompleteState() throws Exception {
+    void nativeToolCall_blockedCommands_stopsWithIncompleteState() throws Exception {
         MockBorisLlmClient client = new MockBorisLlmClient();
-        client.enqueueResponse(createTextResponse("Buscando...\n```tool:bash {\"command\":\"find . -maxdepth 3\"}\n```"));
-        client.enqueueResponse(createTextResponse("Buscando...\n```tool:bash {\"command\":\"find . -maxdepth 4\"}\n```"));
-        client.enqueueResponse(createTextResponse("Buscando...\n```tool:bash {\"command\":\"find . -maxdepth 5\"}\n```"));
+        client.enqueueResponse(createToolResponse("Buscando...", "bash", "{\"command\":\"find . -maxdepth 3\"}", "call_1"));
+        client.enqueueResponse(createToolResponse("Buscando...", "bash", "{\"command\":\"find . -maxdepth 4\"}", "call_2"));
+        client.enqueueResponse(createToolResponse("Buscando...", "bash", "{\"command\":\"find . -maxdepth 5\"}", "call_3"));
         client.enqueueResponse(createTextResponse("Fin."));
 
         List<ChatMessage> conv = List.of(ChatMessage.user("Busca archivos"));

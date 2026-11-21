@@ -228,24 +228,6 @@ public class ToolCallingConfig {
 
     // ========== Core Single-Item Tools ==========
 
-    // DISABLED: bulk_edit - replaced by streaming_line_* tools
-    /*
-    @Tool(
-            name = "bulk_edit",
-            description = "Create or replace a file with streaming visual feedback. Shows each line as it writes (green diff).")
-    public String bulk_edit(
-            @ToolParam(description = "Path for the file to create/overwrite") String path,
-            @ToolParam(description = "Complete file content") String content) {
-        ToolProgressNotifier.notify("bulk_edit", "Validando y escribiendo: " + path);
-        java.util.Map<String, Object> args = new java.util.LinkedHashMap<>();
-        args.put("path", path);
-        args.put("content", content != null ? content : "");
-        String result = com.boris.edit.BulkEditTool.bulk_edit(args);
-        notifyToolTokens("bulk_edit", path + "\n" + content, result);
-        return result;
-    }
-    */
-
     @Tool(
             name = "write_file",
             description = "Create a NEW file or fully overwrite the content of an existing one. Each line is shown in the chat while it writes and the file is saved at the end. Do NOT use it for partial changes to an existing file; use apply_edit for those.")

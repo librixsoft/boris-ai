@@ -84,7 +84,9 @@ class ChatServiceTest {
         String prompt = com.boris.tooling.integration.ToolCallingConfig.loadSystemPrompt(null);
         assertNotNull(prompt);
         assertTrue(prompt.contains("maven_build"));
-        assertTrue(prompt.contains("PROTOCOLO DE HERRAMIENTAS"));
+        assertTrue(prompt.contains("tool calling nativo"));
+        assertFalse(prompt.contains("PROTOCOLO DE HERRAMIENTAS"));
+        assertFalse(prompt.contains("FORMATO STREAMING PARA CREAR ARCHIVOS"));
     }
 
     @Test

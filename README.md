@@ -27,7 +27,7 @@ Boris connects your local models with a rich set of developer tools to inspect c
 - 🏠 **100% Local AI Execution**: Exclusively engineered for local model runtimes (Ollama / local inference endpoints). Your code and data never leave your machine or local network.
 - 🖥️ **Terminal User Interface (TUI)**: Rich interactive full-screen terminal interface powered by Lanterna, featuring Markdown rendering, scrolling, mouse capture, command menu, and live token usage tracking.
 - 🧠 **Native Reasoning & `<think>` Blocks**: Real-time streaming and inspection of reasoning traces with configurable reasoning effort (`high`, `medium`, `low`, `none`) for local models with thinking capabilities (e.g., Granite 4.2, Qwen, DeepSeek).
-- 🛠️ **Autonomous Tool Execution**: Built-in set of developer and system tools with sequential execution and automatic result feedback:
+- 🛠️ **Autonomous Tool Execution**: Built-in set of developer and system tools invoked via **native tool calling** (OpenAI function calling / Ollama `tool_calls`), with sequential execution and automatic result feedback. No text-based protocol blocks (e.g. ```` ```tool:```` or ```` ```lenguaje:ruta````) are used.
   - **Filesystem & Code**: Read, write, surgically edit, list, and delete files with precision.
   - **Shell & Execution**: Run shell commands, inspect output, and capture execution results.
   - **Documents**: Generate PDFs and create/inspect Office documents (Word, Excel).

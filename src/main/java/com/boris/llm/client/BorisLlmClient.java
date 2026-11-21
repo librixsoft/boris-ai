@@ -21,7 +21,6 @@ import com.boris.exceptions.WebSearchFallbackException;
 import com.boris.task.TaskExecutionState;
 import com.boris.task.TaskStateNotifier;
 import com.boris.tooling.ToolProgressNotifier;
-import com.boris.tooling.ToolBlockProtocol;
 import com.boris.tooling.WriteArgsPreviewStreamer;
 import com.boris.tooling.engine.ToolRegistry;
 import com.boris.llm.think.ThinkingStallDetector;
@@ -182,8 +181,6 @@ public class BorisLlmClient {
             java.util.regex.Pattern.compile("(?is)<(think|thinking|thought|reasoning)>(.*?)</\\1>");
     private static final java.util.regex.Pattern ORPHAN_THINK_TAGS =
             java.util.regex.Pattern.compile("(?i)</?(?:think|thinking|thought|reasoning)>");
-    private static final java.util.regex.Pattern STREAMING_EDIT_PATTERN =
-            java.util.regex.Pattern.compile("```\\w+:[^\\n]+");
 
     private static final int MAX_IDENTICAL_TOOL_EXECUTIONS_PER_TURN = 1;
     private static final int MAX_CONSECUTIVE_BLOCKED_COMMANDS = 3;
@@ -232,8 +229,7 @@ public class BorisLlmClient {
             ChatMessage message,
             List<ToolCall> nativeToolCalls,
             List<Integer> nativeCallIndexes,
-            WriteArgsPreviewStreamer previewStreamer,
-            List<ToolBlockProtocol.ToolBlock> textToolBlocks
+            WriteArgsPreviewStreamer previewStreamer
     ) {}
 
     private StreamedAssistantMessage streamAssistantMessage(
@@ -332,11 +328,8 @@ public class BorisLlmClient {
             }
         }
 
-        // El contenido del mensaje streamed se conserva crudo (sin filtrar bloques tool)
-        // para que el bucle pueda parsearlos, ejecutarlos y mantenerlos en el historial,
-        // igual que en el path sincronico.
+        // El contenido del mensaje streamed se conserva crudo para el bucle de tools nativas.
         String rawContentStr = content.toString();
-        List<ToolBlockProtocol.ToolBlock> textToolBlocks = ToolBlockProtocol.parse(rawContentStr);
 
         List<ToolCall> nativeToolCalls = new ArrayList<>();
         List<Integer> nativeCallIndexes = new ArrayList<>();
@@ -354,10 +347,10 @@ public class BorisLlmClient {
                 nativeToolCalls.isEmpty() ? null : nativeToolCalls,
                 reasoning.length() > 0 ? reasoning.toString() : null);
 
-        if (nativeToolCalls.isEmpty() && textToolBlocks.isEmpty()) {
-            return new StreamedAssistantMessage(streamedMessage, null, null, null, null);
+        if (nativeToolCalls.isEmpty()) {
+            return new StreamedAssistantMessage(streamedMessage, null, null, null);
         }
-        return new StreamedAssistantMessage(streamedMessage, nativeToolCalls, nativeCallIndexes, previewStreamer, textToolBlocks);
+        return new StreamedAssistantMessage(streamedMessage, nativeToolCalls, nativeCallIndexes, previewStreamer);
     }
 
     /**
@@ -410,7 +403,6 @@ public class BorisLlmClient {
         // Resetear la guardia anti-drilling al inicio de cada turno (llamada a executeChatWithTools).
         drillingGuard.reset();
         int consecutiveEmptyIterations = 0;
-        List<ThinkingStallDetector.ToolCallSignature> pendingTextToolSignatures = new ArrayList<>();
 
         boolean taskPending = false;
         boolean hasModified = false;
@@ -440,7 +432,8 @@ public class BorisLlmClient {
                     .model(model)
                     .messages(fullMessages)
                     .temperature(temperature)
-                    .parallelToolCalls(false);
+                    .parallelToolCalls(false)
+                    .tools(toolRegistry != null ? toolRegistry.getOpenAiToolsSchema() : null);
 
             boolean thinkingRequested = thinkMode != null && !thinkMode.isBlank()
                     && !"none".equalsIgnoreCase(thinkMode) && !"off".equalsIgnoreCase(thinkMode);
@@ -463,15 +456,10 @@ public class BorisLlmClient {
                 assistantMsg = response.getFirstMessage();
             }
 
-            boolean hasStreamedTextToolBlocks = streamedMessage != null
-                    && streamedMessage.textToolBlocks() != null
-                    && !streamedMessage.textToolBlocks().isEmpty();
             boolean emptyAssistantTurn = assistantMsg == null
-                    || (streamedMessage != null
-                            && (assistantMsg.content() == null || assistantMsg.content().isBlank())
+                    || (assistantMsg.content() == null || assistantMsg.content().isBlank())
                             && (assistantMsg.toolCalls() == null || assistantMsg.toolCalls().isEmpty())
-                            && (assistantMsg.reasoningContent() == null || assistantMsg.reasoningContent().isBlank())
-                            && !hasStreamedTextToolBlocks);
+                            && (assistantMsg.reasoningContent() == null || assistantMsg.reasoningContent().isBlank());
 
             if (emptyAssistantTurn) {
                 if (taskPending) {
@@ -508,16 +496,9 @@ public class BorisLlmClient {
             String cleanContent = THINK_BLOCK_PATTERN.matcher(rawContent).replaceAll("").trim();
             cleanContent = ORPHAN_THINK_TAGS.matcher(cleanContent).replaceAll("").trim();
 
-            if (STREAMING_EDIT_PATTERN.matcher(cleanContent).find()) {
-                hasModified = true;
-            }
-
             // Detectar estancamiento por thinking repetitivo sin tool calls
-            // Las firmas de tool blocks de texto ejecutados en la iteración anterior
-            // se combinan aquí para que el detector también los vea.
             List<ThinkingStallDetector.ToolCallSignature> toolCallSignatures =
-                    new ArrayList<>(pendingTextToolSignatures);
-            pendingTextToolSignatures.clear();
+                    new ArrayList<>();
             if (assistantMsg.toolCalls() != null) {
                 for (ToolCall tc : assistantMsg.toolCalls()) {
                     if (tc.function() != null) {
@@ -550,33 +531,10 @@ public class BorisLlmClient {
             }
 
             List<ToolCall> toolCalls = assistantMsg.toolCalls();
-            // Obtener bloques tool de texto del stream (ya filtrados por streamAssistantMessage)
-            List<ToolBlockProtocol.ToolBlock> textToolBlocks;
-            if (streamedMessage != null && streamedMessage.textToolBlocks() != null) {
-                textToolBlocks = streamedMessage.textToolBlocks();
-            } else if (toolRegistry != null && !cleanContent.isBlank()) {
-                textToolBlocks = ToolBlockProtocol.parse(cleanContent);
-            } else {
-                textToolBlocks = java.util.List.of();
-            }
-
-            // Límite de bloques por turno: si el modelo emite más de K bloques, error estructurado
-            final int MAX_TEXT_BLOCKS_PER_TURN = 10;
-            if (textToolBlocks.size() > MAX_TEXT_BLOCKS_PER_TURN) {
-                TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
-                String warningMsg = "\n\n⚠️ El modelo emitió más de " + MAX_TEXT_BLOCKS_PER_TURN
-                        + " bloques tool en un solo turno. Deteniendo el turno para evitar duplicación descontrolada.";
-                if (onChunk != null) {
-                    emitText(warningMsg, onChunk);
-                }
-                String thinkingResult = buildThinkingResult(totalThinking);
-                return new ChatTurn(warningMsg.trim(), thinkingResult);
-            }
 
             // Detección de iteraciones vacías: LLM devuelve texto sin tool calls y sin thinking
             boolean hasToolCalls = toolCalls != null && !toolCalls.isEmpty();
-            boolean hasTextToolBlocks = !textToolBlocks.isEmpty();
-            if (!hasToolCalls && !hasTextToolBlocks) {
+            if (!hasToolCalls) {
                 if (assistantMsg.reasoningContent() == null || assistantMsg.reasoningContent().isBlank()) {
                     consecutiveEmptyIterations++;
                     if (consecutiveEmptyIterations >= 3) {
@@ -601,8 +559,7 @@ public class BorisLlmClient {
                     return new ChatTurn(cleanContent, thinkingResult);
                 }
 
-                // Caso B: Se ejecutaron tools y el modelo decide finalizar su turno. Se entrega la respuesta tal cual,
-                // sin reintentos ni exigencia de modificaciones.
+                // Caso B: Se ejecutaron tools y el modelo decide finalizar su turno.
                 taskPending = false;
                 TaskStateNotifier.setState(hasModified ? TaskExecutionState.COMPLETED : TaskExecutionState.IDLE);
                 if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
@@ -614,140 +571,7 @@ public class BorisLlmClient {
                 consecutiveEmptyIterations = 0;
             }
 
-            if (!textToolBlocks.isEmpty()) {
-                    if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
-                        emitText(cleanContent + "\n", onChunk);
-                    }
-
-                    fullMessages.add(ChatMessage.assistant(cleanContent));
-
-                    StringBuilder resultsPayload = new StringBuilder("[TOOL_RESULTS]\n");
-                    for (ToolBlockProtocol.ToolBlock block : textToolBlocks) {
-                        if (isAborted != null && Boolean.TRUE.equals(isAborted.get())) {
-                            TaskStateNotifier.setState(TaskExecutionState.IDLE);
-                            return new ChatTurn("", null);
-                        }
-
-                        // Si el JSON del bloque está truncado o inválido, devolver error estructurado
-                        if (!block.validJson()) {
-                            String errorMsg = "Error: el bloque tool '" + block.toolName()
-                                    + "' tiene argumentos JSON inválidos o truncados. No se ejecutó.";
-                            resultsPayload.append("<tool name=\"").append(block.toolName()).append("\">\n")
-                                    .append(errorMsg)
-                                    .append("\n</tool>\n");
-                            continue;
-                        }
-
-                        // Deduplicación: si la firma ya fue ejecutada en este turno,
-                        // devolver el resultado previo al modelo sin volver a ejecutar.
-                        String duplicateMsg = toolCallDeduplicator.recordExecution(
-                                block.toolName(), block.jsonArguments(), null);
-                        if (duplicateMsg != null) {
-                            if (duplicateMsg.startsWith("[STOPPED]")) {
-                                TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
-                                String thinkingResult = buildThinkingResult(totalThinking);
-                                return new ChatTurn(duplicateMsg, thinkingResult);
-                            }
-                            resultsPayload.append("<tool name=\"").append(block.toolName()).append("\">\n")
-                                    .append(duplicateMsg)
-                                    .append("\n</tool>\n");
-                            continue;
-                        }
-
-                        pendingTextToolSignatures.add(new ThinkingStallDetector.ToolCallSignature(
-                                block.toolName(),
-                                block.jsonArguments() != null ? block.jsonArguments() : "{}"));
-
-                        String toolResult;
-                        try {
-                            toolResult = toolRegistry != null
-                                    ? toolRegistry.execute(block.toolName(), block.jsonArguments())
-                                    : "{\"error\":\"toolRegistry no disponible\"}";
-                        } catch (Exception e) {
-                            toolResult = "Error ejecutando " + block.toolName() + ": " + e.getMessage();
-                        }
-
-                        // Actualizar el resultado guardado en el deduplicador para futuras llamadas duplicadas
-                        toolCallDeduplicator.recordExecution(block.toolName(), block.jsonArguments(), toolResult);
-
-                        // Guardia anti-drilling: detectar drilling en list_files.
-                        if ("list_files".equals(block.toolName())) {
-                            String listPath = extractToolArg(block.jsonArguments(), "path");
-                            if (listPath != null && drillingGuard.recordDirectoryAccess(listPath)) {
-                                TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
-                                String warningMsg = "\n\n⚠️ Se detectó drilling en list_files: el modelo está bajando nivel por nivel en lugar de usar el parámetro depth. Deteniendo el agente.";
-                                if (onChunk != null) {
-                                    emitText(warningMsg, onChunk);
-                                }
-                                String thinkingResult = buildThinkingResult(totalThinking);
-                                return new ChatTurn(warningMsg.trim(), thinkingResult);
-                            }
-                        }
-
-                        // Post-check: detectar falta de progreso informativo (mismo resultado consecutivo)
-                        boolean progressLoop = toolProgressGuard.recordResult(
-                                block.toolName(), block.jsonArguments(), toolResult);
-                        if (progressLoop) {
-                            TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
-                            String warningMsg = "\n\n⚠️ Se detectó un bucle de progreso: la herramienta '"
-                                    + block.toolName() + "' devolvió el mismo resultado consecutivamente. Deteniendo el agente.";
-                            if (onChunk != null) {
-                                emitText(warningMsg, onChunk);
-                            }
-                            String thinkingResult = buildThinkingResult(totalThinking);
-                            return new ChatTurn(warningMsg.trim(), thinkingResult);
-                        }
-
-                        // Detectar fallos consecutivos de browser
-                        if ("browser_ui_action".equals(block.toolName()) && isBrowserActionFailure(toolResult)) {
-                            consecutiveBrowserFailures++;
-                            if (consecutiveBrowserFailures >= MAX_CONSECUTIVE_BROWSER_FAILURES) {
-                                TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
-                                String warningMsg = "\n\n⚠️ La acción de browser falló " + MAX_CONSECUTIVE_BROWSER_FAILURES
-                                        + " veces consecutivas. Deteniendo el turno para evitar un bucle de reintentos.";
-                                if (onChunk != null) {
-                                    emitText(warningMsg, onChunk);
-                                }
-                                String thinkingResult = buildThinkingResult(totalThinking);
-                                return new ChatTurn(warningMsg.trim(), thinkingResult);
-                            }
-                        } else if ("browser_ui_action".equals(block.toolName())) {
-                            consecutiveBrowserFailures = 0;
-                        }
-
-                        taskPending = true;
-                        TaskStateNotifier.setState(TaskExecutionState.TASK_IN_PROGRESS);
-
-                        if (isCommandBlocked(toolResult)) {
-                            consecutiveBlockedCommands++;
-                            if (consecutiveBlockedCommands >= MAX_CONSECUTIVE_BLOCKED_COMMANDS) {
-                                TaskStateNotifier.setState(TaskExecutionState.INCOMPLETE);
-                                String warningMsg = "\n\n⚠️ El agente intentó ejecutar " + MAX_CONSECUTIVE_BLOCKED_COMMANDS
-                                        + " comandos bloqueados consecutivamente. Deteniendo el agente para evitar un bucle infinito.";
-                                if (onChunk != null) {
-                                    emitText(warningMsg, onChunk);
-                                }
-                                String thinkingResult = buildThinkingResult(totalThinking);
-                                return new ChatTurn(warningMsg.trim(), thinkingResult);
-                            }
-                        } else {
-                            consecutiveBlockedCommands = 0;
-                        }
-
-                        if (isModificationResult(block.toolName(), toolResult)) {
-                            hasModified = true;
-                        }
-
-                        resultsPayload.append("<tool name=\"").append(block.toolName()).append("\">\n")
-                                .append(toolResult)
-                                .append("\n</tool>\n");
-                    }
-
-                    fullMessages.add(ChatMessage.user(resultsPayload.toString()));
-                    continue;
-                }
-
-            // El modelo solicitó invocar herramientas
+            // El modelo solicitó invocar herramientas (native tool calls)
             if (streamedMessage == null && onChunk != null && !cleanContent.isEmpty()) {
                 emitText(cleanContent + "\n", onChunk);
             }

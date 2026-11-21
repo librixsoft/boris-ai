@@ -1,276 +1,26 @@
 package com.boris.edit;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 import com.boris.tooling.DiffLineNotifier;
-import com.boris.context.ProjectContext;
-import com.boris.context.SearchSessionContext;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class StreamingFileWriterTest {
 
-    @TempDir
-    Path tempDir;
-
     private StreamingFileWriter writer;
     private List<String> notifications;
 
     @BeforeEach
-    void setUp() {
+    private void setUp() {
         writer = new StreamingFileWriter();
         notifications = new ArrayList<>();
         DiffLineNotifier.clearListeners();
         DiffLineNotifier.addListener(notifications::add);
-        ProjectContext.setProjectPath(tempDir.toString());
-        SearchSessionContext.setSessionId("test-session");
-    }
-
-    @AfterEach
-    void tearDown() {
-        ProjectContext.clear();
-        SearchSessionContext.clear();
-    }
-
-    @Test
-    void testDetectsCodeBlockWithPath() {
-        String input = "Texto normal\n```java:test/App.java\npackage test;\n```\nMás texto";
-
-        Path targetFile = tempDir.resolve("test/App.java");
-        String inputWithAbsPath = input.replace("test/App.java", targetFile.toString());
-
-        String result = writer.processChunk(inputWithAbsPath);
-        writer.finish();
-
-        assertTrue(Files.exists(targetFile), "El archivo debería existir");
-    }
-
-    @Test
-    void testWritesContentToFile() throws IOException {
-        Path targetFile = tempDir.resolve("src/MiClase.java");
-
-        String input = "```java:" + targetFile + "\n" +
-                      "package com.test;\n" +
-                      "\n" +
-                      "public class MiClase {\n" +
-                      "}\n" +
-                      "```\n";
-
-        writer.processChunk(input);
-        writer.finish();
-
-        assertTrue(Files.exists(targetFile));
-        String content = Files.readString(targetFile);
-        assertTrue(content.contains("package com.test;"));
-        assertTrue(content.contains("public class MiClase"));
-    }
-
-    @Test
-    void testWritesHtmlFileWithClosingTags() throws IOException {
-        Path targetFile = tempDir.resolve("public/index.html");
-
-        String input = "```html:" + targetFile + "\n" +
-                      "<!DOCTYPE html>\n" +
-                      "<html lang=\"es\">\n" +
-                      "<head>\n" +
-                      "    <meta charset=\"UTF-8\">\n" +
-                      "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
-                      "    <title>Hola Mundo</title>\n" +
-                      "</head>\n" +
-                      "<body>\n" +
-                      "    <h1>Hola Mundo</h1>\n" +
-                      "</body>\n" +
-                      "</html>\n" +
-                      "```\n";
-
-        String nonCode = writer.processChunk(input);
-        writer.finish();
-
-        assertTrue(Files.exists(targetFile));
-        String content = Files.readString(targetFile);
-        assertTrue(content.contains("</body>"), "El archivo HTML debería contener </body> pero era:\n" + content);
-        assertTrue(content.contains("</html>"), "El archivo HTML debería contener </html> pero era:\n" + content);
-        assertEquals("", nonCode.trim(), "No debería haber texto no-código filtrado al chat");
-    }
-
-    @Test
-    void testReturnsNonCodeText() {
-        Path targetFile = tempDir.resolve("test.java");
-
-        String input = "Esto es texto normal\n" +
-                      "```java:" + targetFile + "\n" +
-                      "codigo\n" +
-                      "```\n" +
-                      "Más texto normal\n";
-
-        String result = writer.processChunk(input);
-        writer.finish();
-
-        assertTrue(result.contains("Esto es texto normal"));
-        assertTrue(result.contains("Más texto normal"));
-        assertFalse(result.contains("codigo"));
-    }
-
-    @Test
-    void testFiltersToolXmlNoise() {
-        String input = "<function_calls>\n" +
-                      "<invoke name=\"write_file\">\n" +
-                      "Texto normal\n" +
-                      "</invoke>\n" +
-                      "</function_calls>\n";
-
-        String result = writer.processChunk(input);
-        writer.finish();
-
-        assertTrue(result.contains("Texto normal"));
-        assertFalse(result.contains("<function_calls>"));
-        assertFalse(result.contains("<invoke"));
-        assertFalse(result.contains("</invoke>"));
-        assertFalse(result.contains("</function_calls>"));
-    }
-
-    @Test
-    void testHandlesChunkedInput() throws IOException {
-        Path targetFile = tempDir.resolve("chunked/Test.java");
-
-        // Simular chunks como llegarían del streaming
-        writer.processChunk("Hola\n```java:" + targetFile + "\n");
-        writer.processChunk("package test;\n");
-        writer.processChunk("public class Test {\n");
-        writer.processChunk("}\n");
-        writer.processChunk("```\nFin");
-        writer.finish();
-
-        assertTrue(Files.exists(targetFile));
-        String content = Files.readString(targetFile);
-        assertEquals("package test;\npublic class Test {\n}\n", content);
-    }
-
-    @Test
-    void testNotifiesUIForEachLine() throws IOException {
-        Path targetFile = tempDir.resolve("notify/Test.java");
-
-        String input = "```java:" + targetFile + "\n" +
-                      "linea1\n" +
-                      "linea2\n" +
-                      "linea3\n" +
-                      "```\n";
-
-        writer.processChunk(input);
-        writer.finish();
-
-        // Debería notificar: header + 3 líneas + footer
-        assertTrue(notifications.size() >= 4);
-        assertTrue(notifications.stream().anyMatch(n -> n.contains("@@@")));
-        assertTrue(notifications.stream().anyMatch(n -> n.contains("linea1")));
-        assertTrue(notifications.stream().anyMatch(n -> n.contains("linea2")));
-        assertTrue(notifications.stream().anyMatch(n -> n.contains("linea3")));
-    }
-
-    @Test
-    void testHandlesMultipleFiles() throws IOException {
-        Path file1 = tempDir.resolve("multi/File1.java");
-        Path file2 = tempDir.resolve("multi/File2.java");
-
-        String input = "```java:" + file1 + "\n" +
-                      "contenido1\n" +
-                      "```\n" +
-                      "Texto entre archivos\n" +
-                      "```java:" + file2 + "\n" +
-                      "contenido2\n" +
-                      "```\n";
-
-        writer.processChunk(input);
-        writer.finish();
-
-        assertTrue(Files.exists(file1));
-        assertTrue(Files.exists(file2));
-        assertEquals("contenido1\n", Files.readString(file1));
-        assertEquals("contenido2\n", Files.readString(file2));
-    }
-
-    @Test
-    void testResetClearsState() throws IOException {
-        Path file1 = tempDir.resolve("reset/File1.java");
-
-        String input1 = "```java:" + file1 + "\n" +
-                       "contenido1\n" +
-                       "```\n";
-
-        writer.processChunk(input1);
-        writer.finish();
-
-        // Reset
-        writer.reset();
-
-        assertFalse(writer.isWritingFile());
-        assertNull(writer.getCurrentFilePath());
-    }
-
-    @Test
-    void testIsWritingFileReturnsTrueInsideBlock() {
-        Path targetFile = tempDir.resolve("writing/Test.java");
-
-        assertFalse(writer.isWritingFile());
-
-        writer.processChunk("```java:" + targetFile + "\n");
-        assertTrue(writer.isWritingFile());
-
-        writer.processChunk("contenido\n");
-        assertTrue(writer.isWritingFile());
-
-        writer.processChunk("```\n");
-        writer.finish();
-        assertFalse(writer.isWritingFile());
-    }
-
-    @Test
-    void testHandlesEmptyContent() throws IOException {
-        Path targetFile = tempDir.resolve("empty/Empty.java");
-
-        String input = "```java:" + targetFile + "\n```\n";
-
-        writer.processChunk(input);
-        writer.finish();
-
-        // Empty content blocks should NOT create files (no point in empty files)
-        assertFalse(Files.exists(targetFile));
-    }
-
-    @Test
-    void testHandlesLanguageWithoutColon() {
-        // Bloque normal de código (sin path) no debería crear archivo
-        String input = "```java\ncodigo normal\n```\n";
-
-        String result = writer.processChunk(input);
-        writer.finish();
-
-        // Todo debería pasar como texto normal
-        assertTrue(result.contains("```java") || result.contains("codigo normal"));
-    }
-
-    @Test
-    void testCreatesParentDirectories() throws IOException {
-        Path targetFile = tempDir.resolve("deep/nested/path/Test.java");
-
-        String input = "```java:" + targetFile + "\n" +
-                      "contenido\n" +
-                      "```\n";
-
-        writer.processChunk(input);
-        writer.finish();
-
-        assertTrue(Files.exists(targetFile));
-        assertTrue(Files.exists(targetFile.getParent()));
     }
 
     @Test
@@ -317,6 +67,7 @@ class StreamingFileWriterTest {
         assertFalse(result.contains("</thought>"), "No debería contener </thought>");
         assertFalse(result.contains("outer"), "No debería contener contenido");
         assertFalse(result.contains("inner"), "No debería contener contenido");
+        assertTrue(result.contains("Texto"), "Debería contener texto normal");
     }
 
     @Test
@@ -346,84 +97,6 @@ class StreamingFileWriterTest {
     }
 
     @Test
-    void testFiltersToolBlockAndEmitsEmoji() {
-        String input = "Texto antes\n"
-                       + "```tool:batch_read_files\n"
-                       + "{\"paths\": [\"test.txt\"]}\n"
-                       + "```\n"
-                       + "Texto después\n";
-
-        String result = writer.processChunk(input);
-        writer.finish();
-
-        assertTrue(result.contains("Texto antes"), "Debería contener texto antes del tool block");
-        assertTrue(result.contains("Texto después"), "Debería contener texto después del tool block");
-        assertFalse(result.contains("```tool:"), "No debería contener bloque tool crudo");
-        assertFalse(result.contains("{\"paths\""), "No debería contener JSON crudo");
-        assertTrue(notifications.stream().anyMatch(n -> n.contains("📂") && n.contains("batch_read_files")),
-                "Debería emitir notificación con emoji 📂");
-    }
-
-    @Test
-    void testFiltersMultipleToolBlocks() {
-        String input = "```tool:get_system_info\n{}\n```\n"
-                       + "```tool:list_files\n{\"path\": \".\"}\n```\n";
-
-        String result = writer.processChunk(input);
-        writer.finish();
-
-        assertFalse(result.contains("```tool:"), "No debería contener bloques tool crudos");
-        assertTrue(notifications.stream().anyMatch(n -> n.contains("ℹ️") && n.contains("get_system_info")),
-                "Debería emitir emoji para get_system_info");
-        assertTrue(notifications.stream().anyMatch(n -> n.contains("📁") && n.contains("list_files")),
-                "Debería emitir emoji para list_files");
-    }
-
-    @Test
-    void testToolBlockWithoutClosingIsHandledInFinish() {
-        writer.processChunk("```tool:web_search\n");
-        writer.processChunk("{\"query\": \"spring boot\"}\n");
-        // No cierre ``` — se maneja en finish()
-        writer.finish();
-
-        assertTrue(notifications.stream().anyMatch(n -> n.contains("🔍") && n.contains("web_search")),
-                "Debería emitir emoji para tool sin cerrar al finish()");
-    }
-
-    @Test
-    void testToolBlockDoesNotInterfereWithCreateBlock() throws IOException {
-        Path targetFile = tempDir.resolve("tool-mix/App.java");
-
-        String input = "```tool:get_system_info\n{}\n```\n"
-                       + "```java:" + targetFile + "\n"
-                       + "public class App {}\n"
-                       + "```\n";
-
-        writer.processChunk(input);
-        writer.finish();
-
-        assertTrue(Files.exists(targetFile), "El archivo create debería existir");
-        assertFalse(writer.processChunk("").contains("```tool:"), "No debería filtrar tool blocks al output");
-    }
-
-    @Test
-    void testDoesNotLeakPartialToolArgsWithoutNewline() {
-        String leaked = writer.processChunk("<thinking>analizando</thinking>\n")
-                + writer.processChunk("```tool:delete_file\n")
-                + writer.processChunk("{\"path\": \"/Users/lastprophet/Downloads/index.html")
-                + writer.processChunk("\"}\n```\n");
-        writer.finish();
-
-        String result = String.join("", notifications);
-        assertFalse(leaked.contains("{\"path\""),
-                "No debería filtrar JSON parcial de argumentos al chat: " + leaked);
-        assertTrue(notifications.stream().anyMatch(n -> n.contains("🗑️") && n.contains("delete_file")),
-                "Debería emitir el resumen con emoji 🗑️ delete_file");
-        assertTrue(notifications.stream().anyMatch(n -> n.contains("delete_file") && n.contains("/Users/lastprophet/Downloads/index.html")),
-                "El resumen debería incluir el path completo de los argumentos");
-    }
-
-    @Test
     void testFiltersThinkingWithBackticks() {
         String input = "`<thinking>pensamiento</thinking>`\nTexto normal";
 
@@ -434,5 +107,32 @@ class StreamingFileWriterTest {
         assertFalse(result.contains("</thinking>"), "No debería contener tag </thinking>");
         assertFalse(result.contains("pensamiento"), "No debería contener contenido de thinking");
         assertTrue(result.contains("Texto normal"), "Debería contener texto normal");
+    }
+
+    @Test
+    void testHandlesChunkedThinkingInput() {
+        // Simular chunks como llegarían del streaming
+        StringBuilder output = new StringBuilder();
+        output.append(writer.processChunk("<thinking>\n"));
+        output.append(writer.processChunk("pensamiento\n"));
+        output.append(writer.processChunk("</thinking>\n"));
+        output.append(writer.processChunk("Texto después\n"));
+        writer.finish();
+
+        String result = output.toString();
+        assertFalse(result.contains("<thinking>"));
+        assertFalse(result.contains("</thinking>"));
+        assertFalse(result.contains("pensamiento"));
+        assertTrue(result.contains("Texto después"));
+    }
+
+    @Test
+    void testPartialThinkTagRetained() {
+        String result = writer.processChunk("<thin");
+        assertTrue(result.isEmpty(), "El fragmento parcial de thinking no debería emitirse");
+        String result2 = writer.processChunk("king>contenido</thinking>\nTexto");
+        writer.finish();
+
+        assertTrue(result2.contains("Texto"), "Debería contener texto después del thinking");
     }
 }
